@@ -1,0 +1,8 @@
+node_modules
+.env
+.bash
+build
+dist
+seeders
+tsconfig.tsbuildinfo
+/src/generated/prisma

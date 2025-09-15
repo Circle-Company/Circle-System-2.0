@@ -1,0 +1,28 @@
+version: "3.8" # Use a versão 3.8 para suporte completo a recursos avançados
+services:
+    api-01:
+        container_name: access-controller-build
+        build:
+            context: . # Diretório onde está o Dockerfile
+            dockerfile: Dockerfile
+            target: build
+        ports:
+            - "3000:3000"
+        environment:
+        NODE_ENV=development
+        PORT=3000
+        RATE_LIMIT=1000 #1 segundo
+        RATE_LIMIT_TIME_WINDOW=60000 #1 minuto
+        MAX_PARAM_LENGTH=200
+        BODY_LIMIT=1048576 #1MB
+        CONNECTION_TIMEOUT=30000 #30 segundos
+        KEEP_ALIVE_TIMEOUT=5000 #30 segundos
+        CORS_ORIGIN=http://localhost:3000
+        ENABLE_LOGGER=true
+        LOGGER_NAME=ACA-01
+        env_file:
+            - path: ./.env
+              required: true
+        volumes:
+            - ./.env:/app/.env # Monta o .env corretamente dentro do container
+        command: npm run build

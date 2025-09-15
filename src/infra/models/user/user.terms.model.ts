@@ -1,0 +1,66 @@
+import { DataTypes, Model, Sequelize } from "sequelize"
+
+import { generateID } from "../../id"
+
+interface UserTermsAttributes {
+    id?: bigint
+    user_id: bigint
+    terms_and_conditions_agreed: boolean
+    terms_and_conditions_agreed_version: string | null
+    terms_and_conditions_agreed_at: Date | string | null
+}
+
+export default class UserTerms extends Model<UserTermsAttributes> implements UserTermsAttributes {
+    public readonly id!: bigint
+    public user_id!: bigint
+    public terms_and_conditions_agreed!: boolean
+    public terms_and_conditions_agreed_version!: string | null
+    public terms_and_conditions_agreed_at!: Date | string | null
+    static initialize(sequelize: Sequelize) {
+        UserTerms.init(
+            {
+                id: {
+                    type: DataTypes.BIGINT,
+                    primaryKey: true,
+                    autoIncrement: false,
+                    allowNull: false,
+                    defaultValue: () => generateID(),
+                },
+                user_id: {
+                    type: DataTypes.BIGINT,
+                    allowNull: false,
+                },
+                terms_and_conditions_agreed: {
+                    type: DataTypes.BOOLEAN,
+                    allowNull: false,
+                    defaultValue: false,
+                },
+                terms_and_conditions_agreed_version: {
+                    type: DataTypes.STRING(10),
+                    allowNull: false,
+                },
+                terms_and_conditions_agreed_at: {
+                    type: DataTypes.DATE,
+                    allowNull: false,
+                    defaultValue: new Date(),
+                },
+            },
+            {
+                sequelize,
+                modelName: "UserTerm",
+                tableName: "user_terms",
+                timestamps: true,
+            },
+        )
+
+        // Removendo a criação automática do índice FULLTEXT
+        // O índice será criado via migration
+    }
+
+    static associate(models: any) {
+        this.belongsTo(models.User, {
+            foreignKey: "user_id",
+            as: "users",
+        })
+    }
+}
