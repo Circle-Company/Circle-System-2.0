@@ -1,5 +1,4 @@
 import { api } from "@/infra/api"
-import { routes as pipedriveRoutes } from "@/modules/pipedrive/pipedrive.routes"
 import { routes as userRoutes } from "@/modules/users/user.routes"
 
 async function initializeRoutes() {

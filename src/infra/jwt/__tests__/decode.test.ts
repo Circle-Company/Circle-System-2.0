@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { decodeTokenPayload, isTokenValid, jwtDecoder } from "../decode"
 
-import { Level } from "../../../core/access-control/types"
+import { Level } from "../../../core/access.control/types"
 import UserModel from "../../models/user/user.model"
 import { ValidationError } from "../../../errors"
 
@@ -9,6 +9,16 @@ import { ValidationError } from "../../../errors"
 vi.mock("@/infra/models/user/user.model", () => ({
     default: {
         findByPk: vi.fn(),
+    },
+}))
+
+// Mock do access control types
+vi.mock("@/core/access.control/types", () => ({
+    Level: {
+        SUDO: "SUDO",
+        ADMIN: "ADMIN",
+        MODERATOR: "MODERATOR",
+        USER: "USER",
     },
 }))
 

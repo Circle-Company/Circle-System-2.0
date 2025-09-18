@@ -1,6 +1,6 @@
 import { DataTypes, Model, Sequelize } from "sequelize"
 
-import { Level } from "@/core/access-control/types"
+import { Level } from "@/core/access.control/types"
 import { generateID } from "../../id"
 
 interface UserStatusAttributes {

@@ -1,7 +1,17 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 
 import { Level } from "../../../../core/access-control/types"
 import UserStatus from "../user.status.model"
+
+// Mock do access control types
+vi.mock("@/core/access-control/types", () => ({
+    Level: {
+        SUDO: "SUDO",
+        ADMIN: "ADMIN",
+        MODERATOR: "MODERATOR",
+        USER: "USER",
+    },
+}))
 
 describe("UserStatus Model Simple Tests", () => {
     describe("Model class structure", () => {

@@ -1,5 +1,5 @@
 import { JWTPayload } from "jose"
-import { Level } from "@/core/access-control/types"
+import { Level } from "@/core/access.control/types"
 
 export interface JwtConfig {
     secret: string

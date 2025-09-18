@@ -1,9 +1,9 @@
 import Fastify, { FastifyInstance, FastifyServerOptions } from "fastify"
+import { LogLevel, Logger } from "@/logger"
 import { extractErrorInfo, isBaseError } from "@/errors"
 
 import { ENABLE_LOGGING } from "@/infra/database/environment"
 import cors from "@fastify/cors"
-import { logger } from "@/logger"
 import rateLimit from "@fastify/rate-limit"
 
 const ENV_CONFIG = {
@@ -24,6 +24,13 @@ const ENV_CONFIG = {
     CACHE_MAX_AGE: 300,
     TRUST_PROXY: process.env.NODE_ENV === "production",
 } as const
+
+const logger = new Logger("Api", {
+    minLevel: LogLevel.INFO,
+    showTimestamp: true,
+    showComponent: true,
+    enabled: process.env.NODE_ENV !== "production",
+})
 
 // Configuração profissional do Fastify usando apenas propriedades válidas do FastifyServerOptions
 const fastifyConfig: FastifyServerOptions = {
@@ -260,11 +267,14 @@ api.get("/health", async () => {
     const memoryUsage = process.memoryUsage()
 
     return {
-        serviceStatus: "healthy",
+        status: "ok",
+        environment: ENV_CONFIG.NODE_ENV,
+        version: process.env.npm_package_version || "1.0.0",
         timestamp: new Date().toISOString(),
-        uptimeSeconds: Math.round(process.uptime()),
+        uptime: Math.round(process.uptime()),
+        serviceStatus: "healthy",
         deploymentEnvironment: ENV_CONFIG.NODE_ENV,
-        applicationVersion: process.env.npm_package_version,
+        applicationVersion: process.env.npm_package_version || "1.0.0",
         memoryUsage: {
             heapUsedMB: Math.round(memoryUsage.heapUsed / 1024 / 1024),
             heapTotalMB: Math.round(memoryUsage.heapTotal / 1024 / 1024),

@@ -2,7 +2,7 @@ import SignLogModel, { SecurityRisk, SignStatus } from "@/infra/models/auth/sign
 import { compare, hashSync } from "bcryptjs"
 
 import { ErrorFactory } from "@/errors"
-import { Level } from "@/core/access-control/types"
+import { Level } from "@/core/access.control/types"
 import PreferencesModel from "@/infra/models/user/preference.model"
 import ProfilePictureModel from "@/infra/models/user/profile.picture.model"
 import { SignRequest } from "./types"

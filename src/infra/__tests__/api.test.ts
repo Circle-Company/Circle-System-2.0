@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
+
 import { api } from "../api"
-import { logger } from "../logger"
+import { logger } from "../../logger"
 
 describe("API Fastify", () => {
     beforeAll(async () => {

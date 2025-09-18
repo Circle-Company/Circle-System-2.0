@@ -1,7 +1,7 @@
 import { ErrorCode, ValidationError } from "@/errors"
 import { JwtConfig, JwtDecodeResult, JwtPayload } from "./types"
 
-import { Level } from "@/core/access-control/types"
+import { Level } from "@/core/access.control/types"
 import { jwtVerify } from "jose"
 
 let jwtConfig: JwtConfig | null = null

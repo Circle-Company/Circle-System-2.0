@@ -1,7 +1,7 @@
 import { ErrorCode, NotFoundError, ValidationError } from "@/errors"
 import { JwtConfig, JwtEncoderParams, JwtPayload } from "./types"
 
-import { Level } from "@/core/access-control/types"
+import { Level } from "@/core/access.control/types"
 import { SignJWT } from "jose"
 import UserModel from "@/infra/models/user/user.model"
 
