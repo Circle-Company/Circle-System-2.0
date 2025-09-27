@@ -3,7 +3,7 @@
  */
 
 import { ContentEngagement, EmbeddingVector, PostEmbedding as PostEmbeddingType } from "../../types"
-import { LogLevel, Logger } from "@/logger"
+import { LogLevel, Logger } from "@/shared/logger"
 import { combineVectors, resizeVector } from "../../utils/vector.operations"
 
 import { Op } from "sequelize"

@@ -6,7 +6,7 @@
  */
 
 import { InteractionType, UserInteraction } from "../../types"
-import { LogLevel, Logger } from "@/logger"
+import { LogLevel, Logger } from "@/shared/logger"
 
 import { EmbeddingParams as Params } from "../../params"
 import { PostEmbeddingService } from "../embeddings/post"

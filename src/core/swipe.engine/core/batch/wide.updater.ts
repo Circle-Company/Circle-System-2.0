@@ -6,7 +6,7 @@
  */
 
 import { IdRepository, WideUpdaterConfig } from "./types/wide.updater.types"
-import { LogLevel, Logger } from "@/logger"
+import { LogLevel, Logger } from "@/shared/logger"
 import { PostEmbeddingService, UserEmbeddingService } from "@/core/swipe.engine/core/embeddings"
 
 /**

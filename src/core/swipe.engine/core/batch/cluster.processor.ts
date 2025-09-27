@@ -12,7 +12,7 @@ import {
     EmbeddingRepository,
     InternalClusteringResult,
 } from "./types/cluster.processor.types"
-import { LogLevel, Logger } from "@/logger"
+import { LogLevel, Logger } from "@/shared/logger"
 
 import { DBSCANClustering } from "@/core/swipe.engine/core/clustering"
 import { Entity } from "@/core/swipe.engine/types"

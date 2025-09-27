@@ -15,7 +15,7 @@ import PostClusterRank from "../../models/PostClusterRank"
 import { RankingService } from "./candidate.rank"
 import { UserEmbeddingService } from "../embeddings/user"
 import { defaultCLustersJSON } from "../../data/default-clusters"
-import { logger } from "@/logger"
+import { logger } from "@/shared/logger"
 
 export class RecommendationEngine {
     private userEmbeddingService: UserEmbeddingService | null = null

@@ -1,5 +1,5 @@
 import { Candidate, RankedCandidate, RankingOptions, UserEmbedding } from "../../types"
-import { LogLevel, Logger } from "@/logger"
+import { LogLevel, Logger } from "@/shared/logger"
 
 import { RankingParams as Params } from "../../params"
 

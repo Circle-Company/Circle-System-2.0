@@ -2,7 +2,7 @@ import * as path from "path"
 
 import { EmbeddingVector, UserEmbedding as UserEmbeddingType, UserInteraction } from "../../types"
 import { FeatureExtractionPipeline, pipeline } from "@xenova/transformers"
-import { LogLevel, Logger } from "@/logger"
+import { LogLevel, Logger } from "@/shared/logger"
 
 import InteractionEvent from "../../models/InteractionEvent"
 import { EmbeddingParams as Params } from "../../params"

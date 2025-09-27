@@ -5,7 +5,7 @@
  * coordenando tarefas periódicas como atualização de embeddings e recálculo de clusters.
  */
 
-import { LogLevel, Logger } from "@/logger"
+import { LogLevel, Logger } from "@/shared/logger"
 import { PostEmbeddingService, UserEmbeddingService } from "@/core/swipe.engine/core/embeddings"
 
 import { BatchProcessorConfig } from "./types/batch.types"
