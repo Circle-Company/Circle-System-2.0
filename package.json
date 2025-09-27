@@ -1,42 +1,47 @@
 {
-  "name": "circle-system",
-  "version": "1.0.0",
-  "description": "",
-  "homepage": "https://github.com/Circle-Company/Circle-System#readme",
-  "bugs": {
-    "url": "https://github.com/Circle-Company/Circle-System/issues"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/Circle-Company/Circle-System.git"
-  },
-  "license": "ISC",
-  "author": "Circle Company",
-  "type": "commonjs",
-  "main": "index.js",
-  "scripts": {
-    "test": "vitest"
-  },
-  "dependencies": {
-    "@fastify/cors": "^11.1.0",
-    "@fastify/rate-limit": "^10.3.0",
-    "@xenova/transformers": "^2.17.2",
-    "axios": "^1.12.0",
-    "bcryptjs": "^3.0.2",
-    "dotenv": "^17.2.2",
-    "fastify": "^5.6.0",
-    "jose": "^6.1.0",
-    "mysql2": "^3.14.5",
-    "sequelize": "^6.37.7"
-  },
-  "devDependencies": {
-    "@babel/core": "^7.28.4",
-    "@types/node": "^24.3.1",
-    "happy-dom": "^18.0.1",
-    "sequelize-cli": "^6.6.3",
-    "tsc-alias": "^1.8.16",
-    "tsx": "^4.20.5",
-    "typescript": "^5.9.2",
-    "vitest": "^3.2.4"
-  }
+    "name": "circle-system",
+    "version": "1.0.0",
+    "description": "",
+    "homepage": "https://github.com/Circle-Company/Circle-System#readme",
+    "bugs": {
+        "url": "https://github.com/Circle-Company/Circle-System/issues"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/Circle-Company/Circle-System.git"
+    },
+    "license": "GPL-3.0",
+    "author": "Circle Company INC.",
+    "main": "index.ts",
+    "scripts": {
+        "test": "vitest",
+        "start": "node ./build/index.js",
+        "dev": "tsx ./src/index.ts",
+        "dev:watch": "tsx watch ./src/index.ts",
+        "build": "node ./scripts/build-processor/cli.js",
+        "db:migrate": "npx sequelize-cli db:migrate",
+        "db:migrate:undo": "npx sequelize-cli db:migrate:undo"
+    },
+    "dependencies": {
+        "@fastify/cors": "^11.1.0",
+        "@fastify/rate-limit": "^10.3.0",
+        "@xenova/transformers": "^2.17.2",
+        "axios": "^1.12.0",
+        "bcryptjs": "^3.0.2",
+        "dotenv": "^17.2.2",
+        "fastify": "^5.6.0",
+        "jose": "^6.1.0",
+        "mysql2": "^3.14.5",
+        "sequelize": "^6.37.7"
+    },
+    "devDependencies": {
+        "@babel/core": "^7.28.4",
+        "@types/node": "^24.3.1",
+        "happy-dom": "^18.0.1",
+        "sequelize-cli": "^6.6.3",
+        "tsc-alias": "^1.8.16",
+        "tsx": "^4.20.5",
+        "typescript": "^5.9.2",
+        "vitest": "^3.2.4"
+    }
 }
