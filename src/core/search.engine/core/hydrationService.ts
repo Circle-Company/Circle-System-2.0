@@ -1,17 +1,16 @@
-import { Coordinates, haversineDistance } from "../../helpers/coordinates_distance"
+import { Coordinates, haversineDistance } from "@/shared/helpers/coordinates_distance"
 import { FindedCandidatesProps, HydratedUser, HydrationConfig } from "../types"
 
-import Coordinate from "@models/user/coordinate-model"
-import { InternalServerError } from "@errors/index"
-import ProfilePicture from "@models/user/profilepicture-model"
+import Coordinate from "@/infra/models/user/user.coordinate.model"
+import User from "@/infra/models/user/user.model"
+import ProfilePicture from "@/infra/models/user/user.profile.picture.model"
+import Statistic from "@/infra/models/user/user.statistics.model"
+import { InternalServerError } from "@/shared"
 import { SearchEngine } from "./searchEngine"
-import Statistic from "@models/user/statistic-model"
-import User from "@models/user/user-model"
 
 export class HydrationService extends SearchEngine {
     private readonly config: HydrationConfig
     private readonly finderUserId: bigint
-
     constructor(searchTerm: string, finderUserId: bigint, config: HydrationConfig) {
         super({
             searchTerm,
@@ -26,7 +25,7 @@ export class HydrationService extends SearchEngine {
      */
     async process(
         candidates: FindedCandidatesProps[],
-        type: "related" | "unknown"
+        type: "related" | "unknown",
     ): Promise<HydratedUser[]> {
         if (candidates.length === 0) {
             return []
@@ -56,7 +55,7 @@ export class HydrationService extends SearchEngine {
                 this.getMetricsInstance().recordError(
                     `${type} hydration failed: ${
                         error instanceof Error ? error.message : String(error)
-                    }`
+                    }`,
                 )
             }
             throw error
@@ -81,7 +80,7 @@ export class HydrationService extends SearchEngine {
      */
     private async processBatchesWithConcurrency(
         batches: FindedCandidatesProps[][],
-        type: "related" | "unknown"
+        type: "related" | "unknown",
     ): Promise<HydratedUser[][]> {
         const results: HydratedUser[][] = []
 
@@ -92,11 +91,11 @@ export class HydrationService extends SearchEngine {
             console.log(
                 `🔄 Processing ${type} batch chunk ${
                     Math.floor(i / this.config.maxConcurrentBatches) + 1
-                }/${Math.ceil(batches.length / this.config.maxConcurrentBatches)}`
+                }/${Math.ceil(batches.length / this.config.maxConcurrentBatches)}`,
             )
 
             const chunkResults = await Promise.all(
-                batchChunk.map((batch) => this.processBatch(batch, type))
+                batchChunk.map((batch) => this.processBatch(batch, type)),
             )
 
             results.push(...chunkResults)
@@ -110,7 +109,7 @@ export class HydrationService extends SearchEngine {
      */
     private async processBatch(
         batch: FindedCandidatesProps[],
-        type: "related" | "unknown"
+        type: "related" | "unknown",
     ): Promise<HydratedUser[]> {
         try {
             if (type === "unknown") {
@@ -128,7 +127,7 @@ export class HydrationService extends SearchEngine {
      * Processes related candidates batch (original logic)
      */
     private async processRelatedCandidatesBatch(
-        batch: FindedCandidatesProps[]
+        batch: FindedCandidatesProps[],
     ): Promise<HydratedUser[]> {
         // Parallel database queries for all users in batch
         const userPromises = batch.map((candidate) =>
@@ -147,7 +146,7 @@ export class HydrationService extends SearchEngine {
                         attributes: ["total_followers_num"],
                     },
                 ],
-            })
+            }),
         )
 
         const users = (await Promise.all(userPromises)) as any[]
@@ -192,7 +191,7 @@ export class HydrationService extends SearchEngine {
      * Processes unknown candidates batch with coordinates and distance calculation
      */
     private async processUnknownCandidatesBatch(
-        batch: FindedCandidatesProps[]
+        batch: FindedCandidatesProps[],
     ): Promise<HydratedUser[]> {
         // Get finder user coordinates
         const user_coords = await Coordinate.findOne({
@@ -237,11 +236,11 @@ export class HydrationService extends SearchEngine {
 
                 const user_coords_class = new Coordinates(
                     user_coords.latitude,
-                    user_coords.longitude
+                    user_coords.longitude,
                 )
                 const candidate_coords_class = new Coordinates(
                     (candidateUser as any).coordinates.latitude,
-                    (candidateUser as any).coordinates.longitude
+                    (candidateUser as any).coordinates.longitude,
                 )
 
                 const [follow_you, you_block, block_you] = await Promise.all([
@@ -271,7 +270,7 @@ export class HydrationService extends SearchEngine {
                     block_you: Boolean(block_you),
                     distance: haversineDistance(user_coords_class, candidate_coords_class),
                 }
-            })
+            }),
         )
     }
 }
