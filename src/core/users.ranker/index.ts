@@ -1,4 +1,4 @@
-import { LogLevel, Logger } from "@/logger"
+import { LogLevel, Logger } from "@/shared/logger"
 
 import { RankingParams } from "./params"
 import { RecommendationContext } from "../swipe.engine/types"
