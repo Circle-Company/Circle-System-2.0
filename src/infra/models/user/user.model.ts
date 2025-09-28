@@ -1,7 +1,5 @@
 import { DataTypes, Model, Sequelize } from "sequelize"
-
-import { generateID } from "../../id"
-import { logger } from "@/logger"
+import { generateId, logger } from "@/shared"
 
 export interface UserAttributes {
     id?: bigint
@@ -31,7 +29,7 @@ export default class User extends Model<UserAttributes> implements UserAttribute
                     primaryKey: true,
                     autoIncrement: false,
                     allowNull: false,
-                    defaultValue: () => generateID(),
+                    defaultValue: () => generateId(),
                 },
                 username: {
                     type: DataTypes.STRING(30),
