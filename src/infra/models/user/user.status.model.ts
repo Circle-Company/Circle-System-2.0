@@ -1,7 +1,7 @@
 import { DataTypes, Model, Sequelize } from "sequelize"
 
-import { Level } from "@/core/access.control/types"
-import { generateID } from "../../id"
+import { Level } from "@/domain/authorization/authorization.type"
+import { generateId } from "@/shared"
 
 interface UserStatusAttributes {
     id?: bigint
@@ -32,7 +32,7 @@ export default class UserStatus
                     primaryKey: true,
                     autoIncrement: false,
                     allowNull: false,
-                    defaultValue: () => generateID(),
+                    defaultValue: () => generateId(),
                 },
                 user_id: {
                     type: DataTypes.BIGINT,
