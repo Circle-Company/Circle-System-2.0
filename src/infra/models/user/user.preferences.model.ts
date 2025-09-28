@@ -1,6 +1,6 @@
 import { DataTypes, Model, Sequelize } from "sequelize"
 
-import { generateID } from "../../id"
+import { generateId } from "@/shared"
 
 interface UserPreferencesAttributes {
     id?: bigint
@@ -49,7 +49,7 @@ export default class UserPreferences
                     primaryKey: true,
                     autoIncrement: false,
                     allowNull: false,
-                    defaultValue: () => generateID(),
+                    defaultValue: () => generateId(),
                 },
                 user_id: {
                     type: DataTypes.BIGINT,
