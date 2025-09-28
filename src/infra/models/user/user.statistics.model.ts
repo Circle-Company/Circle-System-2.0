@@ -1,16 +1,11 @@
 import { DataTypes, Model, Sequelize } from "sequelize"
 
-import { Level } from "@/core/access.control/types"
-import { generateID } from "../../id"
+import { Level } from "@/domain/authorization/authorization.type"
+import { generateId } from "@/shared"
 
 interface UserStatisticsAttributes {
     id?: bigint
     user_id: bigint
-    access_level?: Level
-    verified?: boolean
-    deleted?: boolean
-    blocked?: boolean
-    muted?: boolean
 
     // Métricas de Engajamento
     total_likes_received?: number
@@ -154,36 +149,11 @@ export default class UserStatistics
                     primaryKey: true,
                     autoIncrement: false,
                     allowNull: false,
-                    defaultValue: () => generateID(),
+                    defaultValue: () => generateId(),
                 },
                 user_id: {
                     type: DataTypes.BIGINT,
                     allowNull: false,
-                },
-                access_level: {
-                    type: DataTypes.ENUM(...Object.values(Level)),
-                    allowNull: false,
-                    defaultValue: Level.USER,
-                },
-                verified: {
-                    type: DataTypes.BOOLEAN,
-                    allowNull: false,
-                    defaultValue: false,
-                },
-                deleted: {
-                    type: DataTypes.BOOLEAN,
-                    allowNull: false,
-                    defaultValue: false,
-                },
-                blocked: {
-                    type: DataTypes.BOOLEAN,
-                    allowNull: false,
-                    defaultValue: false,
-                },
-                muted: {
-                    type: DataTypes.BOOLEAN,
-                    allowNull: false,
-                    defaultValue: false,
                 },
 
                 // Métricas de Engajamento
