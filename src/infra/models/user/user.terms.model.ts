@@ -1,6 +1,6 @@
 import { DataTypes, Model, Sequelize } from "sequelize"
 
-import { generateID } from "../../id"
+import { generateId } from "@/shared/id"
 
 interface UserTermsAttributes {
     id?: bigint
@@ -24,7 +24,7 @@ export default class UserTerms extends Model<UserTermsAttributes> implements Use
                     primaryKey: true,
                     autoIncrement: false,
                     allowNull: false,
-                    defaultValue: () => generateID(),
+                    defaultValue: () => generateId(),
                 },
                 user_id: {
                     type: DataTypes.BIGINT,
