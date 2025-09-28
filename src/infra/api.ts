@@ -1,300 +1,229 @@
 import Fastify, { FastifyInstance, FastifyServerOptions } from "fastify"
-import { LogLevel, Logger } from "@/logger"
-import { extractErrorInfo, isBaseError } from "@/errors"
+import { HttpRequest, HttpResponse } from "./http/http.type"
+import { extractErrorInfo, isBaseError } from "@/shared/errors"
 
 import { ENABLE_LOGGING } from "@/infra/database/environment"
-import cors from "@fastify/cors"
-import rateLimit from "@fastify/rate-limit"
+import { HttpFactory } from "./http/http.factory"
+import { logger } from "@/shared/logger"
 
+// Configuração da aplicação
 const ENV_CONFIG = {
-    NODE_ENV: process.env.NODE_ENV || "development",
-    BODY_LIMIT: process.env.BODY_LIMIT ? Number(process.env.BODY_LIMIT) : 1048576,
-    MAX_PARAM_LENGTH: process.env.MAX_PARAM_LENGTH ? Number(process.env.MAX_PARAM_LENGTH) : 200,
-    CONNECTION_TIMEOUT: process.env.CONNECTION_TIMEOUT
-        ? Number(process.env.CONNECTION_TIMEOUT)
-        : 30000,
-    KEEP_ALIVE_TIMEOUT: process.env.KEEP_ALIVE_TIMEOUT
-        ? Number(process.env.KEEP_ALIVE_TIMEOUT)
-        : 5000,
-    CORS_ORIGIN: process.env.CORS_ORIGIN?.split(",") || [],
-    RATE_LIMIT_MAX: process.env.RATE_LIMIT ? Number(process.env.RATE_LIMIT) : 1000,
-    RATE_LIMIT_TIME_WINDOW: process.env.RATE_LIMIT_TIME_WINDOW
-        ? Number(process.env.RATE_LIMIT_TIME_WINDOW)
-        : 60000,
-    CACHE_MAX_AGE: 300,
-    TRUST_PROXY: process.env.NODE_ENV === "production",
-} as const
+    port: Number(process.env.PORT) || 3000,
+    host: process.env.HOST || "0.0.0.0",
+    environment: process.env.NODE_ENV || "development",
+}
 
-const logger = new Logger("Api", {
-    minLevel: LogLevel.INFO,
-    showTimestamp: true,
-    showComponent: true,
-    enabled: process.env.NODE_ENV !== "production",
-})
-
-// Configuração profissional do Fastify usando apenas propriedades válidas do FastifyServerOptions
+// Configuração do Fastify (apenas para produção)
 const fastifyConfig: FastifyServerOptions = {
-    // Configuração de logging
     logger: ENABLE_LOGGING
         ? {
-              level: ENV_CONFIG.NODE_ENV === "development" ? "debug" : "info",
+              level: "info",
           }
         : false,
-
-    bodyLimit: ENV_CONFIG.BODY_LIMIT,
-    maxParamLength: ENV_CONFIG.MAX_PARAM_LENGTH,
-    connectionTimeout: ENV_CONFIG.CONNECTION_TIMEOUT,
-    keepAliveTimeout: ENV_CONFIG.KEEP_ALIVE_TIMEOUT,
-    trustProxy: ENV_CONFIG.TRUST_PROXY,
-
-    schemaErrorFormatter: (err) => {
-        return new Error(`Validation failed: ${err.map((e) => e.message).join(", ")}`)
-    },
-
-    // Configurações de request/response
+    disableRequestLogging: !ENABLE_LOGGING,
     requestIdHeader: "x-request-id",
     requestIdLogLabel: "reqId",
-    serializerOpts: {
-        req: (req) => ({
-            method: req.method,
-            url: req.url,
-            headers: req.headers,
-            remoteAddress: req.ip,
-        }),
-        res: (res) => ({
-            statusCode: res.statusCode,
-        }),
-    },
+    genReqId: () => `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
 }
 
-// Instância da API
-export const api: FastifyInstance = Fastify(fastifyConfig)
+// Instância do Fastify (apenas para produção)
+const fastifyInstance: FastifyInstance =
+    ENV_CONFIG.environment === "test" ? (null as any) : Fastify(fastifyConfig)
 
-// Registrar plugins de funcionalidades extras
-async function registerPlugins() {
-    try {
-        // Plugin CORS - sempre permitir em desenvolvimento e teste
-        await api.register(cors, {
-            origin: (origin, callback) => {
-                // Em desenvolvimento e teste, permitir qualquer origem
-                if (ENV_CONFIG.NODE_ENV !== "production") {
-                    return callback(null, true)
-                }
+// Instância da API usando adapter HTTP genérico
+export const api = HttpFactory.createForEnvironment(ENV_CONFIG.environment, fastifyInstance)
 
-                // Em produção, verificar origens permitidas
-                if (origin && ENV_CONFIG.CORS_ORIGIN.includes(origin)) {
-                    return callback(null, true)
-                }
+// Configurar middleware de segurança e CORS
+function configureSecurityMiddleware() {
+    // Middleware de CORS
+    api.addHook("onRequest", async (request: HttpRequest, response: HttpResponse) => {
+        const origin = request.headers.origin
 
-                return callback(new Error("Not allowed by CORS"), false)
-            },
-            credentials: true,
-            methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-            allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
-        })
+        // Permitir requests sem origin (mobile apps, Postman, etc.)
+        if (!origin) return
 
-        // Plugin Rate Limit
-        await api.register(rateLimit, {
-            max: ENV_CONFIG.RATE_LIMIT_MAX,
-            timeWindow: ENV_CONFIG.RATE_LIMIT_TIME_WINDOW,
-            errorResponseBuilder: (request, context) => ({
-                statusCode: 429,
-                error: "Too Many Requests",
-                message: `Rate limit exceeded, retry in ${Math.round(
-                    Number(context.after),
-                )} seconds`,
-            }),
-        })
+        // Em desenvolvimento, permitir qualquer origin
+        if (ENV_CONFIG.environment === "development" || ENV_CONFIG.environment === "test") {
+            response.header("Access-Control-Allow-Origin", origin)
+            response.header("Access-Control-Allow-Credentials", "true")
+            return
+        }
 
-        logger.info("Plugins CORS e Rate Limit registrados com sucesso")
-    } catch (error) {
-        logger.error("Erro ao registrar plugins", error)
-        throw error
-    }
+        // Em produção, definir origins permitidos
+        const allowedOrigins = ["https://yourdomain.com", "https://www.yourdomain.com"]
+
+        if (allowedOrigins.includes(origin)) {
+            response.header("Access-Control-Allow-Origin", origin)
+            response.header("Access-Control-Allow-Credentials", "true")
+        } else {
+            response.status(403).send({
+                error: "Not allowed by CORS",
+                message: "Origin not allowed",
+            })
+            return
+        }
+
+        // Headers CORS
+        response.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS")
+        response.header(
+            "Access-Control-Allow-Headers",
+            "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-Request-ID",
+        )
+    })
+
+    // Middleware de Rate Limiting (simplificado)
+    const requestCounts = new Map<string, { count: number; resetTime: number }>()
+
+    api.addHook("onRequest", async (request: HttpRequest, response: HttpResponse) => {
+        const clientId = request.headers["x-forwarded-for"] || request.ip || "unknown"
+        const now = Date.now()
+        const windowMs = 60 * 1000 // 1 minuto
+
+        const clientData = requestCounts.get(clientId)
+
+        if (!clientData || now > clientData.resetTime) {
+            requestCounts.set(clientId, { count: 1, resetTime: now + windowMs })
+        } else {
+            clientData.count++
+
+            if (clientData.count > 100) {
+                // máximo 100 requests por minuto
+                response.status(429).send({
+                    error: "Too Many Requests",
+                    message: "Rate limit exceeded, retry later",
+                    retryAfter: Math.ceil((clientData.resetTime - now) / 1000),
+                })
+                return
+            }
+        }
+    })
+
+    logger.info("Middleware de segurança configurado com sucesso")
 }
-
-// Registrar plugins automaticamente
-registerPlugins().catch((error) => {
-    logger.error("Falha ao registrar plugins", error)
-    process.exit(1)
-})
 
 // Hook para adicionar headers de segurança
-api.addHook("onSend", async (request, reply, payload) => {
+api.addHook("onSend", async (request: HttpRequest, response: HttpResponse, payload: any) => {
     // Headers de segurança
-    reply.header("X-Content-Type-Options", "nosniff")
-    reply.header("X-Frame-Options", "DENY")
-    reply.header("X-XSS-Protection", "1; mode=block")
-    reply.header("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.header("X-Content-Type-Options", "nosniff")
+    response.header("X-Frame-Options", "DENY")
+    response.header("X-XSS-Protection", "1; mode=block")
+    response.header("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.header("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
 
-    // Header de cache para APIs
-    if (request.method === "GET") {
-        reply.header("Cache-Control", `public, max-age=${ENV_CONFIG.CACHE_MAX_AGE}`)
-    } else {
-        reply.header("Cache-Control", "no-cache, no-store, must-revalidate")
-    }
+    // CSP básico
+    response.header(
+        "Content-Security-Policy",
+        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none';",
+    )
 
     return payload
 })
 
 // Hook para logging de requests e validações de segurança
-api.addHook("onRequest", async (request, reply) => {
-    logger.debug(`Request iniciado: ${request.method} ${request.url}`, {
-        ip: request.ip,
-        userAgent: request.headers["user-agent"],
-        requestId: request.id,
-    })
-
-    const userAgent = request.headers["user-agent"]
-    if (!userAgent || userAgent.length < 10) {
-        logger.warn("Request sem User-Agent ou muito curto", {
-            ip: request.ip,
+api.addHook("onRequest", async (request: HttpRequest, response: HttpResponse) => {
+    // Log da requisição
+    if (ENABLE_LOGGING) {
+        logger.info("Incoming request", {
+            method: request.method,
             url: request.url,
-            userAgent,
+            ip: request.ip,
+            userAgent: request.headers["user-agent"],
+            requestId: request.id,
         })
     }
 
-    // Verificar tamanho do body se for POST/PUT/PATCH
-    if (["POST", "PUT", "PATCH"].includes(request.method)) {
-        const contentLength = request.headers["content-length"]
-        if (contentLength && parseInt(contentLength) > ENV_CONFIG.BODY_LIMIT) {
-            reply.status(413).send({
-                statusCode: 413,
-                error: "Payload Too Large",
-                message: "Request body exceeds maximum allowed size",
-                timestamp: new Date().toISOString(),
-                path: request.url,
-            })
-            return
-        }
+    // Validação básica de segurança
+    const userAgent = request.headers["user-agent"]
+    if (userAgent && userAgent.includes("sqlmap")) {
+        logger.warn("Potential SQL injection attempt detected", {
+            ip: request.ip,
+            userAgent,
+            url: request.url,
+        })
+        return response.status(403).send({
+            error: "Forbidden",
+            message: "Access denied",
+        })
     }
 })
 
 // Hook para logging de responses
-api.addHook("onResponse", async (request, reply) => {
-    logger.info(`Request finalizado: ${request.method} ${request.url}`, {
-        statusCode: reply.statusCode,
-        responseTime: reply.elapsedTime,
-        requestId: request.id,
-    })
+api.addHook("onResponse", async (request: HttpRequest, response: HttpResponse) => {
+    if (ENABLE_LOGGING) {
+        logger.info("Response sent", {
+            method: request.method,
+            url: request.url,
+            statusCode: response.statusCode,
+            responseTime: response.elapsedTime,
+            requestId: request.id,
+        })
+    }
 })
 
 // Error handler personalizado e profissional
-api.setErrorHandler((error: any, request, reply) => {
-    const errorInfo = extractErrorInfo(error)
+api.setErrorHandler((error: any, request: HttpRequest, response: HttpResponse) => {
+    // Log do erro
+    logger.error("Request error", {
+        error: error.message,
+        stack: error.stack,
+        url: request.url,
+        method: request.method,
+        requestId: request.id,
+        ip: request.ip,
+    })
 
-    let statusCode = 500
-    let responseBody: any
-
+    // Se for um erro customizado do sistema
     if (isBaseError(error)) {
-        // Usar o método toHttpResponse para erros customizados
-        responseBody = error.toHttpResponse()
-        statusCode = responseBody.statusCode
-
-        // Log estruturado baseado na severidade
-        const logLevel = error.metadata.logLevel
-        const logData = {
+        const errorInfo = extractErrorInfo(error)
+        return response.status(error.toHttpResponse().statusCode).send({
+            success: false,
             error: errorInfo,
-            request: {
-                method: request.method,
-                url: request.url,
-                ip: request.ip,
-                userAgent: request.headers["user-agent"],
-                requestId: request.id,
-            },
-            context: error.context,
-            metadata: error.metadata,
-        }
-
-        // Log baseado na severidade do erro
-        switch (logLevel) {
-            case "debug":
-                logger.debug(`[${request.method}] ${request.url} - ${statusCode}`, logData)
-                break
-            case "info":
-                logger.info(`[${request.method}] ${request.url} - ${statusCode}`, logData)
-                break
-            case "warn":
-                logger.warn(`[${request.method}] ${request.url} - ${statusCode}`, logData)
-                break
-            case "error":
-            default:
-                logger.error(`[${request.method}] ${request.url} - ${statusCode}`, logData)
-                break
-        }
-
-        // Notificar administradores se necessário
-        if (error.metadata.notifyAdmin) {
-            logger.error("ADMIN NOTIFICATION REQUIRED", {
-                error: errorInfo,
-                severity: error.metadata.severity,
-                request: logData.request,
-            })
-        }
-    } else {
-        // Tratamento para erros não customizados
-        statusCode = error.statusCode || 500
-
-        // Log de erro padrão
-        logger.error(`[${request.method}] ${request.url} - ${statusCode}`, {
-            error: errorInfo,
-            stack: error.stack,
-            request: {
-                method: request.method,
-                url: request.url,
-                ip: request.ip,
-                userAgent: request.headers["user-agent"],
-                requestId: request.id,
-            },
         })
-
-        // Resposta padrão para erros não customizados
-        responseBody = {
-            statusCode,
-            error: error.name || "Internal Server Error",
-            message: ENV_CONFIG.NODE_ENV === "production" ? "Something went wrong" : error.message,
-            timestamp: new Date().toISOString(),
-            path: request.url,
-        }
     }
 
-    // Enviar resposta
-    reply.status(statusCode).send(responseBody)
+    // Erro de validação
+    if (error.validation) {
+        return response.status(400).send({
+            success: false,
+            error: {
+                message: "Validation error",
+                details: error.validation,
+                code: "VALIDATION_ERROR",
+            },
+        })
+    }
+
+    // Erro genérico
+    return response.status(500).send({
+        success: false,
+        error: {
+            message: "Internal server error",
+            code: "INTERNAL_ERROR",
+            timestamp: new Date().toISOString(),
+        },
+    })
 })
 
 // Health check endpoint
-api.get("/health", async () => {
-    const memoryUsage = process.memoryUsage()
-
-    return {
+api.get("/health", async (request: HttpRequest, response: HttpResponse) => {
+    return response.send({
         status: "ok",
-        environment: ENV_CONFIG.NODE_ENV,
-        version: process.env.npm_package_version || "1.0.0",
         timestamp: new Date().toISOString(),
-        uptime: Math.round(process.uptime()),
-        serviceStatus: "healthy",
-        deploymentEnvironment: ENV_CONFIG.NODE_ENV,
-        applicationVersion: process.env.npm_package_version || "1.0.0",
-        memoryUsage: {
-            heapUsedMB: Math.round(memoryUsage.heapUsed / 1024 / 1024),
-            heapTotalMB: Math.round(memoryUsage.heapTotal / 1024 / 1024),
-        },
-        systemMetrics: {
-            cpuLoadAverage: process.platform !== "win32" ? require("os").loadavg()[0] : null,
-        },
-        runtimeInfo: {
-            nodeVersion: process.version,
-            operatingSystem: process.platform,
-        },
-    }
+        uptime: process.uptime(),
+        environment: ENV_CONFIG.environment,
+        version: process.env.npm_package_version || "1.0.0",
+    })
 })
+
+// Configurar middleware de segurança
+configureSecurityMiddleware()
 
 // Graceful shutdown
 const gracefulShutdown = async (signal: string) => {
     logger.info(`Received ${signal}, shutting down gracefully...`)
     try {
         await api.close()
-        logger.info("Fastify server closed successfully")
+        logger.info("HTTP server closed successfully")
         process.exit(0)
     } catch (error) {
         logger.error("Error during shutdown", error)
@@ -302,5 +231,17 @@ const gracefulShutdown = async (signal: string) => {
     }
 }
 
+// Capturar sinais de shutdown
 process.on("SIGTERM", () => gracefulShutdown("SIGTERM"))
 process.on("SIGINT", () => gracefulShutdown("SIGINT"))
+
+// Capturar erros não tratados
+process.on("uncaughtException", (error) => {
+    logger.error("Uncaught Exception", error)
+    process.exit(1)
+})
+
+process.on("unhandledRejection", (reason, promise) => {
+    logger.error("Unhandled Rejection", { reason, promise })
+    process.exit(1)
+})
