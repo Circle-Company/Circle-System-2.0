@@ -35,7 +35,17 @@ describe("PublishMomentUseCase", () => {
             completedAt: new Date(),
             estimatedCompletion: null,
         },
-        isContentValid: vi.fn().mockReturnValue(true),
+        content: {
+            duration: 60,
+            size: 1024,
+            format: "mp4",
+            width: 1080,
+            height: 1920,
+            hasAudio: true,
+            codec: "h264",
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        },
         createdAt: new Date(),
         updatedAt: new Date(),
         publishedAt: null,
@@ -131,14 +141,7 @@ describe("PublishMomentUseCase", () => {
             expect(result.error).toBeUndefined()
             expect(mockMomentService.getMomentById).toHaveBeenCalledWith("moment_123")
             expect(mockMomentService.updateMoment).toHaveBeenCalledWith("moment_123", {
-                status: {
-                    current: MomentStatusEnum.PUBLISHED,
-                    previous: MomentStatusEnum.UNDER_REVIEW,
-                    reason: "Publicado pelo usuário",
-                    changedBy: "user_123",
-                    changedAt: expect.any(Date),
-                },
-                publishedAt: expect.any(Date),
+                status: MomentStatusEnum.PUBLISHED,
             })
         })
 
@@ -266,7 +269,17 @@ describe("PublishMomentUseCase", () => {
             // Arrange
             const invalidContentMoment = {
                 ...mockMomentReadyForPublish,
-                isContentValid: vi.fn().mockReturnValue(false),
+                content: {
+                    duration: 0, // Duração inválida
+                    size: 1024,
+                    format: "mp4",
+                    width: 1080,
+                    height: 1920,
+                    hasAudio: true,
+                    codec: "h264",
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                },
             }
 
             const request: PublishMomentRequest = {

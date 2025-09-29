@@ -1,6 +1,8 @@
-import { DatabaseAdapterFactory } from "@/infra/database"
 import { api } from "@/infra/api"
+import { DatabaseAdapterFactory } from "@/infra/database"
 import { initialize as initializeRoutes } from "@/infra/routes"
+import { setupSwagger } from "@/infra/swagger"
+import { resetSwaggerRegistration } from "@/infra/swagger/swagger.config"
 import { logger } from "@/shared/logger"
 
 /**
@@ -249,6 +251,7 @@ export class ApplicationBootstrapper {
             await this.executeBootStep("Environment Validation", () => this.validateEnvironment())
             await this.executeBootStep("Database Connection", () => this.connectDatabase())
             await this.executeBootStep("Routes Setup", () => this.setupRoutes())
+            await this.executeBootStep("Swagger Setup", () => this.setupSwagger())
             await this.executeBootStep("Server Startup", () => this.startServer())
             await this.executeBootStep("Graceful Shutdown Setup", () =>
                 this.setupGracefulShutdown(),
@@ -337,6 +340,26 @@ export class ApplicationBootstrapper {
     private async setupRoutes(): Promise<void> {
         await initializeRoutes(api)
         this.log("info", "Routes configured successfully")
+    }
+
+    /**
+     * Configura o Swagger para documentação da API
+     */
+    private async setupSwagger(): Promise<void> {
+        try {
+            // Resetar flag para evitar decorador duplicado
+            resetSwaggerRegistration()
+
+            await setupSwagger(api as any, {
+                enableAutoGeneration: true,
+                customSchemas: {},
+                customTags: [],
+            })
+            this.log("info", "Swagger documentation configured successfully")
+        } catch (error) {
+            this.log("error", "Failed to configure Swagger", { error: (error as Error).message })
+            throw error
+        }
     }
 
     /**

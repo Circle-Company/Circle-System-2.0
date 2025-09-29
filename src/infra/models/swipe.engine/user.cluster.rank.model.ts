@@ -1,13 +1,11 @@
 import { DataTypes, Model, Sequelize } from "sequelize"
 
-import { SnowflakeId } from "@/infra/id"
-
-const snowflake = SnowflakeId()
+import { generateId } from "@/shared"
 
 interface UserClusterRankAttributes {
     id: bigint
-    userId: string
-    clusterId: string
+    userId: bigint
+    clusterId: bigint
     score: number
     similarity: number
     interactionScore: number // Pontuação baseada nas interações do usuário com posts deste cluster
@@ -28,8 +26,8 @@ class UserClusterRank
     implements UserClusterRankAttributes
 {
     public id!: bigint
-    public userId!: string
-    public clusterId!: string
+    public userId!: bigint
+    public clusterId!: bigint
     public score!: number
     public similarity!: number
     public interactionScore!: number
@@ -49,15 +47,15 @@ class UserClusterRank
                     primaryKey: true,
                     autoIncrement: false,
                     allowNull: false,
-                    defaultValue: () => snowflake.generate(),
+                    defaultValue: () => generateId(),
                 },
                 userId: {
-                    type: DataTypes.STRING,
+                    type: DataTypes.BIGINT,
                     allowNull: false,
                     field: "user_id",
                 },
                 clusterId: {
-                    type: DataTypes.STRING,
+                    type: DataTypes.BIGINT,
                     allowNull: false,
                     field: "cluster_id",
                 },
@@ -129,9 +127,9 @@ class UserClusterRank
 
     // Método para definir associações
     public static associate(models: any): void {
-        // Associações podem ser adicionadas posteriormente
-        if (models.Cluster) {
-            UserClusterRank.belongsTo(models.Cluster, {
+        // Associações com modelos que realmente existem
+        if (models.PostCluster) {
+            UserClusterRank.belongsTo(models.PostCluster, {
                 foreignKey: "cluster_id",
                 as: "user_cluster_rank_cluster",
             })

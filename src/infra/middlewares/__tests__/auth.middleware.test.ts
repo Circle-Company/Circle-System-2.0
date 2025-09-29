@@ -10,8 +10,8 @@ import {
     createAuthMiddleware,
 } from "../auth.middleware"
 
-import { UserRepositoryInterface } from "@/domain/user/repositories/user.repository"
 import { User } from "@/domain/user/entities/user.entity"
+import { UserRepositoryInterface } from "@/domain/user/repositories/user.repository"
 import { DatabaseAdapter } from "@/infra/database/adapter"
 import { AuthenticatedUser } from "../types"
 

@@ -1,8 +1,8 @@
-import { SecurityRisk, SignStatus, SignType } from "../../../infra/models/auth/sign.logs.model"
+import { SecurityRisk, SignStatus, SignType } from "@/infra/models/auth/sign.logs.model"
 import { describe, expect, it } from "vitest"
 
+import { SignRequest } from "@/modules/auth/types"
 import { ProcessSignRequest } from "../index"
-import { SignRequest } from "../../../modules/auth/types"
 
 describe("ProcessSignRequest", () => {
     let processSignRequest: ProcessSignRequest

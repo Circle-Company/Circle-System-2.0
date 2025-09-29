@@ -1,12 +1,10 @@
 import { DataTypes, Model, Sequelize } from "sequelize"
 
-import { SnowflakeId } from "@/infra/id"
-
-const snowflake = SnowflakeId()
+import { generateId } from "@/shared"
 
 interface PostEmbeddingAttributes {
     id: bigint
-    postId: string
+    postId: bigint
     vector: string // JSON stringificado do vetor
     dimension: number
     metadata: Record<string, any>
@@ -24,7 +22,7 @@ class PostEmbedding
     implements PostEmbeddingAttributes
 {
     public id!: bigint
-    public postId!: string
+    public postId!: bigint
     public vector!: string
     public dimension!: number
     public metadata!: Record<string, any>
@@ -57,10 +55,10 @@ class PostEmbedding
                     primaryKey: true,
                     autoIncrement: false,
                     allowNull: false,
-                    defaultValue: () => snowflake.generate(),
+                    defaultValue: () => generateId(),
                 },
                 postId: {
-                    type: DataTypes.STRING,
+                    type: DataTypes.BIGINT,
                     allowNull: false,
                     field: "post_id",
                 },
@@ -81,8 +79,8 @@ class PostEmbedding
                     defaultValue: 128,
                 },
                 metadata: {
-                    type: DataTypes.JSONB,
-                    defaultValue: {},
+                    type: DataTypes.JSON,
+                    defaultValue: "{}",
                 },
                 createdAt: {
                     type: DataTypes.DATE,

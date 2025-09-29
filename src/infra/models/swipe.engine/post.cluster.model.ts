@@ -1,9 +1,7 @@
-import { ClusterInfo, EmbeddingVector } from "../types"
+import { ClusterInfo, EmbeddingVector } from "@/core/swipe.engine/types"
 import { DataTypes, Model, Sequelize } from "sequelize"
 
-import { SnowflakeId } from "@/infra/id"
-
-const snowflake = SnowflakeId()
+import { generateId } from "@/shared"
 
 interface PostClusterAttributes {
     id: bigint
@@ -51,17 +49,13 @@ class PostCluster
         return {
             id: this.id.toString(),
             name: this.name,
-            centroid: centroidData,
+            centroid: centroidData.values,
             topics: this.topics,
-            memberIds: this.memberIds,
+            contentIds: this.memberIds,
             size: this.size,
             density: this.density,
-            metadata: {
-                ...this.metadata,
-                category: this.category,
-                tags: this.tags,
-                avgEngagement: this.avgEngagement,
-            },
+            createdAt: this.createdAt,
+            updatedAt: this.updatedAt,
         }
     }
 
@@ -74,7 +68,7 @@ class PostCluster
                     primaryKey: true,
                     autoIncrement: false,
                     allowNull: false,
-                    defaultValue: () => snowflake.generate(),
+                    defaultValue: () => generateId(),
                 },
                 name: {
                     type: DataTypes.STRING,
@@ -92,12 +86,12 @@ class PostCluster
                     },
                 },
                 topics: {
-                    type: DataTypes.ARRAY(DataTypes.STRING),
-                    defaultValue: [],
+                    type: DataTypes.JSON,
+                    defaultValue: "[]",
                 },
                 memberIds: {
-                    type: DataTypes.ARRAY(DataTypes.STRING),
-                    defaultValue: [],
+                    type: DataTypes.JSON,
+                    defaultValue: "[]",
                 },
                 category: {
                     type: DataTypes.STRING,
@@ -105,8 +99,8 @@ class PostCluster
                     defaultValue: "general",
                 },
                 tags: {
-                    type: DataTypes.ARRAY(DataTypes.STRING),
-                    defaultValue: [],
+                    type: DataTypes.JSON,
+                    defaultValue: "[]",
                 },
                 size: {
                     type: DataTypes.INTEGER,
@@ -121,8 +115,8 @@ class PostCluster
                     defaultValue: 0,
                 },
                 metadata: {
-                    type: DataTypes.JSONB,
-                    defaultValue: {},
+                    type: DataTypes.JSON,
+                    defaultValue: "{}",
                 },
                 createdAt: {
                     type: DataTypes.DATE,

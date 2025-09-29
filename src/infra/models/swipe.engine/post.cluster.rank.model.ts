@@ -1,13 +1,11 @@
 import { DataTypes, Model, Sequelize } from "sequelize"
 
-import { SnowflakeId } from "@/infra/id"
-
-const snowflake = SnowflakeId()
+import { generateId } from "@/shared"
 
 interface PostClusterRankAttributes {
     id: bigint
-    postId: string
-    clusterId: string
+    postId: bigint
+    clusterId: bigint
     score: number
     similarity: number
     relevanceScore: number // Quão relevante este post é para o cluster
@@ -28,8 +26,8 @@ class PostClusterRank
     implements PostClusterRankAttributes
 {
     public id!: bigint
-    public postId!: string
-    public clusterId!: string
+    public postId!: bigint
+    public clusterId!: bigint
     public score!: number
     public similarity!: number
     public relevanceScore!: number
@@ -49,15 +47,15 @@ class PostClusterRank
                     primaryKey: true,
                     autoIncrement: false,
                     allowNull: false,
-                    defaultValue: () => snowflake.generate(),
+                    defaultValue: () => generateId(),
                 },
                 postId: {
-                    type: DataTypes.STRING,
+                    type: DataTypes.BIGINT,
                     allowNull: false,
                     field: "post_id",
                 },
                 clusterId: {
-                    type: DataTypes.STRING,
+                    type: DataTypes.BIGINT,
                     allowNull: false,
                     field: "cluster_id",
                 },

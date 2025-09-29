@@ -1,14 +1,12 @@
+import { EntityType, InteractionType, UserInteraction } from "@/core/swipe.engine/types"
 import { DataTypes, Model, Sequelize } from "sequelize"
-import { EntityType, InteractionType, UserInteraction } from "../types"
 
-import { SnowflakeId } from "@/infra/id"
-
-const snowflake = SnowflakeId()
+import { generateId } from "@/shared"
 
 interface InteractionEventAttributes {
     id: bigint
-    userId: string
-    entityId: string
+    userId: bigint
+    entityId: bigint
     entityType: EntityType
     type: InteractionType
     timestamp: Date
@@ -27,8 +25,8 @@ class InteractionEvent
     implements InteractionEventAttributes
 {
     public id!: bigint
-    public userId!: string
-    public entityId!: string
+    public userId!: bigint
+    public entityId!: bigint
     public entityType!: EntityType
     public type!: InteractionType
     public timestamp!: Date
@@ -41,8 +39,8 @@ class InteractionEvent
     public toUserInteraction(): UserInteraction {
         return {
             id: this.id.toString(),
-            userId: BigInt(this.userId),
-            entityId: BigInt(this.entityId),
+            userId: this.userId.toString(),
+            entityId: this.entityId.toString(),
             entityType: this.entityType,
             type: this.type,
             timestamp: this.timestamp,
@@ -59,15 +57,15 @@ class InteractionEvent
                     primaryKey: true,
                     autoIncrement: false,
                     allowNull: false,
-                    defaultValue: () => snowflake.generate(),
+                    defaultValue: () => generateId(),
                 },
                 userId: {
-                    type: DataTypes.STRING,
+                    type: DataTypes.BIGINT,
                     allowNull: false,
                     field: "user_id",
                 },
                 entityId: {
-                    type: DataTypes.STRING,
+                    type: DataTypes.BIGINT,
                     allowNull: false,
                     field: "entity_id",
                 },
@@ -96,8 +94,8 @@ class InteractionEvent
                     defaultValue: DataTypes.NOW,
                 },
                 metadata: {
-                    type: DataTypes.JSONB,
-                    defaultValue: {},
+                    type: DataTypes.JSON,
+                    defaultValue: "{}",
                 },
                 createdAt: {
                     type: DataTypes.DATE,

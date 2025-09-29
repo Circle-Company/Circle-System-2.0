@@ -7,7 +7,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { UserRepository, UserRepositoryInterface } from "../user.repository"
 
-import { Level } from "../../../authorization/authorization.type"
+import { Op } from "sequelize"
 import { DatabaseAdapter } from "../../../../infra/database/adapter"
 import UserEmbeddingModel from "../../../../infra/models/swipe.engine/user.embedding.model"
 import UserInteractionSummaryModel from "../../../../infra/models/swipe.engine/user.interaction.summary.model"
@@ -16,7 +16,7 @@ import UserPreferencesModel from "../../../../infra/models/user/user.preferences
 import UserStatisticsModel from "../../../../infra/models/user/user.statistics.model"
 import UserStatusModel from "../../../../infra/models/user/user.status.model"
 import UserTermsModel from "../../../../infra/models/user/user.terms.model"
-import { Op } from "sequelize"
+import { Level } from "../../../authorization/authorization.type"
 import { User } from "../../entities/user.entity"
 import { UserMapper } from "../../mappers/user.mapper"
 

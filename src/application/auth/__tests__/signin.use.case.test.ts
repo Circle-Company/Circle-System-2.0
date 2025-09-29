@@ -1,8 +1,8 @@
-import { AuthLogRepository, AuthLogStatus, AuthLogType, Device } from "../../../domain/auth"
-import { InputDto, SignInUseCase } from "../signin.use.case"
-import { InvalidCredentialsError, UserInactiveError } from "../../../shared/errors/auth.errors"
-import { UserRepository, UserRole, UserStatus } from "../../../domain/user"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { AuthLogRepository, AuthLogStatus, AuthLogType, Device } from "../../../domain/auth"
+import { UserRepository, UserRole, UserStatusEnum } from "../../../domain/user"
+import { InvalidCredentialsError, UserInactiveError } from "../../../shared/errors/auth.errors"
+import { InputDto, SignInUseCase } from "../signin.use.case"
 
 // Mock do jwtEncoder
 vi.mock("@/shared", () => ({
@@ -26,7 +26,7 @@ describe("SignInUseCase", () => {
             email: "test@example.com",
             password: "hashed-password",
             role: UserRole.USER,
-            status: UserStatus.ACTIVE,
+            status: UserStatusEnum.ACTIVE,
             validatePassword: vi.fn(),
         }
 
@@ -82,7 +82,7 @@ describe("SignInUseCase", () => {
                     name: "Test User",
                     email: "test@example.com",
                     role: UserRole.USER,
-                    status: UserStatus.ACTIVE,
+                    status: UserStatusEnum.ACTIVE,
                 },
             })
 
@@ -185,7 +185,7 @@ describe("SignInUseCase", () => {
             // Arrange
             const inactiveUser = {
                 ...mockUser,
-                status: UserStatus.INACTIVE,
+                status: UserStatusEnum.INACTIVE,
             }
 
             const input: InputDto = {

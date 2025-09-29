@@ -1,12 +1,12 @@
-import { NotFoundError, ValidationError } from "../../errors"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { NotFoundError, ValidationError } from "../../errors"
 
-import { Device } from "../../../domain/auth"
-import UserModel from "../../../infra/models/user.model"
+import { Device } from "../../../domain/authorization/authorization.type"
+import UserModel from "../../../infra/models/user/user.model"
 import { jwtEncoder } from "../encode"
 
 // Mock do UserModel
-vi.mock("@/infra/models/user.model", () => ({
+vi.mock("../../../infra/models/user/user.model", () => ({
     default: {
         findByPk: vi.fn(),
     },
@@ -57,13 +57,13 @@ describe("JWT Encoder", () => {
             })
         })
 
-        it("should generate a valid JWT token for DESKTOP device", async () => {
+        it("should generate a valid JWT token for MOBILE device", async () => {
             const mockUser = { id: "user-456" }
             ;(UserModel.findByPk as any).mockResolvedValue(mockUser)
 
             const result = await jwtEncoder({
                 userId: "user-456",
-                device: Device.DESKTOP,
+                device: Device.MOBILE,
                 role: "user",
             })
 
@@ -105,13 +105,13 @@ describe("JWT Encoder", () => {
                 role: "user",
             })
 
-            const tokenDesktop = await jwtEncoder({
+            const tokenMobile = await jwtEncoder({
                 userId: "user-123",
-                device: Device.DESKTOP,
+                device: Device.MOBILE,
                 role: "user",
             })
 
-            expect(tokenWeb).not.toBe(tokenDesktop)
+            expect(tokenWeb).not.toBe(tokenMobile)
         })
     })
 
@@ -341,7 +341,7 @@ describe("JWT Encoder", () => {
             // Segunda chamada - configuração deve estar em cache
             await jwtEncoder({
                 userId: "user-123",
-                device: Device.DESKTOP,
+                device: Device.MOBILE,
                 role: "user",
             })
 

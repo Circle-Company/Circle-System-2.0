@@ -3,8 +3,8 @@ import { HttpRequest, HttpResponse } from "@/infra/http"
 import { ErrorCode, ValidationError, jwtDecoder } from "@/shared"
 
 import { UserRepositoryInterface } from "@/domain/user/repositories/user.repository"
-import { UserRepositoryImpl } from "@/infra/repository.impl/user.repository.impl"
 import { DatabaseAdapter } from "@/infra/database/adapter"
+import { UserRepositoryImpl } from "@/infra/repository.impl/user.repository.impl"
 import { AuthenticatedUser } from "./types"
 
 /**
@@ -154,7 +154,7 @@ export function authMiddleware(
 
             // Criar instância do repositório com o adapter
             const userRepository = new UserRepositoryImpl(databaseAdapter)
-            
+
             // Buscar usuário no banco de dados
             const user = await userRepository.findById(payload.sub)
 

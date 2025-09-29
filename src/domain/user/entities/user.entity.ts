@@ -705,15 +705,16 @@ export class User {
     } {
         const now = new Date()
         const daysSinceCreation = Math.floor(
-            (now.getTime() - this._createdAt.getTime()) / (1000 * 60 * 60 * 24)
+            (now.getTime() - this._createdAt.getTime()) / (1000 * 60 * 60 * 24),
         )
 
         const isNewUser = daysSinceCreation <= 7
         const isActiveUser = this.isActiveByMetrics(30)
-        
+
         let activityLevel: "low" | "medium" | "high" = "low"
         if (this._metrics) {
-            const totalActions = this._metrics.totalMomentsCreated + this._metrics.totalMemoriesCreated
+            const totalActions =
+                this._metrics.totalMomentsCreated + this._metrics.totalMemoriesCreated
             if (totalActions > 50) activityLevel = "high"
             else if (totalActions > 10) activityLevel = "medium"
         }

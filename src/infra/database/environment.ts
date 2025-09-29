@@ -1,10 +1,35 @@
-require("dotenv").config()
+import { ErrorCode, SystemError, logger } from "@/shared"
 
-import { ErrorCode, SystemError } from "@/errors"
-
+import { config } from "dotenv"
 import { Dialect } from "sequelize"
-import { logger } from "@/logger"
 
+// Carregar variáveis de ambiente
+config()
+
+// Configurações padrão simplificadas
+const defaultConfig = {
+    DB_HOST: "localhost",
+    DB_USERNAME: "root",
+    DB_PASSWORD: "",
+    DB_NAME: "test_access_controller_db",
+    DB_SSL: "false",
+    DB_TIMEOUT: "60000",
+    TIMEZONE: "UTC",
+    ENABLE_LOGGER: "true",
+    DIALECT: "mysql",
+    NODE_ENV: "development",
+    PORT: "3000",
+    ENABLE_LOGGING: "true",
+}
+
+// Aplicar configurações padrão se não estiverem definidas
+Object.keys(defaultConfig).forEach((key) => {
+    if (!process.env[key]) {
+        process.env[key] = defaultConfig[key as keyof typeof defaultConfig]
+    }
+})
+
+// Variáveis obrigatórias apenas para produção
 const requiredEnvVars = [
     "DB_HOST",
     "DB_USERNAME",
@@ -17,36 +42,38 @@ const requiredEnvVars = [
     "DIALECT",
 ]
 
-// Verificar se todas as variáveis obrigatórias estão definidas
-const missingVars = requiredEnvVars.filter((varName) => !process.env[varName])
-if (missingVars.length > 0) {
-    const error = new SystemError({
-        message: "Variáveis de ambiente obrigatórias não encontradas",
-        code: ErrorCode.CONFIGURATION_ERROR,
-        action: "Configure todas as variáveis de ambiente obrigatórias",
-        context: {
-            additionalData: {
-                missingVars,
-                requiredVars: requiredEnvVars,
+// Verificar variáveis obrigatórias apenas em produção
+if (process.env.NODE_ENV === "production") {
+    const missingVars = requiredEnvVars.filter((varName) => !process.env[varName])
+    if (missingVars.length > 0) {
+        const error = new SystemError({
+            message: "Variáveis de ambiente obrigatórias não encontradas",
+            code: ErrorCode.CONFIGURATION_ERROR,
+            action: "Configure todas as variáveis de ambiente obrigatórias",
+            context: {
+                additionalData: {
+                    missingVars,
+                    requiredVars: requiredEnvVars,
+                },
             },
-        },
-        metadata: {
-            severity: "critical",
-            retryable: false,
-            logLevel: "error",
-            notifyAdmin: true,
-        },
-    })
+            metadata: {
+                severity: "critical",
+                retryable: false,
+                logLevel: "error",
+                notifyAdmin: true,
+            },
+        })
 
-    logger.error("Configuração de banco de dados falhou", { error: error.toJSON() })
-    throw error
+        logger.error("Configuração de banco de dados falhou", { error: error.toJSON() })
+        throw error
+    }
 }
 
 // Configurações base para todos os ambientes
 const baseConfig = {
     define: {
         timestamps: true,
-        underscored: true,
+        underscored: false, // Mudança: usar camelCase para timestamps
         paranoid: false,
         freezeTableName: true,
     },
@@ -64,15 +91,16 @@ export const CONFIGS = {
     development: {
         ...baseConfig,
         dialect: (process.env.DIALECT || "mysql") as Dialect,
-        host: process.env.DEVELOPMENT_DB_HOST!,
-        username: process.env.DEVELOPMENT_DB_USERNAME!,
-        password: process.env.DEVELOPMENT_DB_PASSWORD!,
-        database: process.env.DEVELOPMENT_DB_NAME!,
-        logging: process.env.ENABLE_LOGGING!
-            ? (sql: string, timing?: number) => {
-                  logger.debug(`SQL Query executed`, { sql, timing: `${timing}ms` })
-              }
-            : false,
+        host: process.env.DB_HOST || "localhost",
+        username: process.env.DB_USERNAME || "root",
+        password: process.env.DB_PASSWORD || "",
+        database: process.env.DB_NAME || "test_access_controller_db",
+        logging:
+            process.env.ENABLE_LOGGING === "true"
+                ? (sql: string, timing?: number) => {
+                      logger.debug(`SQL Query executed`, { sql, timing: `${timing}ms` })
+                  }
+                : false,
         pool: {
             max: 5,
             min: 0,
@@ -84,10 +112,10 @@ export const CONFIGS = {
     production: {
         ...baseConfig,
         dialect: (process.env.DIALECT || "mysql") as Dialect,
-        host: process.env.DB_HOST!,
-        username: process.env.DB_USERNAME!,
-        password: process.env.DB_PASSWORD!,
-        database: process.env.DB_NAME!,
+        host: process.env.DB_HOST || "localhost",
+        username: process.env.DB_USERNAME || "root",
+        password: process.env.DB_PASSWORD || "",
+        database: process.env.DB_NAME || "test_access_controller_db",
         logging: false,
         pool: {
             max: 20,
@@ -112,9 +140,9 @@ export const CONFIGS = {
         ...baseConfig,
         dialect: (process.env.DIALECT || "mysql") as Dialect,
         host: process.env.DB_HOST || "localhost",
-        username: process.env.DB_USERNAME || "test",
-        password: process.env.DB_PASSWORD || "test",
-        database: process.env.DB_NAME || "test_db",
+        username: process.env.DB_USERNAME || "root",
+        password: process.env.DB_PASSWORD || "",
+        database: process.env.DB_NAME || "test_access_controller_db",
         logging: false,
         pool: {
             max: 1,

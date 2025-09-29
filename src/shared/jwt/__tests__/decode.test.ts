@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-import { Device } from "../../../domain/auth"
-import UserModel from "../../../infra/models/user.model"
+import { Device } from "../../../domain/authorization/authorization.type"
+import UserModel from "../../../infra/models/user/user.model"
 import { ValidationError } from "../../errors"
 import { jwtDecoder } from "../decode"
 import { jwtEncoder } from "../encode"
@@ -15,7 +15,7 @@ const mockEnv = {
 }
 
 // Mock do UserModel para encode
-vi.mock("@/infra/models/user.model", () => ({
+vi.mock("../../../infra/models/user/user.model", () => ({
     default: {
         findByPk: vi.fn(),
     },
@@ -61,14 +61,14 @@ describe("JWT Decoder", () => {
             expect(decoded.exp).toBeDefined()
         })
 
-        it("should decode a valid JWT token for DESKTOP device", async () => {
+        it("should decode a valid JWT token for MOBILE device", async () => {
             const mockUser = { id: "user-456" }
             ;(UserModel.findByPk as any).mockResolvedValue(mockUser)
 
             // Generate a token first
             const token = await jwtEncoder({
                 userId: "user-456",
-                device: Device.DESKTOP,
+                device: Device.MOBILE,
                 role: "admin",
             })
 
@@ -77,7 +77,7 @@ describe("JWT Decoder", () => {
 
             expect(decoded).toBeDefined()
             expect(decoded.sub).toBe("user-456")
-            expect(decoded.device).toBe(Device.DESKTOP)
+            expect(decoded.device).toBe(Device.MOBILE)
             expect(decoded.iss).toBe(mockEnv.JWT_ISSUER)
             expect(decoded.aud).toBe(mockEnv.JWT_AUDIENCE)
         })
@@ -123,20 +123,20 @@ describe("JWT Decoder", () => {
                 role: "user",
             })
 
-            const tokenDesktop = await jwtEncoder({
+            const tokenMobile = await jwtEncoder({
                 userId: "user-123",
-                device: Device.DESKTOP,
+                device: Device.MOBILE,
                 role: "user",
             })
 
             // Decode both tokens
             const decodedWeb = await jwtDecoder(tokenWeb)
-            const decodedDesktop = await jwtDecoder(tokenDesktop)
+            const decodedMobile = await jwtDecoder(tokenMobile)
 
             expect(decodedWeb.sub).toBe("user-123")
-            expect(decodedDesktop.sub).toBe("user-123")
+            expect(decodedMobile.sub).toBe("user-123")
             expect(decodedWeb.device).toBe(Device.WEB)
-            expect(decodedDesktop.device).toBe(Device.DESKTOP)
+            expect(decodedMobile.device).toBe(Device.MOBILE)
         })
     })
 
@@ -401,7 +401,7 @@ describe("JWT Decoder", () => {
 
             const originalPayload = {
                 userId: "user-456",
-                device: Device.DESKTOP,
+                device: Device.MOBILE,
                 role: "admin",
             }
 
@@ -430,7 +430,7 @@ describe("JWT Decoder", () => {
 
             const payloads = [
                 { userId: "user-789", device: Device.WEB, role: "user" },
-                { userId: "user-789", device: Device.DESKTOP, role: "admin" },
+                { userId: "user-789", device: Device.MOBILE, role: "admin" },
             ]
 
             for (const payload of payloads) {

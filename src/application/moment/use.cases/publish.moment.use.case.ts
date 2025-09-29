@@ -1,4 +1,5 @@
 import { MomentEntity, MomentStatusEnum } from "@/domain/moment"
+
 import { IMomentRepository } from "@/domain/moment/repositories/moment.repository"
 import { MomentService } from "../services/moment.service"
 
@@ -16,7 +17,7 @@ export interface PublishMomentResponse {
 export class PublishMomentUseCase {
     constructor(
         private readonly momentRepository: IMomentRepository,
-        private readonly momentService: MomentService
+        private readonly momentService: MomentService,
     ) {}
 
     async execute(request: PublishMomentRequest): Promise<PublishMomentResponse> {
@@ -25,14 +26,14 @@ export class PublishMomentUseCase {
             if (!request.momentId) {
                 return {
                     success: false,
-                    error: "ID do momento é obrigatório"
+                    error: "ID do momento é obrigatório",
                 }
             }
 
             if (!request.userId) {
                 return {
                     success: false,
-                    error: "ID do usuário é obrigatório"
+                    error: "ID do usuário é obrigatório",
                 }
             }
 
@@ -42,7 +43,7 @@ export class PublishMomentUseCase {
             if (!moment) {
                 return {
                     success: false,
-                    error: "Momento não encontrado"
+                    error: "Momento não encontrado",
                 }
             }
 
@@ -50,7 +51,7 @@ export class PublishMomentUseCase {
             if (moment.ownerId !== request.userId) {
                 return {
                     success: false,
-                    error: "Apenas o dono do momento pode publicá-lo"
+                    error: "Apenas o dono do momento pode publicá-lo",
                 }
             }
 
@@ -58,31 +59,23 @@ export class PublishMomentUseCase {
             if (!this.canPublishMoment(moment)) {
                 return {
                     success: false,
-                    error: "Momento não pode ser publicado no estado atual"
+                    error: "Momento não pode ser publicado no estado atual",
                 }
             }
 
             // Publicar o momento
             const updatedMoment = await this.momentService.updateMoment(request.momentId, {
-                status: {
-                    current: MomentStatusEnum.PUBLISHED,
-                    previous: moment.status.current,
-                    reason: "Publicado pelo usuário",
-                    changedBy: request.userId,
-                    changedAt: new Date()
-                },
-                publishedAt: new Date()
+                status: MomentStatusEnum.PUBLISHED,
             })
 
             return {
                 success: true,
-                moment: updatedMoment
+                moment: updatedMoment || undefined,
             }
-
         } catch (error) {
             return {
                 success: false,
-                error: error instanceof Error ? error.message : "Erro interno do servidor"
+                error: error instanceof Error ? error.message : "Erro interno do servidor",
             }
         }
     }
@@ -104,7 +97,7 @@ export class PublishMomentUseCase {
         }
 
         // Verificar se o conteúdo é válido
-        if (!moment.isContentValid()) {
+        if (!moment.content || !moment.content.duration || moment.content.duration <= 0) {
             return false
         }
 

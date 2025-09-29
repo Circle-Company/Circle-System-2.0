@@ -1,4 +1,5 @@
-import { Level } from "../authorization/authorization.type"
+import { Level } from "@/domain/authorization"
+import { UserMetrics } from "@/domain/user/entities/user.metrics.entity"
 
 export interface UserEntity {
     id: bigint
@@ -85,7 +86,7 @@ export interface UserPreferences {
     disableNewsPushNotification: boolean
     disableSugestionsPushNotification: boolean
     disableAroundYouPushNotification: boolean
-    defaultMomentVisibility?: 'public' | 'followers_only' | 'private'
+    defaultMomentVisibility?: "public" | "followers_only" | "private"
     createdAt: Date
     updatedAt: Date
 }

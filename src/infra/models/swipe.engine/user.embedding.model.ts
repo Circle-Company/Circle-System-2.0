@@ -1,13 +1,12 @@
 import { DataTypes, Model, Sequelize } from "sequelize"
 
-import { SnowflakeId } from "@/infra/id"
-import { UserEmbedding as UserEmbeddingType } from "../types"
+import SnowflakeId from "@/shared/id/snowflake"
 
 const snowflake = SnowflakeId()
 
 interface UserEmbeddingAttributes {
     id: bigint
-    userId: string
+    userId: bigint
     vector: string // JSON stringificado do EmbeddingVector
     dimension: number
     metadata: Record<string, any>
@@ -25,58 +24,13 @@ class UserEmbedding
     implements UserEmbeddingAttributes
 {
     public id!: bigint
-    public userId!: string
+    public userId!: bigint
     public vector!: string
     public dimension!: number
     public metadata!: Record<string, any>
 
     public readonly createdAt!: Date
     public readonly updatedAt!: Date
-
-    // Converte para o tipo UserEmbedding do core
-    public toUserEmbeddingType(): UserEmbeddingType {
-        try {
-            // Parsear o vetor como um objeto com valores e dimensão
-            const vectorObj = JSON.parse(this.vector)
-
-            // Verificar se é o formato antigo (array simples) ou novo (objeto)
-            let values: number[]
-            if (Array.isArray(vectorObj)) {
-                values = vectorObj
-            } else if (vectorObj && vectorObj.values) {
-                values = vectorObj.values
-            } else {
-                values = []
-            }
-
-            return {
-                userId: this.userId,
-                vector: {
-                    dimension: this.dimension,
-                    values: values,
-                    createdAt: this.createdAt,
-                    updatedAt: this.updatedAt,
-                },
-                metadata: this.metadata,
-            }
-        } catch (error) {
-            console.error(`Erro ao converter embedding: ${error}`)
-            // Fallback para vetor vazio
-            return {
-                userId: this.userId,
-                vector: {
-                    dimension: this.dimension,
-                    values: new Array(this.dimension).fill(0),
-                    createdAt: this.createdAt,
-                    updatedAt: this.updatedAt,
-                },
-                metadata: {
-                    ...this.metadata,
-                    error: `Falha ao deserializar: ${error}`,
-                },
-            }
-        }
-    }
 
     // Método estático para inicializar o modelo
     public static initialize(sequelize: Sequelize): void {
@@ -90,7 +44,7 @@ class UserEmbedding
                     defaultValue: () => snowflake.generate(),
                 },
                 userId: {
-                    type: DataTypes.STRING,
+                    type: DataTypes.BIGINT,
                     allowNull: false,
                     field: "user_id",
                 },
@@ -132,8 +86,8 @@ class UserEmbedding
                     defaultValue: 128,
                 },
                 metadata: {
-                    type: DataTypes.JSONB,
-                    defaultValue: {},
+                    type: DataTypes.JSON,
+                    defaultValue: "{}",
                 },
                 createdAt: {
                     type: DataTypes.DATE,

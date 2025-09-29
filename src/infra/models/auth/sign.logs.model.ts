@@ -1,6 +1,6 @@
 import { DataTypes, Model, Sequelize } from "sequelize"
 
-import { generateID } from "../../id"
+import { generateId } from "@/shared"
 
 export enum SignType {
     SIGNIN = "signin",
@@ -57,7 +57,7 @@ export default class SignLog extends Model<SignLogAttributes> implements SignLog
                     primaryKey: true,
                     autoIncrement: false,
                     allowNull: false,
-                    defaultValue: () => generateID(),
+                    defaultValue: () => generateId(),
                 },
                 typed_username: {
                     type: DataTypes.STRING(50),
@@ -111,26 +111,7 @@ export default class SignLog extends Model<SignLogAttributes> implements SignLog
                 modelName: "SignLog",
                 tableName: "sign_logs",
                 timestamps: true,
-                indexes: [
-                    {
-                        fields: ["typed_username"],
-                    },
-                    {
-                        fields: ["ip_address"],
-                    },
-                    {
-                        fields: ["status"],
-                    },
-                    {
-                        fields: ["security_risk"],
-                    },
-                    {
-                        fields: ["created_at"],
-                    },
-                    {
-                        fields: ["sign_type", "status"],
-                    },
-                ],
+                // Índices serão criados automaticamente pelo Sequelize quando necessário
             },
         )
     }

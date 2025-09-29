@@ -694,10 +694,18 @@ describe("UserMetricsAnalysisService", () => {
 
             // Assert
             expect(result.recommendations).toBeDefined()
-            expect(result.recommendations.contentOptimization).toContain("Increase content creation frequency")
-            expect(result.recommendations.engagementImprovements).toContain("Respond to comments promptly")
-            expect(result.recommendations.growthStrategies).toContain("Collaborate with other users")
-            expect(result.recommendations.activityEnhancement).toContain("Establish daily posting routine")
+            expect(result.recommendations.contentOptimization).toContain(
+                "Increase content creation frequency",
+            )
+            expect(result.recommendations.engagementImprovements).toContain(
+                "Respond to comments promptly",
+            )
+            expect(result.recommendations.growthStrategies).toContain(
+                "Collaborate with other users",
+            )
+            expect(result.recommendations.activityEnhancement).toContain(
+                "Establish daily posting routine",
+            )
         })
     })
 })

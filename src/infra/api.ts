@@ -1,10 +1,10 @@
+import { extractErrorInfo, isBaseError } from "@/shared/errors"
 import Fastify, { FastifyInstance, FastifyServerOptions } from "fastify"
 import { HttpRequest, HttpResponse } from "./http/http.type"
-import { extractErrorInfo, isBaseError } from "@/shared/errors"
 
 import { ENABLE_LOGGING } from "@/infra/database/environment"
-import { HttpFactory } from "./http/http.factory"
 import { logger } from "@/shared/logger"
+import { HttpFactory } from "./http/http.factory"
 
 // Configuração da aplicação
 const ENV_CONFIG = {
@@ -24,6 +24,19 @@ const fastifyConfig: FastifyServerOptions = {
     requestIdHeader: "x-request-id",
     requestIdLogLabel: "reqId",
     genReqId: () => `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    schemaErrorFormatter: (errors, dataVar) => {
+        return new Error(
+            `Validation failed for ${dataVar}: ${errors.map((e) => e.message).join(", ")}`,
+        )
+    },
+    ajv: {
+        customOptions: {
+            strict: false,
+            removeAdditional: false,
+            useDefaults: true,
+            coerceTypes: true,
+        },
+    },
 }
 
 // Instância do Fastify (apenas para produção)
@@ -32,6 +45,15 @@ const fastifyInstance: FastifyInstance =
 
 // Instância da API usando adapter HTTP genérico
 export const api = HttpFactory.createForEnvironment(ENV_CONFIG.environment, fastifyInstance)
+
+// Adicionar referência ao Fastify para compatibilidade com Swagger
+if (fastifyInstance && api) {
+    const apiWithSwagger = api as any
+    apiWithSwagger.fastify = fastifyInstance
+    apiWithSwagger.registerPlugin = (plugin: any, options: any) =>
+        fastifyInstance.register(plugin, options)
+    apiWithSwagger.log = fastifyInstance.log
+}
 
 // Configurar middleware de segurança e CORS
 function configureSecurityMiddleware() {
@@ -115,6 +137,13 @@ api.addHook("onSend", async (request: HttpRequest, response: HttpResponse, paylo
         "Content-Security-Policy",
         "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none';",
     )
+
+    // Headers de cache baseados no método HTTP
+    if (request.method === "GET") {
+        response.header("Cache-Control", "public, max-age=300")
+    } else {
+        response.header("Cache-Control", "no-cache, no-store, must-revalidate")
+    }
 
     return payload
 })
@@ -212,6 +241,23 @@ api.get("/health", async (request: HttpRequest, response: HttpResponse) => {
         uptime: process.uptime(),
         environment: ENV_CONFIG.environment,
         version: process.env.npm_package_version || "1.0.0",
+    })
+})
+
+// Endpoint para informações da API
+api.get("/info", async (request: HttpRequest, response: HttpResponse) => {
+    return response.send({
+        name: "Circle System API",
+        version: "1.0.0",
+        description: "API robusta para sistema de vlog com arquitetura limpa",
+        documentation: "/docs",
+        health: "/health",
+        environment: ENV_CONFIG.environment,
+        endpoints: {
+            health: "/health",
+            docs: "/docs",
+            info: "/info",
+        },
     })
 })
 

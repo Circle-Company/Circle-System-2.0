@@ -1,4 +1,5 @@
-import { MomentEntity, IMomentRepository } from "../../../domain/moment"
+import { IMomentRepository, MomentEntity } from "../../../domain/moment"
+
 import { MomentService } from "../services/moment.service"
 
 export interface GetMomentRequest {

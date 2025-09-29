@@ -1,6 +1,18 @@
+import {
+    ActivityDistribution,
+    EngagementDistribution,
+    ReputationDistribution,
+    UserFilters,
+    UserRepositoryInterface,
+    UserSearchOptions,
+    UserStatistics,
+    UserStatusData,
+} from "@/domain/user/repositories/user.repository"
 import { Op, WhereOptions } from "sequelize"
 
 import { Level } from "@/domain/authorization"
+import { User } from "@/domain/user/entities/user.entity"
+import { UserMapper } from "@/domain/user/mappers/user.mapper"
 import { DatabaseAdapter } from "@/infra/database/adapter"
 import UserEmbeddingModel from "@/infra/models/swipe.engine/user.embedding.model"
 import UserInteractionSummaryModel from "@/infra/models/swipe.engine/user.interaction.summary.model"
@@ -9,19 +21,6 @@ import UserPreferencesModel from "@/infra/models/user/user.preferences.model"
 import UserStatisticsModel from "@/infra/models/user/user.statistics.model"
 import UserStatusModel from "@/infra/models/user/user.status.model"
 import UserTermsModel from "@/infra/models/user/user.terms.model"
-import { User } from "@/domain/user/entities/user.entity"
-import { UserMapper } from "@/domain/user/mappers/user.mapper"
-import {
-    UserRepositoryInterface,
-    UserSearchOptions,
-    UserOrderBy,
-    UserFilters,
-    UserStatusData,
-    UserStatistics,
-    ActivityDistribution,
-    ReputationDistribution,
-    EngagementDistribution,
-} from "@/domain/user/repositories/user.repository"
 
 /**
  * User Repository Implementation

@@ -47,7 +47,7 @@ class UserInteractionSummary
                 interactionCounts: {
                     type: DataTypes.JSON,
                     allowNull: false,
-                    defaultValue: {},
+                    defaultValue: "{}",
                     field: "interaction_counts",
                 },
                 createdAt: {

@@ -174,10 +174,17 @@ describe("CreateMomentUseCase", () => {
                 description: validRequest.description,
                 hashtags: validRequest.hashtags,
                 mentions: validRequest.mentions,
-                content: validRequest.content,
-                media: validRequest.media,
-                thumbnail: validRequest.thumbnail,
-                context: validRequest.context,
+                content: {
+                    duration: validRequest.content.duration,
+                    size: validRequest.content.size,
+                    format: validRequest.content.format,
+                    width: validRequest.content.resolution.width,
+                    height: validRequest.content.resolution.height,
+                    hasAudio: validRequest.content.hasAudio,
+                    codec: validRequest.content.codec,
+                },
+                location: validRequest.context?.location,
+                device: validRequest.context?.device,
             })
         })
 
@@ -310,10 +317,17 @@ describe("CreateMomentUseCase", () => {
                 description: "",
                 hashtags: [],
                 mentions: [],
-                content: minimalRequest.content,
-                media: minimalRequest.media,
-                thumbnail: minimalRequest.thumbnail,
-                context: undefined,
+                content: {
+                    duration: minimalRequest.content.duration,
+                    size: minimalRequest.content.size,
+                    format: minimalRequest.content.format,
+                    width: minimalRequest.content.resolution.width,
+                    height: minimalRequest.content.resolution.height,
+                    hasAudio: minimalRequest.content.hasAudio,
+                    codec: minimalRequest.content.codec,
+                },
+                location: undefined,
+                device: undefined,
             })
         })
     })

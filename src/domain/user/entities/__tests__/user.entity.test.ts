@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import { Level } from "../../../authorization/authorization.type"
+import { UserProps } from "../../types/user.type"
 import { User } from "../user.entity"
 import { UserMetrics } from "../user.metrics.entity"
-import { UserProps } from "../../types/user.type"
 
 // Mock do Encrypt
 vi.mock("../../../shared/encrypt", () => ({

@@ -66,7 +66,7 @@ function validateDevice(device: Device): void {
         throw new ValidationError({
             message: `Invalid device type: ${device}`,
             code: ErrorCode.INVALID_INPUT,
-            action: "Use valid device types: WEB or DESKTOP",
+            action: "Use valid device types: WEB or MOBILE",
             context: {
                 additionalData: {
                     receivedDevice: device,

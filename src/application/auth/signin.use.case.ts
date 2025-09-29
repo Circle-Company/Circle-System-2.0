@@ -5,8 +5,8 @@ import {
     AuthLogType,
     Device,
 } from "@/domain/auth"
+import { UserProps, UserRepository, UserStatusEnum } from "@/domain/user"
 import { InvalidCredentialsError, UserInactiveError } from "@/shared/errors/auth.errors"
-import { UserProps, UserRepository, UserStatus } from "@/domain/user"
 
 import { jwtEncoder } from "@/shared"
 
@@ -66,7 +66,7 @@ export class SignInUseCase {
             throw new InvalidCredentialsError()
         }
 
-        if (user.status === UserStatus.INACTIVE) {
+        if (user.status === UserStatusEnum.INACTIVE) {
             // Log tentativa falhada - usuário inativo
             if (this.authLogRepository && request.logContext) {
                 await this.authLogRepository.create({

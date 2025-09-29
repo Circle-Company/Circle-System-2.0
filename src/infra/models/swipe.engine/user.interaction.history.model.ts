@@ -1,6 +1,6 @@
 import { DataTypes, Model, Sequelize } from "sequelize"
 
-import { InteractionType } from "../types"
+import { InteractionType } from "@/core/swipe.engine/types"
 
 interface UserInteractionHistoryAttributes {
     id: bigint
@@ -77,7 +77,7 @@ class UserInteractionHistory
                 metadata: {
                     type: DataTypes.JSON,
                     allowNull: false,
-                    defaultValue: {},
+                    defaultValue: "{}",
                 },
                 createdAt: {
                     type: DataTypes.DATE,

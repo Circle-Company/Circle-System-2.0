@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it } from "vitest"
 import { Level } from "../../../authorization/authorization.type"
 import { User } from "../../entities/user.entity"
 import { UserMetrics } from "../../entities/user.metrics.entity"
-import { UserMapper } from "../user.mapper"
 import { UserProps } from "../../types/user.type"
+import { UserMapper } from "../user.mapper"
 
 describe("UserMapper", () => {
     let validUserProps: UserProps

@@ -1,4 +1,5 @@
-import { MomentEntity, IMomentRepository } from "../../../domain/moment"
+import { IMomentRepository, MomentEntity } from "../../../domain/moment"
+
 import { MomentService } from "../services/moment.service"
 
 export interface CreateMomentRequest {
@@ -96,10 +97,17 @@ export class CreateMomentUseCase {
                 description: request.description || "",
                 hashtags: request.hashtags || [],
                 mentions: request.mentions || [],
-                content: request.content,
-                media: request.media,
-                thumbnail: request.thumbnail,
-                context: request.context,
+                content: {
+                    duration: request.content.duration,
+                    size: request.content.size,
+                    format: request.content.format,
+                    width: request.content.resolution.width,
+                    height: request.content.resolution.height,
+                    hasAudio: request.content.hasAudio,
+                    codec: request.content.codec,
+                },
+                location: request.context?.location,
+                device: request.context?.device,
             })
 
             return {
