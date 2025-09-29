@@ -1,16 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-// Mock do logger
-vi.mock("@/infra/logger", () => ({
+// Mock do logger do projeto
+vi.mock("@/shared/logger", () => ({
     logger: {
         error: vi.fn(),
         info: vi.fn(),
         debug: vi.fn(),
+        warn: vi.fn(),
     },
 }))
 
 // Mock do sistema de erros
-vi.mock("@/infra/errors", () => ({
+vi.mock("@/shared/errors", () => ({
     SystemError: class MockSystemError extends Error {
         public code: string
         public action: string
@@ -75,7 +76,7 @@ describe("Database Environment Configuration", () => {
 
             expect(baseConfig.define).toEqual({
                 timestamps: true,
-                underscored: true,
+                underscored: false, // Mudamos para false para usar camelCase
                 paranoid: false,
                 freezeTableName: true,
             })
@@ -221,10 +222,10 @@ describe("Database Environment Configuration", () => {
     describe("Variáveis de Ambiente Específicas", () => {
         it("deve usar variáveis específicas para development", async () => {
             process.env.NODE_ENV = "development"
-            process.env.DEVELOPMENT_DB_HOST = "dev-host"
-            process.env.DEVELOPMENT_DB_USERNAME = "dev-user"
-            process.env.DEVELOPMENT_DB_PASSWORD = "dev-pass"
-            process.env.DEVELOPMENT_DB_NAME = "dev-db"
+            process.env.DB_HOST = "dev-host"
+            process.env.DB_USERNAME = "dev-user"
+            process.env.DB_PASSWORD = "dev-pass"
+            process.env.DB_NAME = "dev-db"
             process.env.DIALECT = "mysql"
 
             vi.resetModules()
