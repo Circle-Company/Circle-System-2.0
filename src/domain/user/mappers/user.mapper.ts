@@ -1,5 +1,6 @@
 import { Level } from "../../authorization/authorization.type"
 import { User as DomainUser } from "../entities/user.entity"
+import { UserMetrics } from "../entities/user.metrics.entity"
 import { UserProps } from "../types/user.type"
 
 // Interfaces para os modelos Sequelize
@@ -95,7 +96,7 @@ interface UserTermsModelAttributes {
 }
 
 interface UserEmbeddingModelAttributes {
-    userId: string
+    userId: bigint
     vector: string
     dimension: number
     metadata: Record<string, any>
@@ -187,14 +188,18 @@ export class UserMapper {
                     sequelizeUser.preferences.disable_sugestions_push_notification,
                 disableAroundYouPushNotification:
                     sequelizeUser.preferences.disable_around_you_push_notification,
-                defaultMomentVisibility: sequelizeUser.preferences.default_moment_visibility as 'public' | 'followers_only' | 'private',
+                defaultMomentVisibility: sequelizeUser.preferences.default_moment_visibility as
+                    | "public"
+                    | "followers_only"
+                    | "private",
                 createdAt: sequelizeUser.preferences.createdAt,
                 updatedAt: sequelizeUser.preferences.updatedAt,
             }
         }
 
         if (sequelizeUser.statistics) {
-            userData.metrics = {
+            userData.metrics = new UserMetrics({
+                userId: sequelizeUser.statistics.user_id.toString(),
                 totalLikesReceived: sequelizeUser.statistics.total_likes_received,
                 totalViewsReceived: sequelizeUser.statistics.total_views_received,
                 totalSharesReceived: sequelizeUser.statistics.total_shares_received,
@@ -209,8 +214,6 @@ export class UserMapper {
                 totalFollowers: sequelizeUser.statistics.total_followers,
                 totalFollowing: sequelizeUser.statistics.total_following,
                 totalRelations: sequelizeUser.statistics.total_relations,
-                // Removido: daysActiveLast30, daysActiveLast7, lastActiveDate, currentStreakDays, longestStreakDays
-                // Essas propriedades não existem na interface UserMetrics
                 engagementRate: sequelizeUser.statistics.engagement_rate,
                 reachRate: sequelizeUser.statistics.reach_rate,
                 momentsPublishedGrowthRate30d:
@@ -227,7 +230,7 @@ export class UserMapper {
                 lastMetricsUpdate: sequelizeUser.statistics.last_metrics_update,
                 createdAt: sequelizeUser.statistics.createdAt,
                 updatedAt: sequelizeUser.statistics.updatedAt,
-            }
+            })
         }
 
         if (sequelizeUser.user_terms) {
@@ -416,7 +419,7 @@ export class UserMapper {
         if (!userData.embedding) return null
 
         return {
-            userId: userData.id!,
+            userId: BigInt(userData.id!),
             vector: userData.embedding.vector,
             dimension: userData.embedding.dimension,
             metadata: userData.embedding.metadata,
