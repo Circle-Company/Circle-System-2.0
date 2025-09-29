@@ -51,6 +51,11 @@ export default class ProfilePicture
     }
 
     static associate(models: any) {
-        this.belongsTo(models.User, { foreignKey: "user_id", as: "user" })
+        if (models.User) {
+            this.belongsTo(models.User, {
+                foreignKey: "user_id",
+                as: "user",
+            })
+        }
     }
 }

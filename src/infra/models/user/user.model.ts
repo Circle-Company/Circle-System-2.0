@@ -1,5 +1,5 @@
-import { DataTypes, Model, Sequelize } from "sequelize"
 import { generateId, logger } from "@/shared"
+import { DataTypes, Model, Sequelize } from "sequelize"
 
 export interface UserAttributes {
     id?: bigint
@@ -34,6 +34,7 @@ export default class User extends Model<UserAttributes> implements UserAttribute
                 username: {
                     type: DataTypes.STRING(30),
                     allowNull: false,
+                    unique: true,
                 },
                 name: {
                     type: DataTypes.STRING(50),
@@ -143,66 +144,63 @@ export default class User extends Model<UserAttributes> implements UserAttribute
     }
 
     static associate(models: any) {
-        this.hasOne(models.ProfilePicture, {
-            foreignKey: "user_id",
-            as: "profile_pictures",
-        })
-        this.hasOne(models.Statistic, { foreignKey: "user_id", as: "statistics" })
-        this.hasOne(models.UserMetadata, {
-            foreignKey: "user_id",
-            as: "user_metadatas",
-        })
-        this.hasOne(models.Contact, { foreignKey: "user_id", as: "contacts" })
-        this.hasOne(models.Coordinate, {
-            foreignKey: "user_id",
-            as: "coordinates",
-        })
-        this.hasOne(models.Preference, {
-            foreignKey: "user_id",
-            as: "preferences",
-        })
-        this.hasMany(models.Block, {
-            foreignKey: "user_id",
-            as: "blocks",
-        })
-        this.hasOne(models.NotificationToken, {
-            foreignKey: "user_id",
-            as: "notification_tokens",
-        })
-        this.belongsToMany(models.User, {
-            foreignKey: "user_id",
-            as: "following",
-            through: "Follow",
-        })
-        this.belongsToMany(models.User, {
-            foreignKey: "followed_user_id",
-            as: "followers",
-            through: "Follow",
-        })
-        this.hasMany(models.Report, { foreignKey: "user_id", as: "reports" })
-        this.hasMany(models.Memory, { foreignKey: "user_id", as: "memories" })
-        this.hasMany(models.Relation, {
-            foreignKey: "user_id",
-            as: "relations",
-            onDelete: "CASCADE",
-            hooks: true,
-        })
-        this.hasMany(models.Notification, {
-            foreignKey: "sender_user_id",
-            as: "notifications_sent",
-        })
-        this.hasMany(models.Notification, {
-            foreignKey: "receiver_user_id",
-            as: "notifications_received",
-        })
-        this.hasMany(models.Like, { foreignKey: "user_id", as: "who_liked" })
-        this.hasMany(models.View, { foreignKey: "user_id", as: "who_viewed" })
-        this.hasMany(models.Share, { foreignKey: "user_id", as: "who_shared" })
-        this.hasMany(models.Skip, { foreignKey: "user_id", as: "who_skipped" })
-        this.hasMany(models.ProfileClick, {
-            foreignKey: "user_id",
-            as: "who_profile_clicked",
-        })
+        // Associações com modelos que realmente existem
+        if (models.UserProfilePicture) {
+            this.hasOne(models.UserProfilePicture, {
+                foreignKey: "user_id",
+                as: "profile_pictures",
+            })
+        }
+
+        if (models.UserStatistics) {
+            this.hasOne(models.UserStatistics, {
+                foreignKey: "user_id",
+                as: "statistics",
+            })
+        }
+
+        if (models.UserMetadata) {
+            this.hasOne(models.UserMetadata, {
+                foreignKey: "user_id",
+                as: "user_metadatas",
+            })
+        }
+
+        if (models.UserPreferences) {
+            this.hasOne(models.UserPreferences, {
+                foreignKey: "user_id",
+                as: "preferences",
+            })
+        }
+
+        if (models.UserStatus) {
+            this.hasOne(models.UserStatus, {
+                foreignKey: "user_id",
+                as: "status",
+            })
+        }
+
+        if (models.UserTerms) {
+            this.hasOne(models.UserTerms, {
+                foreignKey: "user_id",
+                as: "terms",
+            })
+        }
+
+        if (models.Moment) {
+            this.hasMany(models.Moment, {
+                foreignKey: "owner_id",
+                as: "moments",
+            })
+        }
+
+        if (models.SignLog) {
+            this.hasMany(models.SignLog, {
+                foreignKey: "typed_username",
+                as: "sign_logs",
+                sourceKey: "username",
+            })
+        }
 
         if (models.UserEmbedding) {
             this.hasOne(models.UserEmbedding, {
@@ -239,18 +237,6 @@ export default class User extends Model<UserAttributes> implements UserAttribute
             })
         }
 
-        if (models.UserSubscription) {
-            this.hasMany(models.UserSubscription, {
-                foreignKey: "user_id",
-                as: "subscriptions",
-            })
-        }
-
-        if (models.SubscriptionValidationLog) {
-            this.hasMany(models.SubscriptionValidationLog, {
-                foreignKey: "user_id",
-                as: "subscription_validation_logs",
-            })
-        }
+        // Associações removidas para modelos que não existem ainda
     }
 }
