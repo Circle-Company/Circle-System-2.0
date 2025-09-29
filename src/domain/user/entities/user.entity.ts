@@ -14,10 +14,10 @@ import { UserMetrics } from "./user.metrics.entity"
 
 /**
  * User Domain Entity
- * 
+ *
  * Entidade principal do usuário que integra perfeitamente com o sistema de Moments.
  * Projetada para ser robusta, profissional e escalável, sem restrições de criação de conteúdo.
- * 
+ *
  * Features:
  * - Gestão completa de perfil de usuário
  * - Integração nativa com sistema de métricas
@@ -25,7 +25,7 @@ import { UserMetrics } from "./user.metrics.entity"
  * - Sistema de preferências personalizáveis
  * - Controle de status e permissões flexível
  * - Histórico de interações robusto
- * 
+ *
  * @author Circle System Team
  * @version 2.0.0
  */
@@ -260,8 +260,8 @@ export class User {
     /**
      * Obtém configurações de visibilidade padrão para novos Moments
      */
-    public getDefaultMomentVisibility(): 'public' | 'followers_only' | 'private' {
-        return (this._preferences as any)?.defaultMomentVisibility || 'public'
+    public getDefaultMomentVisibility(): "public" | "followers_only" | "private" {
+        return (this._preferences as any)?.defaultMomentVisibility || "public"
     }
 
     // ===== MÉTODOS DE MÉTRICAS INTEGRADAS =====
@@ -382,7 +382,7 @@ export class User {
                 totalMemories: 0,
                 averageMomentsPerDay: 0,
                 averageMemoriesPerDay: 0,
-                lastContentDate: null
+                lastContentDate: null,
             }
         }
 
@@ -391,7 +391,7 @@ export class User {
             totalMemories: this._metrics.totalMemoriesCreated,
             averageMomentsPerDay: this._metrics.momentsPerDayAverage,
             averageMemoriesPerDay: this._metrics.memoriesPerDayAverage,
-            lastContentDate: this._metrics.lastMetricsUpdate
+            lastContentDate: this._metrics.lastMetricsUpdate,
         }
     }
 
@@ -413,7 +413,7 @@ export class User {
                 totalCommentsReceived: 0,
                 totalSharesReceived: 0,
                 engagementRate: 0,
-                reachRate: 0
+                reachRate: 0,
             }
         }
 
@@ -423,7 +423,7 @@ export class User {
             totalCommentsReceived: this._metrics.totalCommentsReceived,
             totalSharesReceived: this._metrics.totalSharesReceived,
             engagementRate: this._metrics.engagementRate,
-            reachRate: this._metrics.reachRate
+            reachRate: this._metrics.reachRate,
         }
     }
 
@@ -435,6 +435,7 @@ export class User {
     public isActive(): boolean {
         return (
             this._status?.accessLevel !== undefined &&
+            this._status?.accessLevel !== null &&
             !this._status?.blocked &&
             !this._status?.deleted
         )
@@ -513,7 +514,7 @@ export class User {
             vector: this._embedding.vector,
             dimension: this._embedding.dimension,
             metadata: this._embedding.metadata,
-            lastUpdate: this._embedding.updatedAt
+            lastUpdate: this._embedding.updatedAt,
         }
     }
 
@@ -529,7 +530,7 @@ export class User {
         const metadata = {
             ...this._embedding?.metadata,
             ...behaviorData,
-            lastBehaviorUpdate: new Date().toISOString()
+            lastBehaviorUpdate: new Date().toISOString(),
         }
 
         if (this._embedding) {
@@ -571,7 +572,7 @@ export class User {
                 viewUser: true,
                 news: true,
                 suggestions: true,
-                aroundYou: true
+                aroundYou: true,
             }
         }
 
@@ -583,7 +584,7 @@ export class User {
             viewUser: !this._preferences.disableViewUserPushNotification,
             news: !this._preferences.disableNewsPushNotification,
             suggestions: !this._preferences.disableSugestionsPushNotification,
-            aroundYou: !this._preferences.disableAroundYouPushNotification
+            aroundYou: !this._preferences.disableAroundYouPushNotification,
         }
     }
 
@@ -599,8 +600,8 @@ export class User {
         return {
             autoplay: this._preferences?.disableAutoplay ? false : true,
             haptics: this._preferences?.disableHaptics ? false : true,
-            language: this._preferences?.appLanguage || 'pt',
-            timezone: this._preferences?.appTimezone || -3
+            language: this._preferences?.appLanguage || "pt",
+            timezone: this._preferences?.appTimezone || -3,
         }
     }
 
@@ -625,11 +626,104 @@ export class User {
         if (!this._metrics) return 0
 
         const engagementScore = Math.min(this._metrics.engagementRate * 10, 100)
-        const contentScore = Math.min((this._metrics.totalMomentsCreated + this._metrics.totalMemoriesCreated) / 10, 100)
+        const contentScore = Math.min(
+            (this._metrics.totalMomentsCreated + this._metrics.totalMemoriesCreated) / 10,
+            100,
+        )
         const socialScore = Math.min(this._metrics.totalFollowers / 100, 100)
         const moderationPenalty = this._metrics.violationsCount * 10
 
         return Math.max(0, (engagementScore + contentScore + socialScore) / 3 - moderationPenalty)
+    }
+
+    // ===== MÉTODOS AUXILIARES =====
+
+    /**
+     * Verifica se o usuário pode realizar uma ação específica
+     */
+    public canPerformAction(action: string): boolean {
+        if (!this.isActive()) return false
+
+        switch (action) {
+            case "create_moment":
+                return this.canCreateMoments()
+            case "interact_moment":
+                return this.canInteractWithMoments()
+            case "view_moment":
+                return this.canViewMoments()
+            case "mention_users":
+                return this.canMentionUsers()
+            case "be_mentioned":
+                return this.canBeMentioned()
+            case "admin_access":
+                return this.canAccessAdminFeatures()
+            default:
+                return false
+        }
+    }
+
+    /**
+     * Obtém informações básicas do usuário para exibição
+     */
+    public getPublicProfile(): {
+        id: string
+        username: string
+        name: string | null
+        description: string | null
+        isVerified: boolean
+        isActive: boolean
+        reputationScore: number
+        profilePicture: UserProfilePicture | null
+    } {
+        return {
+            id: this._id,
+            username: this._username,
+            name: this._name,
+            description: this._description,
+            isVerified: this.isVerified(),
+            isActive: this.isActive(),
+            reputationScore: this.getReputationScore(),
+            profilePicture: this._profilePicture,
+        }
+    }
+
+    /**
+     * Verifica se o usuário precisa de verificação
+     */
+    public needsVerification(): boolean {
+        return !this.isVerified() && this.isActive()
+    }
+
+    /**
+     * Obtém estatísticas de atividade do usuário
+     */
+    public getActivityStats(): {
+        daysSinceCreation: number
+        isNewUser: boolean
+        isActiveUser: boolean
+        activityLevel: "low" | "medium" | "high"
+    } {
+        const now = new Date()
+        const daysSinceCreation = Math.floor(
+            (now.getTime() - this._createdAt.getTime()) / (1000 * 60 * 60 * 24)
+        )
+
+        const isNewUser = daysSinceCreation <= 7
+        const isActiveUser = this.isActiveByMetrics(30)
+        
+        let activityLevel: "low" | "medium" | "high" = "low"
+        if (this._metrics) {
+            const totalActions = this._metrics.totalMomentsCreated + this._metrics.totalMemoriesCreated
+            if (totalActions > 50) activityLevel = "high"
+            else if (totalActions > 10) activityLevel = "medium"
+        }
+
+        return {
+            daysSinceCreation,
+            isNewUser,
+            isActiveUser,
+            activityLevel,
+        }
     }
 
     // Métodos privados de validação
