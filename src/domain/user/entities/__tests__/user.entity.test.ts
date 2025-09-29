@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import { Level } from "../../../authorization/authorization.type"
-import { UserProps } from "../../types/user.type"
 import { User } from "../user.entity"
+import { UserMetrics } from "../user.metrics.entity"
+import { UserProps } from "../../types/user.type"
 
 // Mock do Encrypt
 vi.mock("../../../shared/encrypt", () => ({
@@ -464,7 +465,7 @@ describe("User Entity", () => {
                 createdAt: new Date(),
                 updatedAt: new Date(),
             })
-            
+
             expect(user.canMentionUsers()).toBe(true)
             expect(user.canBeMentioned()).toBe(true)
         })
@@ -495,7 +496,8 @@ describe("User Entity", () => {
         })
 
         it("deve atualizar métricas", () => {
-            const metrics = {
+            const metrics = new UserMetrics({
+                userId: user.id,
                 totalLikesReceived: 100,
                 totalViewsReceived: 500,
                 totalSharesReceived: 50,
@@ -510,11 +512,6 @@ describe("User Entity", () => {
                 totalFollowers: 150,
                 totalFollowing: 100,
                 totalRelations: 250,
-                daysActiveLast30: 25,
-                daysActiveLast7: 6,
-                lastActiveDate: new Date(),
-                currentStreakDays: 5,
-                longestStreakDays: 10,
                 engagementRate: 0.15,
                 reachRate: 0.8,
                 momentsPublishedGrowthRate30d: 0.1,
@@ -529,7 +526,7 @@ describe("User Entity", () => {
                 lastMetricsUpdate: new Date(),
                 createdAt: new Date(),
                 updatedAt: new Date(),
-            }
+            })
 
             user.updateMetrics(metrics)
             expect(user.metrics).toEqual(metrics)
