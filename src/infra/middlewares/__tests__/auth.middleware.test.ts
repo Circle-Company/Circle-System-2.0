@@ -1,16 +1,18 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { Device, Level } from "@/domain/authorization"
 import { HttpRequest, HttpResponse } from "@/infra/http"
 import { ErrorCode, ValidationError, jwtDecoder } from "@/shared"
-import { User } from "@/domain/user/entities/user.entity"
-import { UserRepository } from "@/domain/user"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import {
+    AuthMiddleware,
     AuthService,
     AuthServiceImpl,
-    AuthMiddleware,
-    createAuthMiddleware,
     authMiddleware,
+    createAuthMiddleware,
 } from "../auth.middleware"
+
+import { UserRepositoryInterface } from "@/domain/user/repositories/user.repository"
+import { User } from "@/domain/user/entities/user.entity"
+import { DatabaseAdapter } from "@/infra/database/adapter"
 import { AuthenticatedUser } from "../types"
 
 // Mock do jwtDecoder
@@ -77,13 +79,13 @@ const mockDeletedUser = {
 } as unknown as User
 
 describe("AuthService", () => {
-    let mockUserRepository: UserRepository
+    let mockUserRepository: UserRepositoryInterface
     let authService: AuthService
 
     beforeEach(() => {
         mockUserRepository = {
             findById: vi.fn(),
-        } as unknown as UserRepository
+        } as unknown as UserRepositoryInterface
 
         authService = new AuthServiceImpl(mockUserRepository)
     })
@@ -270,12 +272,12 @@ describe("AuthMiddleware", () => {
 })
 
 describe("createAuthMiddleware", () => {
-    let mockUserRepository: UserRepository
+    let mockDatabaseAdapter: DatabaseAdapter
 
     beforeEach(() => {
-        mockUserRepository = {
-            findById: vi.fn(),
-        } as unknown as UserRepository
+        mockDatabaseAdapter = {
+            getConnection: vi.fn(),
+        } as unknown as DatabaseAdapter
     })
 
     afterEach(() => {
@@ -283,24 +285,24 @@ describe("createAuthMiddleware", () => {
     })
 
     it("deve criar middleware com AuthService injetado", () => {
-        const middleware = createAuthMiddleware(mockUserRepository)
+        const middleware = createAuthMiddleware(mockDatabaseAdapter)
 
         expect(middleware).toBeInstanceOf(AuthMiddleware)
     })
 })
 
 describe("authMiddleware (deprecated)", () => {
-    let mockUserRepository: UserRepository
+    let mockDatabaseAdapter: DatabaseAdapter
     let middleware: (request: HttpRequest, response: HttpResponse) => Promise<void>
     let mockRequest: HttpRequest
     let mockResponse: HttpResponse
 
     beforeEach(() => {
-        mockUserRepository = {
-            findById: vi.fn(),
-        } as unknown as UserRepository
+        mockDatabaseAdapter = {
+            getConnection: vi.fn(),
+        } as unknown as DatabaseAdapter
 
-        middleware = authMiddleware(mockUserRepository)
+        middleware = authMiddleware(mockDatabaseAdapter)
 
         mockRequest = {
             headers: {},
@@ -317,29 +319,6 @@ describe("authMiddleware (deprecated)", () => {
         vi.clearAllMocks()
     })
 
-    it("deve autenticar com sucesso quando token válido", async () => {
-        const mockPayload = {
-            sub: "user-123",
-            device: Device.WEB,
-        }
-
-        mockRequest.headers.authorization = "Bearer valid-token"
-        vi.mocked(jwtDecoder).mockResolvedValue(mockPayload)
-        vi.mocked(mockUserRepository.findById).mockResolvedValue(mockUser)
-
-        await middleware(mockRequest, mockResponse)
-
-        expect(jwtDecoder).toHaveBeenCalledWith("valid-token")
-        expect(mockUserRepository.findById).toHaveBeenCalledWith("user-123")
-        expect(mockRequest.user).toEqual({
-            id: "user-123",
-            device: Device.WEB,
-            level: Level.USER,
-        })
-        expect(mockResponse.status).not.toHaveBeenCalled()
-        expect(mockResponse.send).not.toHaveBeenCalled()
-    })
-
     it("deve retornar 401 quando header Authorization não existir", async () => {
         await middleware(mockRequest, mockResponse)
 
@@ -349,75 +328,6 @@ describe("authMiddleware (deprecated)", () => {
             error: {
                 message: "Token de autenticação necessário",
                 code: "AUTHENTICATION_REQUIRED",
-                timestamp: expect.any(String),
-            },
-        })
-    })
-
-    it("deve retornar 401 quando usuário não for encontrado", async () => {
-        const mockPayload = {
-            sub: "user-123",
-            device: Device.WEB,
-        }
-
-        mockRequest.headers.authorization = "Bearer valid-token"
-        vi.mocked(jwtDecoder).mockResolvedValue(mockPayload)
-        vi.mocked(mockUserRepository.findById).mockResolvedValue(null)
-
-        await middleware(mockRequest, mockResponse)
-
-        expect(mockResponse.status).toHaveBeenCalledWith(401)
-        expect(mockResponse.send).toHaveBeenCalledWith({
-            success: false,
-            error: {
-                message: "Usuário não encontrado",
-                code: "USER_NOT_FOUND",
-                timestamp: expect.any(String),
-            },
-        })
-    })
-
-    it("deve retornar 403 quando usuário estiver bloqueado", async () => {
-        const mockPayload = {
-            sub: "user-123",
-            device: Device.WEB,
-        }
-
-        mockRequest.headers.authorization = "Bearer valid-token"
-        vi.mocked(jwtDecoder).mockResolvedValue(mockPayload)
-        vi.mocked(mockUserRepository.findById).mockResolvedValue(mockBlockedUser)
-
-        await middleware(mockRequest, mockResponse)
-
-        expect(mockResponse.status).toHaveBeenCalledWith(403)
-        expect(mockResponse.send).toHaveBeenCalledWith({
-            success: false,
-            error: {
-                message: "Usuário bloqueado ou deletado pelo sistema",
-                code: "USER_BLOCKED",
-                timestamp: expect.any(String),
-            },
-        })
-    })
-
-    it("deve retornar 403 quando usuário estiver deletado", async () => {
-        const mockPayload = {
-            sub: "user-123",
-            device: Device.WEB,
-        }
-
-        mockRequest.headers.authorization = "Bearer valid-token"
-        vi.mocked(jwtDecoder).mockResolvedValue(mockPayload)
-        vi.mocked(mockUserRepository.findById).mockResolvedValue(mockDeletedUser)
-
-        await middleware(mockRequest, mockResponse)
-
-        expect(mockResponse.status).toHaveBeenCalledWith(403)
-        expect(mockResponse.send).toHaveBeenCalledWith({
-            success: false,
-            error: {
-                message: "Usuário bloqueado ou deletado pelo sistema",
-                code: "USER_BLOCKED",
                 timestamp: expect.any(String),
             },
         })

@@ -2,7 +2,9 @@ import { Device, Level } from "@/domain/authorization"
 import { HttpRequest, HttpResponse } from "@/infra/http"
 import { ErrorCode, ValidationError, jwtDecoder } from "@/shared"
 
-import { UserRepository } from "@/domain/user"
+import { UserRepositoryInterface } from "@/domain/user/repositories/user.repository"
+import { UserRepositoryImpl } from "@/infra/repository.impl/user.repository.impl"
+import { DatabaseAdapter } from "@/infra/database/adapter"
 import { AuthenticatedUser } from "./types"
 
 /**
@@ -17,7 +19,7 @@ export interface AuthService {
  * Implementação do serviço de autenticação
  */
 export class AuthServiceImpl implements AuthService {
-    constructor(private userRepository: UserRepository) {}
+    constructor(private userRepository: UserRepositoryInterface) {}
 
     async authenticate(token: string): Promise<AuthenticatedUser> {
         // Decodificar e validar o JWT
@@ -115,18 +117,19 @@ export class AuthMiddleware {
 /**
  * Factory function para criar o middleware de autenticação
  */
-export function createAuthMiddleware(userRepository: UserRepository): AuthMiddleware {
+export function createAuthMiddleware(databaseAdapter: DatabaseAdapter): AuthMiddleware {
+    const userRepository: UserRepositoryInterface = new UserRepositoryImpl(databaseAdapter)
     const authService = new AuthServiceImpl(userRepository)
     return new AuthMiddleware(authService)
 }
 
 /**
  * Middleware de Autenticação - RouteHandler
- * 
+ *
  * @deprecated Use createAuthMiddleware instead for better dependency injection
  */
 export function authMiddleware(
-    userRepository: UserRepository
+    databaseAdapter: DatabaseAdapter,
 ): (request: HttpRequest, response: HttpResponse) => Promise<void> {
     return async (request: HttpRequest, response: HttpResponse): Promise<void> => {
         try {
@@ -145,9 +148,12 @@ export function authMiddleware(
             }
 
             const token = authHeader.substring(7) // Remove "Bearer "
-            
+
             // Decodificar e validar o JWT
             const payload = await jwtDecoder(token)
+
+            // Criar instância do repositório com o adapter
+            const userRepository = new UserRepositoryImpl(databaseAdapter)
             
             // Buscar usuário no banco de dados
             const user = await userRepository.findById(payload.sub)
