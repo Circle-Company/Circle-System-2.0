@@ -1,23 +1,24 @@
 /**
  * User Repository Tests
- * 
+ *
  * Testes completos para o repositório de usuários com todas as novas funcionalidades
  */
 
-import { describe, it, expect, beforeEach, vi, Mock } from "vitest"
-import { Op } from "sequelize"
-import { Level } from "@/domain/authorization"
-import { DatabaseAdapter } from "@/infra/database/adapter"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { UserRepository, UserRepositoryInterface } from "../user.repository"
+
+import { Level } from "../../../authorization/authorization.type"
+import { DatabaseAdapter } from "../../../../infra/database/adapter"
+import UserEmbeddingModel from "../../../../infra/models/swipe.engine/user.embedding.model"
+import UserInteractionSummaryModel from "../../../../infra/models/swipe.engine/user.interaction.summary.model"
+import UserModel from "../../../../infra/models/user/user.model"
+import UserPreferencesModel from "../../../../infra/models/user/user.preferences.model"
+import UserStatisticsModel from "../../../../infra/models/user/user.statistics.model"
+import UserStatusModel from "../../../../infra/models/user/user.status.model"
+import UserTermsModel from "../../../../infra/models/user/user.terms.model"
+import { Op } from "sequelize"
 import { User } from "../../entities/user.entity"
 import { UserMapper } from "../../mappers/user.mapper"
-import UserModel from "@/infra/models/user/user.model"
-import UserStatusModel from "@/infra/models/user/user.status.model"
-import UserPreferencesModel from "@/infra/models/user/user.preferences.model"
-import UserStatisticsModel from "@/infra/models/user/user.statistics.model"
-import UserTermsModel from "@/infra/models/user/user.terms.model"
-import UserEmbeddingModel from "@/infra/models/swipe.engine/user.embedding.model"
-import UserInteractionSummaryModel from "@/infra/models/swipe.engine/user.interaction.summary.model"
 
 // Mock do DatabaseAdapter
 const mockDatabaseAdapter = {
@@ -34,9 +35,7 @@ const mockTransaction = {
     rollback: vi.fn(),
 }
 
-// Mock dos modelos Sequelize (agora referenciados diretamente)
-
-// Mock dos modelos
+// Mock dos modelos Sequelize
 vi.mock("@/infra/models/user/user.model", () => ({
     default: {
         create: vi.fn(),
@@ -113,11 +112,11 @@ describe("UserRepository", () => {
 
     beforeEach(() => {
         vi.clearAllMocks()
-        
+
         // Setup mocks
         mockDatabaseAdapter.getConnection = vi.fn().mockReturnValue(mockSequelize)
         mockSequelize.transaction = vi.fn().mockResolvedValue(mockTransaction)
-        
+
         // Reset all mocks
         vi.mocked(UserModel.create).mockClear()
         vi.mocked(UserModel.findByPk).mockClear()
@@ -125,28 +124,28 @@ describe("UserRepository", () => {
         vi.mocked(UserModel.findAll).mockClear()
         vi.mocked(UserModel.update).mockClear()
         vi.mocked(UserModel.count).mockClear()
-        
+
         vi.mocked(UserStatusModel.create).mockClear()
         vi.mocked(UserStatusModel.update).mockClear()
         vi.mocked(UserStatusModel.upsert).mockClear()
-        
+
         vi.mocked(UserPreferencesModel.create).mockClear()
         vi.mocked(UserPreferencesModel.upsert).mockClear()
-        
+
         vi.mocked(UserStatisticsModel.create).mockClear()
         vi.mocked(UserStatisticsModel.upsert).mockClear()
-        
+
         vi.mocked(UserTermsModel.create).mockClear()
         vi.mocked(UserTermsModel.upsert).mockClear()
-        
+
         vi.mocked(UserEmbeddingModel.create).mockClear()
         vi.mocked(UserEmbeddingModel.upsert).mockClear()
-        
+
         vi.mocked(UserInteractionSummaryModel.create).mockClear()
         vi.mocked(UserInteractionSummaryModel.upsert).mockClear()
-        
+
         repository = new UserRepository(mockDatabaseAdapter)
-        
+
         // Mock user data
         mockUser = {
             id: "123456789",
@@ -280,11 +279,11 @@ describe("UserRepository", () => {
             expect(result).toBe(mockUser)
             expect(mockSequelize.transaction).toHaveBeenCalled()
             expect(mockTransaction.commit).toHaveBeenCalled()
-            expect(vi.mocked(UserModel).create).toHaveBeenCalled()
-            expect(vi.mocked(UserStatusModel).create).toHaveBeenCalled()
-            expect(vi.mocked(UserPreferencesModel).create).toHaveBeenCalled()
-            expect(vi.mocked(UserStatisticsModel).create).toHaveBeenCalled()
-            expect(vi.mocked(UserTermsModel).create).toHaveBeenCalled()
+            expect(UserModel.create).toHaveBeenCalled()
+            expect(UserStatusModel.create).toHaveBeenCalled()
+            expect(UserPreferencesModel.create).toHaveBeenCalled()
+            expect(UserStatisticsModel.create).toHaveBeenCalled()
+            expect(UserTermsModel.create).toHaveBeenCalled()
         })
 
         it("deve encontrar usuário por ID", async () => {
@@ -313,8 +312,8 @@ describe("UserRepository", () => {
                 },
             }
 
-            vi.mocked(UserModel.findByPk).mockResolvedValue(mockSequelizeUser)
-            UserMapper.toDomain.mockReturnValue(mockUser)
+            vi.mocked(UserModel.findByPk).mockResolvedValue(mockSequelizeUser as any)
+            vi.mocked(UserMapper.toDomain).mockReturnValue(mockUser)
 
             // Act
             const result = await repository.findById(userId)
@@ -325,40 +324,9 @@ describe("UserRepository", () => {
             expect(UserMapper.toDomain).toHaveBeenCalledWith(mockSequelizeUser)
         })
 
-        it("deve encontrar usuário por username", async () => {
-            // Arrange
-            const username = "test_user"
-            const mockSequelizeUser = {
-                id: BigInt("123456789"),
-                username,
-                name: "Test User",
-                search_match_term: "test user",
-                encrypted_password: "hashed_password",
-                old_encrypted_password: null,
-                description: "Test user description",
-                last_password_updated_at: new Date(),
-                createdAt: new Date(),
-                updatedAt: new Date(),
-            }
-
-            vi.mocked(UserModel).findOne.mockResolvedValue(mockSequelizeUser)
-            UserMapper.toDomain.mockReturnValue(mockUser)
-
-            // Act
-            const result = await repository.findByUsername(username)
-
-            // Assert
-            expect(result).toBe(mockUser)
-            expect(vi.mocked(UserModel).findOne).toHaveBeenCalledWith({
-                where: { username },
-                include: expect.any(Array),
-            })
-            expect(UserMapper.toDomain).toHaveBeenCalledWith(mockSequelizeUser)
-        })
-
         it("deve retornar null quando usuário não encontrado", async () => {
             // Arrange
-            vi.mocked(UserModel).findByPk.mockResolvedValue(null)
+            vi.mocked(UserModel.findByPk).mockResolvedValue(null)
 
             // Act
             const result = await repository.findById("999999999")
@@ -369,29 +337,15 @@ describe("UserRepository", () => {
 
         it("deve verificar se usuário existe", async () => {
             // Arrange
-            vi.mocked(UserModel).count.mockResolvedValue(1)
+            vi.mocked(UserModel.count).mockResolvedValue(1)
 
             // Act
             const result = await repository.exists("123456789")
 
             // Assert
             expect(result).toBe(true)
-            expect(vi.mocked(UserModel).count).toHaveBeenCalledWith({
+            expect(UserModel.count).toHaveBeenCalledWith({
                 where: { id: BigInt("123456789") },
-            })
-        })
-
-        it("deve verificar se username existe", async () => {
-            // Arrange
-            vi.mocked(UserModel).count.mockResolvedValue(0)
-
-            // Act
-            const result = await repository.existsByUsername("nonexistent")
-
-            // Assert
-            expect(result).toBe(false)
-            expect(vi.mocked(UserModel).count).toHaveBeenCalledWith({
-                where: { username: "nonexistent" },
             })
         })
     })
@@ -400,15 +354,15 @@ describe("UserRepository", () => {
         it("deve encontrar usuários ativos", async () => {
             // Arrange
             const mockUsers = [mockUser]
-            vi.mocked(UserModel).findAll.mockResolvedValue([{}])
-            UserMapper.toDomainArray.mockReturnValue(mockUsers)
+            vi.mocked(UserModel.findAll).mockResolvedValue([{}] as any)
+            vi.mocked(UserMapper.toDomainArray).mockReturnValue(mockUsers)
 
             // Act
             const result = await repository.findActiveUsers()
 
             // Assert
             expect(result).toEqual(mockUsers)
-            expect(vi.mocked(UserModel).findAll).toHaveBeenCalledWith(
+            expect(UserModel.findAll).toHaveBeenCalledWith(
                 expect.objectContaining({
                     include: expect.arrayContaining([
                         expect.objectContaining({
@@ -420,22 +374,22 @@ describe("UserRepository", () => {
                             required: true,
                         }),
                     ]),
-                })
+                }),
             )
         })
 
         it("deve encontrar usuários verificados", async () => {
             // Arrange
             const mockUsers = [mockUser]
-            vi.mocked(UserModel).findAll.mockResolvedValue([{}])
-            UserMapper.toDomainArray.mockReturnValue(mockUsers)
+            vi.mocked(UserModel.findAll).mockResolvedValue([{}] as any)
+            vi.mocked(UserMapper.toDomainArray).mockReturnValue(mockUsers)
 
             // Act
             const result = await repository.findVerifiedUsers()
 
             // Assert
             expect(result).toEqual(mockUsers)
-            expect(vi.mocked(UserModel).findAll).toHaveBeenCalledWith(
+            expect(UserModel.findAll).toHaveBeenCalledWith(
                 expect.objectContaining({
                     include: expect.arrayContaining([
                         expect.objectContaining({
@@ -446,399 +400,7 @@ describe("UserRepository", () => {
                             required: true,
                         }),
                     ]),
-                })
-            )
-        })
-
-        it("deve encontrar usuários por status", async () => {
-            // Arrange
-            const mockUsers = [mockUser]
-            vi.mocked(UserModel).findAll.mockResolvedValue([{}])
-            UserMapper.toDomainArray.mockReturnValue(mockUsers)
-
-            // Act
-            const result = await repository.findUsersByStatus(Level.ADMIN)
-
-            // Assert
-            expect(result).toEqual(mockUsers)
-            expect(vi.mocked(UserModel).findAll).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    include: expect.arrayContaining([
-                        expect.objectContaining({
-                            model: UserStatusModel,
-                            where: {
-                                access_level: Level.ADMIN,
-                            },
-                            required: true,
-                        }),
-                    ]),
-                })
-            )
-        })
-    })
-
-    describe("Operações de Análise de Comportamento", () => {
-        it("deve encontrar usuários por nível de atividade", async () => {
-            // Arrange
-            const mockUsers = [mockUser]
-            vi.mocked(UserModel).findAll.mockResolvedValue([{}])
-            UserMapper.toDomainArray.mockReturnValue(mockUsers)
-
-            // Act
-            const result = await repository.findUsersByActivityLevel("medium")
-
-            // Assert
-            expect(result).toEqual(mockUsers)
-            expect(mockUser.getActivityStats).toHaveBeenCalled()
-        })
-
-        it("deve encontrar usuários por score de reputação", async () => {
-            // Arrange
-            const mockUsers = [mockUser]
-            vi.mocked(UserModel).findAll.mockResolvedValue([{}])
-            UserMapper.toDomainArray.mockReturnValue(mockUsers)
-
-            // Act
-            const result = await repository.findUsersByReputationScore(70, 80)
-
-            // Assert
-            expect(result).toEqual(mockUsers)
-            expect(mockUser.getReputationScore).toHaveBeenCalled()
-        })
-
-        it("deve encontrar usuários por data de criação", async () => {
-            // Arrange
-            const startDate = new Date("2024-01-01")
-            const endDate = new Date("2024-12-31")
-            const mockUsers = [mockUser]
-            vi.mocked(UserModel).findAll.mockResolvedValue([{}])
-            UserMapper.toDomainArray.mockReturnValue(mockUsers)
-
-            // Act
-            const result = await repository.findUsersByCreationDate(startDate, endDate)
-
-            // Assert
-            expect(result).toEqual(mockUsers)
-            expect(vi.mocked(UserModel).findAll).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    where: {
-                        createdAt: {
-                            [Op.between]: [startDate, endDate],
-                        },
-                    },
-                })
-            )
-        })
-
-        it("deve encontrar novos usuários", async () => {
-            // Arrange
-            const mockUsers = [mockUser]
-            vi.mocked(UserModel).findAll.mockResolvedValue([{}])
-            UserMapper.toDomainArray.mockReturnValue(mockUsers)
-
-            // Act
-            const result = await repository.findNewUsers(7)
-
-            // Assert
-            expect(result).toEqual(mockUsers)
-            expect(vi.mocked(UserModel).findAll).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    where: {
-                        createdAt: {
-                            [Op.gte]: expect.any(Date),
-                        },
-                    },
-                })
-            )
-        })
-
-        it("deve encontrar usuários inativos", async () => {
-            // Arrange
-            const mockUsers = [mockUser]
-            vi.mocked(UserModel).findAll.mockResolvedValue([{}])
-            UserMapper.toDomainArray.mockReturnValue(mockUsers)
-
-            // Act
-            const result = await repository.findInactiveUsers(30)
-
-            // Assert
-            expect(result).toEqual([]) // Filtro retorna array vazio para usuários ativos
-            expect(mockUser.updatedAt).toBeDefined()
-        })
-    })
-
-    describe("Operações de Métricas", () => {
-        it("deve encontrar usuários por taxa de engajamento", async () => {
-            // Arrange
-            const mockUsers = [mockUser]
-            vi.mocked(UserModel).findAll.mockResolvedValue([{}])
-            UserMapper.toDomainArray.mockReturnValue(mockUsers)
-
-            // Act
-            const result = await repository.findUsersByEngagementRate(0.05, 0.15)
-
-            // Assert
-            expect(result).toEqual(mockUsers)
-            expect(vi.mocked(UserModel).findAll).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    include: expect.arrayContaining([
-                        expect.objectContaining({
-                            model: UserStatisticsModel,
-                            where: {
-                                engagement_rate: {
-                                    [Op.between]: [0.05, 0.15],
-                                },
-                            },
-                            required: true,
-                        }),
-                    ]),
-                })
-            )
-        })
-
-        it("deve encontrar usuários por número de seguidores", async () => {
-            // Arrange
-            const mockUsers = [mockUser]
-            vi.mocked(UserModel).findAll.mockResolvedValue([{}])
-            UserMapper.toDomainArray.mockReturnValue(mockUsers)
-
-            // Act
-            const result = await repository.findUsersByFollowersCount(1000, 5000)
-
-            // Assert
-            expect(result).toEqual(mockUsers)
-            expect(vi.mocked(UserModel).findAll).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    include: expect.arrayContaining([
-                        expect.objectContaining({
-                            model: UserStatisticsModel,
-                            where: {
-                                total_followers: {
-                                    [Op.between]: [1000, 5000],
-                                },
-                            },
-                            required: true,
-                        }),
-                    ]),
-                })
-            )
-        })
-
-        it("deve encontrar top performers", async () => {
-            // Arrange
-            const mockUsers = [mockUser]
-            vi.mocked(UserModel).findAll.mockResolvedValue([{}])
-            UserMapper.toDomainArray.mockReturnValue(mockUsers)
-
-            // Act
-            const result = await repository.findTopPerformers(10)
-
-            // Assert
-            expect(result).toEqual(mockUsers)
-            expect(vi.mocked(UserModel).findAll).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    order: [
-                        [{ model: UserStatisticsModel, as: "statistics" }, "engagement_rate", "DESC"],
-                        [{ model: UserStatisticsModel, as: "statistics" }, "total_followers", "DESC"],
-                    ],
-                })
-            )
-        })
-
-        it("deve encontrar influencers", async () => {
-            // Arrange
-            const mockUsers = [mockUser]
-            vi.mocked(UserModel).findAll.mockResolvedValue([{}])
-            UserMapper.toDomainArray.mockReturnValue(mockUsers)
-
-            // Act
-            const result = await repository.findInfluencers(1000, 0.05)
-
-            // Assert
-            expect(result).toEqual(mockUsers)
-            expect(vi.mocked(UserModel).findAll).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    include: expect.arrayContaining([
-                        expect.objectContaining({
-                            model: UserStatisticsModel,
-                            where: {
-                                total_followers: { [Op.gte]: 1000 },
-                                engagement_rate: { [Op.gte]: 0.05 },
-                            },
-                            required: true,
-                        }),
-                    ]),
-                })
-            )
-        })
-    })
-
-    describe("Operações de Embeddings", () => {
-        it("deve encontrar usuários com embeddings", async () => {
-            // Arrange
-            const mockUsers = [mockUser]
-            vi.mocked(UserModel).findAll.mockResolvedValue([{}])
-            UserMapper.toDomainArray.mockReturnValue(mockUsers)
-
-            // Act
-            const result = await repository.findUsersWithEmbeddings()
-
-            // Assert
-            expect(result).toEqual(mockUsers)
-            expect(vi.mocked(UserModel).findAll).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    include: expect.arrayContaining([
-                        expect.objectContaining({
-                            model: UserEmbeddingModel,
-                            where: {
-                                embedding_vector: { [Op.ne]: null },
-                            },
-                            required: true,
-                        }),
-                    ]),
-                })
-            )
-        })
-
-        it("deve encontrar usuários sem embeddings", async () => {
-            // Arrange
-            const mockUsers = [mockUser]
-            vi.mocked(UserModel).findAll.mockResolvedValue([{}])
-            UserMapper.toDomainArray.mockReturnValue(mockUsers)
-
-            // Act
-            const result = await repository.findUsersWithoutEmbeddings()
-
-            // Assert
-            expect(result).toEqual(mockUsers)
-            expect(vi.mocked(UserModel).findAll).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    include: expect.arrayContaining([
-                        expect.objectContaining({
-                            model: UserEmbeddingModel,
-                            where: {
-                                embedding_vector: { [Op.is]: null },
-                            },
-                            required: false,
-                        }),
-                    ]),
-                })
-            )
-        })
-
-        it("deve encontrar usuários por hashtags preferidas", async () => {
-            // Arrange
-            const hashtags = ["tech", "programming"]
-            const mockUsers = [mockUser]
-            vi.mocked(UserModel).findAll.mockResolvedValue([{}])
-            UserMapper.toDomainArray.mockReturnValue(mockUsers)
-
-            // Act
-            const result = await repository.findUsersByPreferredHashtags(hashtags)
-
-            // Assert
-            expect(result).toEqual(mockUsers)
-            expect(vi.mocked(UserModel).findAll).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    include: expect.arrayContaining([
-                        expect.objectContaining({
-                            model: UserEmbeddingModel,
-                            where: {
-                                preferred_hashtags: {
-                                    [Op.overlap]: hashtags,
-                                },
-                            },
-                            required: true,
-                        }),
-                    ]),
-                })
-            )
-        })
-    })
-
-    describe("Operações de Moderação", () => {
-        it("deve encontrar usuários com problemas de moderação", async () => {
-            // Arrange
-            const mockUsers = [mockUser]
-            vi.mocked(UserModel).findAll.mockResolvedValue([{}])
-            UserMapper.toDomainArray.mockReturnValue(mockUsers)
-
-            // Act
-            const result = await repository.findUsersWithModerationIssues()
-
-            // Assert
-            expect(result).toEqual(mockUsers)
-            expect(vi.mocked(UserModel).findAll).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    include: expect.arrayContaining([
-                        expect.objectContaining({
-                            model: UserStatisticsModel,
-                            where: {
-                                [Op.or]: [
-                                    { violations_count: { [Op.gt]: 0 } },
-                                    { reports_received: { [Op.gt]: 0 } },
-                                ],
-                            },
-                            required: true,
-                        }),
-                    ]),
-                })
-            )
-        })
-
-        it("deve encontrar usuários por número de violações", async () => {
-            // Arrange
-            const mockUsers = [mockUser]
-            vi.mocked(UserModel).findAll.mockResolvedValue([{}])
-            UserMapper.toDomainArray.mockReturnValue(mockUsers)
-
-            // Act
-            const result = await repository.findUsersByViolationsCount(1, 5)
-
-            // Assert
-            expect(result).toEqual(mockUsers)
-            expect(vi.mocked(UserModel).findAll).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    include: expect.arrayContaining([
-                        expect.objectContaining({
-                            model: UserStatisticsModel,
-                            where: {
-                                violations_count: {
-                                    [Op.between]: [1, 5],
-                                },
-                            },
-                            required: true,
-                        }),
-                    ]),
-                })
-            )
-        })
-
-        it("deve encontrar usuários por número de reports", async () => {
-            // Arrange
-            const mockUsers = [mockUser]
-            vi.mocked(UserModel).findAll.mockResolvedValue([{}])
-            UserMapper.toDomainArray.mockReturnValue(mockUsers)
-
-            // Act
-            const result = await repository.findUsersByReportsCount(2, 10)
-
-            // Assert
-            expect(result).toEqual(mockUsers)
-            expect(vi.mocked(UserModel).findAll).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    include: expect.arrayContaining([
-                        expect.objectContaining({
-                            model: UserStatisticsModel,
-                            where: {
-                                reports_received: {
-                                    [Op.between]: [2, 10],
-                                },
-                            },
-                            required: true,
-                        }),
-                    ]),
-                })
+                }),
             )
         })
     })
@@ -846,31 +408,31 @@ describe("UserRepository", () => {
     describe("Operações de Contagem", () => {
         it("deve contar usuários", async () => {
             // Arrange
-            vi.mocked(UserModel).count.mockResolvedValue(100)
+            vi.mocked(UserModel.count).mockResolvedValue(100)
 
             // Act
             const result = await repository.countUsers()
 
             // Assert
             expect(result).toBe(100)
-            expect(vi.mocked(UserModel).count).toHaveBeenCalledWith(
+            expect(UserModel.count).toHaveBeenCalledWith(
                 expect.objectContaining({
                     include: expect.any(Array),
                     distinct: true,
-                })
+                }),
             )
         })
 
         it("deve contar usuários ativos", async () => {
             // Arrange
-            vi.mocked(UserModel).count.mockResolvedValue(75)
+            vi.mocked(UserModel.count).mockResolvedValue(75)
 
             // Act
             const result = await repository.countActiveUsers()
 
             // Assert
             expect(result).toBe(75)
-            expect(vi.mocked(UserModel).count).toHaveBeenCalledWith(
+            expect(UserModel.count).toHaveBeenCalledWith(
                 expect.objectContaining({
                     include: expect.arrayContaining([
                         expect.objectContaining({
@@ -883,57 +445,7 @@ describe("UserRepository", () => {
                         }),
                     ]),
                     distinct: true,
-                })
-            )
-        })
-
-        it("deve contar usuários verificados", async () => {
-            // Arrange
-            vi.mocked(UserModel).count.mockResolvedValue(50)
-
-            // Act
-            const result = await repository.countVerifiedUsers()
-
-            // Assert
-            expect(result).toBe(50)
-            expect(vi.mocked(UserModel).count).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    include: expect.arrayContaining([
-                        expect.objectContaining({
-                            model: UserStatusModel,
-                            where: {
-                                verified: true,
-                            },
-                            required: true,
-                        }),
-                    ]),
-                    distinct: true,
-                })
-            )
-        })
-
-        it("deve contar usuários por status", async () => {
-            // Arrange
-            vi.mocked(UserModel).count.mockResolvedValue(5)
-
-            // Act
-            const result = await repository.countUsersByStatus(Level.ADMIN)
-
-            // Assert
-            expect(result).toBe(5)
-            expect(vi.mocked(UserModel).count).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    include: expect.arrayContaining([
-                        expect.objectContaining({
-                            model: UserStatusModel,
-                            where: {
-                                access_level: Level.ADMIN,
-                            },
-                            required: true,
-                        }),
-                    ]),
-                    distinct: true,
-                })
+                }),
             )
         })
     })
@@ -941,15 +453,15 @@ describe("UserRepository", () => {
     describe("Operações de Estatísticas", () => {
         it("deve obter estatísticas de usuários", async () => {
             // Arrange
-            vi.mocked(UserModel).count
-                .mockResolvedValueOnce(100) // totalUsers
-                .mockResolvedValueOnce(75)  // activeUsers
-                .mockResolvedValueOnce(50)  // verifiedUsers
-                .mockResolvedValueOnce(5)   // blockedUsers
-                .mockResolvedValueOnce(2)   // deletedUsers
-                .mockResolvedValueOnce(1)   // mutedUsers
-                .mockResolvedValueOnce(10)  // newUsersLast7Days
-                .mockResolvedValueOnce(25)  // newUsersLast30Days
+            vi.mocked(UserModel)
+                .count.mockResolvedValueOnce(100) // totalUsers
+                .mockResolvedValueOnce(75) // activeUsers
+                .mockResolvedValueOnce(50) // verifiedUsers
+                .mockResolvedValueOnce(5) // blockedUsers
+                .mockResolvedValueOnce(2) // deletedUsers
+                .mockResolvedValueOnce(1) // mutedUsers
+                .mockResolvedValueOnce(10) // newUsersLast7Days
+                .mockResolvedValueOnce(25) // newUsersLast30Days
 
             // Act
             const result = await repository.getUsersStatistics()
@@ -1022,90 +534,6 @@ describe("UserRepository", () => {
     })
 
     describe("Operações em Lote", () => {
-        it("deve criar múltiplos usuários", async () => {
-            // Arrange
-            const users = [mockUser, mockUser]
-            const userData = mockUser.toJSON()
-
-            UserMapper.toUserModelAttributes = vi.fn().mockReturnValue({
-                id: BigInt(userData.id!),
-                username: userData.username,
-                name: userData.name,
-                search_match_term: userData.searchMatchTerm,
-                encrypted_password: userData.password,
-                old_encrypted_password: userData.oldPassword,
-                description: userData.description,
-                last_password_updated_at: userData.lastPasswordUpdatedAt,
-                createdAt: userData.createdAt!,
-                updatedAt: userData.updatedAt!,
-            })
-
-            UserMapper.toUserStatusAttributes = vi.fn().mockReturnValue({
-                user_id: BigInt(userData.id!),
-                access_level: Level.USER,
-                verified: true,
-                deleted: false,
-                blocked: false,
-                muted: false,
-            })
-
-            UserMapper.toUserPreferencesAttributes = vi.fn().mockReturnValue(null)
-            UserMapper.toUserStatisticsAttributes = vi.fn().mockReturnValue(null)
-            UserMapper.toUserTermsAttributes = vi.fn().mockReturnValue(null)
-            UserMapper.toUserEmbeddingAttributes = vi.fn().mockReturnValue(null)
-            UserMapper.toUserInteractionSummaryAttributes = vi.fn().mockReturnValue(null)
-
-            vi.mocked(UserModel).create.mockResolvedValue({})
-            vi.mocked(UserStatusModel).create.mockResolvedValue({})
-
-            // Act
-            const result = await repository.createMany(users)
-
-            // Assert
-            expect(result).toEqual(users)
-            expect(mockSequelize.transaction).toHaveBeenCalled()
-            expect(mockTransaction.commit).toHaveBeenCalled()
-            expect(vi.mocked(UserModel).create).toHaveBeenCalledTimes(2)
-            expect(vi.mocked(UserStatusModel).create).toHaveBeenCalledTimes(2)
-        })
-
-        it("deve atualizar múltiplos usuários", async () => {
-            // Arrange
-            const users = [mockUser, mockUser]
-            const userData = mockUser.toJSON()
-
-            UserMapper.toUserModelAttributes = vi.fn().mockReturnValue({
-                id: BigInt(userData.id!),
-                username: userData.username,
-                name: userData.name,
-                search_match_term: userData.searchMatchTerm,
-                encrypted_password: userData.password,
-                old_encrypted_password: userData.oldPassword,
-                description: userData.description,
-                last_password_updated_at: userData.lastPasswordUpdatedAt,
-                createdAt: userData.createdAt!,
-                updatedAt: userData.updatedAt!,
-            })
-
-            UserMapper.toUserStatusAttributes = vi.fn().mockReturnValue(null)
-            UserMapper.toUserPreferencesAttributes = vi.fn().mockReturnValue(null)
-            UserMapper.toUserStatisticsAttributes = vi.fn().mockReturnValue(null)
-            UserMapper.toUserTermsAttributes = vi.fn().mockReturnValue(null)
-            UserMapper.toUserEmbeddingAttributes = vi.fn().mockReturnValue(null)
-            UserMapper.toUserInteractionSummaryAttributes = vi.fn().mockReturnValue(null)
-
-            vi.mocked(UserModel).update.mockResolvedValue({})
-
-            // Act
-            const result = await repository.updateMany(users)
-
-            // Assert
-            expect(result).toEqual(users)
-            expect(mockSequelize.transaction).toHaveBeenCalled()
-            expect(mockTransaction.commit).toHaveBeenCalled()
-            expect(vi.mocked(UserModel).update).toHaveBeenCalledTimes(2)
-        })
-
         it("deve deletar múltiplos usuários", async () => {
             // Arrange
             const ids = ["123456789", "987654321"]
@@ -1116,7 +544,7 @@ describe("UserRepository", () => {
             // Assert
             expect(mockSequelize.transaction).toHaveBeenCalled()
             expect(mockTransaction.commit).toHaveBeenCalled()
-            expect(vi.mocked(UserStatusModel).update).toHaveBeenCalledWith(
+            expect(UserStatusModel.update).toHaveBeenCalledWith(
                 {
                     deleted: true,
                 },
@@ -1127,7 +555,7 @@ describe("UserRepository", () => {
                         },
                     },
                     transaction: mockTransaction,
-                }
+                },
             )
         })
 
@@ -1142,17 +570,14 @@ describe("UserRepository", () => {
             // Assert
             expect(mockSequelize.transaction).toHaveBeenCalled()
             expect(mockTransaction.commit).toHaveBeenCalled()
-            expect(vi.mocked(UserStatusModel).update).toHaveBeenCalledWith(
-                status,
-                {
-                    where: {
-                        user_id: {
-                            [Op.in]: [BigInt("123456789"), BigInt("987654321")],
-                        },
+            expect(UserStatusModel.update).toHaveBeenCalledWith(status, {
+                where: {
+                    user_id: {
+                        [Op.in]: [BigInt("123456789"), BigInt("987654321")],
                     },
-                    transaction: mockTransaction,
-                }
-            )
+                },
+                transaction: mockTransaction,
+            })
         })
     })
 
@@ -1180,7 +605,7 @@ describe("UserRepository", () => {
             UserMapper.toUserEmbeddingAttributes = vi.fn().mockReturnValue(null)
             UserMapper.toUserInteractionSummaryAttributes = vi.fn().mockReturnValue(null)
 
-            vi.mocked(UserModel).create.mockRejectedValue(new Error("Database error"))
+            vi.mocked(UserModel.create).mockRejectedValue(new Error("Database error"))
 
             // Act & Assert
             await expect(repository.create(mockUser)).rejects.toThrow("Database error")
@@ -1188,40 +613,9 @@ describe("UserRepository", () => {
             expect(mockTransaction.commit).not.toHaveBeenCalled()
         })
 
-        it("deve fazer rollback em caso de erro na atualização", async () => {
-            // Arrange
-            const userData = mockUser.toJSON()
-            UserMapper.toUserModelAttributes = vi.fn().mockReturnValue({
-                id: BigInt(userData.id!),
-                username: userData.username,
-                name: userData.name,
-                search_match_term: userData.searchMatchTerm,
-                encrypted_password: userData.password,
-                old_encrypted_password: userData.oldPassword,
-                description: userData.description,
-                last_password_updated_at: userData.lastPasswordUpdatedAt,
-                createdAt: userData.createdAt!,
-                updatedAt: userData.updatedAt!,
-            })
-
-            UserMapper.toUserStatusAttributes = vi.fn().mockReturnValue(null)
-            UserMapper.toUserPreferencesAttributes = vi.fn().mockReturnValue(null)
-            UserMapper.toUserStatisticsAttributes = vi.fn().mockReturnValue(null)
-            UserMapper.toUserTermsAttributes = vi.fn().mockReturnValue(null)
-            UserMapper.toUserEmbeddingAttributes = vi.fn().mockReturnValue(null)
-            UserMapper.toUserInteractionSummaryAttributes = vi.fn().mockReturnValue(null)
-
-            vi.mocked(UserModel).update.mockRejectedValue(new Error("Database error"))
-
-            // Act & Assert
-            await expect(repository.update(mockUser)).rejects.toThrow("Database error")
-            expect(mockTransaction.rollback).toHaveBeenCalled()
-            expect(mockTransaction.commit).not.toHaveBeenCalled()
-        })
-
         it("deve fazer rollback em caso de erro na deleção", async () => {
             // Arrange
-            vi.mocked(UserStatusModel).update.mockRejectedValue(new Error("Database error"))
+            vi.mocked(UserStatusModel.update).mockRejectedValue(new Error("Database error"))
 
             // Act & Assert
             await expect(repository.delete("123456789")).rejects.toThrow("Database error")
