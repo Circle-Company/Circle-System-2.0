@@ -1,7 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { AuthLogRepository, AuthLogStatus, AuthLogType, Device } from "../../../domain/auth"
-import { UserRepository, UserRole, UserStatusEnum } from "../../../domain/user"
-import { InvalidCredentialsError, UserInactiveError } from "../../../shared/errors/auth.errors"
+import { IUserRepository, User, UserRole } from "../../../domain/user"
+import { SecurityRisk, SignStatus } from "../../../infra/models/auth/sign.logs.model"
+import {
+    InvalidCredentialsError,
+    SecurityRiskError,
+    UserInactiveError,
+} from "../../../shared/errors/auth.errors"
+import { ProcessSignRequest, ProcessSignRequestResponse } from "../process.sign.request"
 import { InputDto, SignInUseCase } from "../signin.use.case"
 
 // Mock do jwtEncoder
@@ -11,9 +17,10 @@ vi.mock("@/shared", () => ({
 
 describe("SignInUseCase", () => {
     let signInUseCase: SignInUseCase
-    let mockUserRepository: UserRepository
+    let mockUserRepository: IUserRepository
     let mockAuthLogRepository: AuthLogRepository
-    let mockUser: any
+    let mockProcessSignRequest: ProcessSignRequest
+    let mockUser: User
 
     beforeEach(() => {
         // Reset mocks
@@ -22,40 +29,75 @@ describe("SignInUseCase", () => {
         // Mock do usuário
         mockUser = {
             id: "123",
+            username: "test@example.com",
             name: "Test User",
             email: "test@example.com",
             password: "hashed-password",
-            role: UserRole.USER,
-            status: UserStatusEnum.ACTIVE,
+            status: { accessLevel: "user", blocked: false, deleted: false },
             validatePassword: vi.fn(),
-        }
+            recordLogin: vi.fn(),
+            shouldUpdatePassword: vi.fn().mockReturnValue(false),
+            isVerified: vi.fn().mockReturnValue(true),
+            get role() {
+                return this.status?.accessLevel || "user"
+            },
+        } as any
 
-        // Mock do UserRepository
+        // Mock do IUserRepository
         mockUserRepository = {
             save: vi.fn(),
             findById: vi.fn(),
             findByEmail: vi.fn(),
-            findAll: vi.fn(),
             update: vi.fn(),
-            delete: vi.fn(),
+            deleteUser: vi.fn(),
+            exists: vi.fn(),
             existsByEmail: vi.fn(),
+            followUser: vi.fn(),
+            unfollowUser: vi.fn(),
+            blockUser: vi.fn(),
+            unblockUser: vi.fn(),
+            isFollowing: vi.fn(),
+            isBlocked: vi.fn(),
+            getFollowers: vi.fn(),
+            getFollowing: vi.fn(),
+            getBlockedUsers: vi.fn(),
+            search: vi.fn(),
+            findByStatus: vi.fn(),
+            findByRole: vi.fn(),
+            countByStatus: vi.fn(),
+            countByRole: vi.fn(),
+            findMostActive: vi.fn(),
+            findTopByFollowers: vi.fn(),
         } as any
 
         // Mock do AuthLogRepository
         mockAuthLogRepository = {
             create: vi.fn(),
-            findByEmail: vi.fn(),
+            findByUsername: vi.fn(),
             findByIpAddress: vi.fn(),
-            countFailedAttemptsByEmail: vi.fn(),
+            countFailedAttemptsByUsername: vi.fn(),
             countFailedAttemptsByIp: vi.fn(),
+            findByDateRange: vi.fn(),
+            findBySecurityRisk: vi.fn(),
+            deleteOldLogs: vi.fn(),
+        } as any
+
+        // Mock do ProcessSignRequest
+        mockProcessSignRequest = {
+            setSignRequest: vi.fn(),
+            process: vi.fn(),
         } as any
 
         // Instanciar o use case
-        signInUseCase = new SignInUseCase(mockUserRepository, mockAuthLogRepository)
+        signInUseCase = new SignInUseCase(
+            mockUserRepository,
+            mockAuthLogRepository,
+            mockProcessSignRequest,
+        )
     })
 
     describe("Login bem-sucedido", () => {
-        it("deve fazer login com credenciais válidas", async () => {
+        it("deve fazer login com credenciais válidas e atualizar propriedades do usuário", async () => {
             // Arrange
             const input: InputDto = {
                 email: "test@example.com",
@@ -69,6 +111,7 @@ describe("SignInUseCase", () => {
 
             vi.mocked(mockUserRepository.findByEmail).mockResolvedValue(mockUser)
             vi.mocked(mockUser.validatePassword).mockResolvedValue(true)
+            vi.mocked(mockUserRepository.update).mockResolvedValue(mockUser)
 
             // Act
             const result = await signInUseCase.execute(input)
@@ -79,22 +122,35 @@ describe("SignInUseCase", () => {
                 expiresIn: 3600,
                 user: {
                     id: "123",
+                    username: "test@example.com",
                     name: "Test User",
                     email: "test@example.com",
                     role: UserRole.USER,
-                    status: UserStatusEnum.ACTIVE,
+                    status: "active",
+                    lastLogin: expect.any(Date),
+                    needsPasswordUpdate: false,
                 },
             })
 
             expect(mockUserRepository.findByEmail).toHaveBeenCalledWith("test@example.com")
             expect(mockUser.validatePassword).toHaveBeenCalledWith("password123")
+            expect(mockUser.recordLogin).toHaveBeenCalledWith({
+                device: Device.WEB,
+                ipAddress: "192.168.1.1",
+                userAgent: "Mozilla/5.0",
+            })
+            expect(mockUserRepository.update).toHaveBeenCalledWith(mockUser)
             expect(vi.mocked(mockAuthLogRepository.create)).toHaveBeenCalledWith({
-                email: "test@example.com",
+                username: "test@example.com",
                 ipAddress: "192.168.1.1",
                 userAgent: "Mozilla/5.0",
                 type: AuthLogType.SIGNIN,
                 status: AuthLogStatus.SUCCESS,
+                failureReason: "Login successful",
                 deviceType: Device.WEB,
+                deviceId: "unknown",
+                deviceTimezone: "UTC",
+                createdAt: expect.any(Date),
             })
         })
 
@@ -102,8 +158,11 @@ describe("SignInUseCase", () => {
             // Arrange
             const superAdminUser = {
                 ...mockUser,
-                role: UserRole.SUPER_ADMIN,
-            }
+                status: { accessLevel: "sudo", blocked: false, deleted: false },
+                get role() {
+                    return this.status?.accessLevel || "user"
+                },
+            } as any
 
             const input: InputDto = {
                 email: "admin@example.com",
@@ -112,13 +171,14 @@ describe("SignInUseCase", () => {
             }
 
             vi.mocked(mockUserRepository.findByEmail).mockResolvedValue(superAdminUser)
-            superAdminUser.validatePassword.mockResolvedValue(true)
+            vi.mocked(superAdminUser.validatePassword).mockResolvedValue(true)
+            vi.mocked(mockUserRepository.update).mockResolvedValue(superAdminUser)
 
             // Act
             const result = await signInUseCase.execute(input)
 
             // Assert
-            expect(result.user.role).toBe(UserRole.SUPER_ADMIN)
+            expect(result.user.role).toBe("sudo")
             expect(result.token).toBe("mock-jwt-token")
         })
     })
@@ -142,13 +202,16 @@ describe("SignInUseCase", () => {
             await expect(signInUseCase.execute(input)).rejects.toThrow(InvalidCredentialsError)
 
             expect(vi.mocked(mockAuthLogRepository.create)).toHaveBeenCalledWith({
-                email: "nonexistent@example.com",
+                username: "nonexistent@example.com",
                 ipAddress: "192.168.1.1",
                 userAgent: "Mozilla/5.0",
                 type: AuthLogType.SIGNIN,
                 status: AuthLogStatus.FAILED,
                 failureReason: "User not found",
                 deviceType: Device.WEB,
+                deviceId: "unknown",
+                deviceTimezone: "UTC",
+                createdAt: expect.any(Date),
             })
         })
 
@@ -171,13 +234,16 @@ describe("SignInUseCase", () => {
             await expect(signInUseCase.execute(input)).rejects.toThrow(InvalidCredentialsError)
 
             expect(vi.mocked(mockAuthLogRepository.create)).toHaveBeenCalledWith({
-                email: "test@example.com",
+                username: "test@example.com",
                 ipAddress: "192.168.1.1",
                 userAgent: "Mozilla/5.0",
                 type: AuthLogType.SIGNIN,
                 status: AuthLogStatus.FAILED,
                 failureReason: "Invalid password",
                 deviceType: Device.WEB,
+                deviceId: "unknown",
+                deviceTimezone: "UTC",
+                createdAt: expect.any(Date),
             })
         })
 
@@ -185,8 +251,8 @@ describe("SignInUseCase", () => {
             // Arrange
             const inactiveUser = {
                 ...mockUser,
-                status: UserStatusEnum.INACTIVE,
-            }
+                status: { blocked: true, deleted: false },
+            } as any
 
             const input: InputDto = {
                 email: "test@example.com",
@@ -205,14 +271,80 @@ describe("SignInUseCase", () => {
             await expect(signInUseCase.execute(input)).rejects.toThrow(UserInactiveError)
 
             expect(vi.mocked(mockAuthLogRepository.create)).toHaveBeenCalledWith({
-                email: "test@example.com",
+                username: "test@example.com",
                 ipAddress: "192.168.1.1",
                 userAgent: "Mozilla/5.0",
                 type: AuthLogType.SIGNIN,
                 status: AuthLogStatus.FAILED,
                 failureReason: "User inactive",
                 deviceType: Device.WEB,
+                deviceId: "unknown",
+                deviceTimezone: "UTC",
+                createdAt: expect.any(Date),
             })
+        })
+    })
+
+    describe("Atualização de propriedades do usuário", () => {
+        it("deve atualizar lastLogin e outras propriedades após login bem-sucedido", async () => {
+            // Arrange
+            const input: InputDto = {
+                email: "test@example.com",
+                password: "password123",
+                device: Device.MOBILE,
+                logContext: {
+                    ip: "192.168.1.100",
+                    userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X)",
+                },
+            }
+
+            const userWithPasswordUpdate = {
+                ...mockUser,
+                shouldUpdatePassword: vi.fn().mockReturnValue(true),
+            } as any
+
+            vi.mocked(mockUserRepository.findByEmail).mockResolvedValue(userWithPasswordUpdate)
+            vi.mocked(userWithPasswordUpdate.validatePassword).mockResolvedValue(true)
+            vi.mocked(mockUserRepository.update).mockResolvedValue(userWithPasswordUpdate)
+
+            // Act
+            const result = await signInUseCase.execute(input)
+
+            // Assert
+            expect(userWithPasswordUpdate.recordLogin).toHaveBeenCalledWith({
+                device: Device.MOBILE,
+                ipAddress: "192.168.1.100",
+                userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X)",
+            })
+
+            expect(mockUserRepository.update).toHaveBeenCalledWith(userWithPasswordUpdate)
+            expect(result.user.needsPasswordUpdate).toBe(true)
+            expect(result.user.lastLogin).toBeInstanceOf(Date)
+        })
+
+        it("deve verificar se senha precisa ser atualizada", async () => {
+            // Arrange
+            const input: InputDto = {
+                email: "test@example.com",
+                password: "password123",
+                device: Device.DESKTOP,
+            }
+
+            const userWithOldPassword = {
+                ...mockUser,
+                shouldUpdatePassword: vi.fn().mockReturnValue(true),
+            } as any
+
+            vi.mocked(mockUserRepository.findByEmail).mockResolvedValue(userWithOldPassword)
+            vi.mocked(userWithOldPassword.validatePassword).mockResolvedValue(true)
+            vi.mocked(mockUserRepository.update).mockResolvedValue(userWithOldPassword)
+
+            // Act
+            const result = await signInUseCase.execute(input)
+
+            // Assert
+            expect(userWithOldPassword.shouldUpdatePassword).toHaveBeenCalled()
+            expect(result.user.needsPasswordUpdate).toBe(true)
         })
     })
 
@@ -316,6 +448,182 @@ describe("SignInUseCase", () => {
 
             // Assert
             expect(mockUserRepository.findByEmail).toHaveBeenCalledWith("TEST@EXAMPLE.COM")
+        })
+    })
+
+    describe("Processamento de Segurança", () => {
+        it("deve processar solicitação com dados de segurança válidos", async () => {
+            // Arrange
+            const input: InputDto = {
+                email: "test@example.com",
+                password: "password123",
+                device: Device.WEB,
+                securityData: {
+                    ipAddress: "203.0.113.1",
+                    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                    machineId: "device123",
+                    timezone: "America/Sao_Paulo",
+                    latitude: -15.7801,
+                    longitude: -47.9292,
+                },
+            }
+
+            const securityResult: ProcessSignRequestResponse = {
+                success: true,
+                message: "Login approved successfully",
+                securityRisk: SecurityRisk.LOW,
+                status: SignStatus.APPROVED,
+                additionalData: {
+                    checks: [],
+                    timestamp: new Date().toISOString(),
+                },
+            }
+
+            vi.mocked(mockUserRepository.findByEmail).mockResolvedValue(mockUser)
+            vi.mocked(mockUser.validatePassword).mockResolvedValue(true)
+            vi.mocked(mockUserRepository.update).mockResolvedValue(mockUser)
+            vi.mocked(mockProcessSignRequest.setSignRequest).mockResolvedValue()
+            vi.mocked(mockProcessSignRequest.process).mockResolvedValue(securityResult)
+
+            // Act
+            const result = await signInUseCase.execute(input)
+
+            // Assert
+            expect(result.securityInfo).toBeDefined()
+            expect(result.securityInfo?.riskLevel).toBe(SecurityRisk.LOW)
+            expect(result.securityInfo?.status).toBe(SignStatus.APPROVED)
+            expect(mockProcessSignRequest.setSignRequest).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    username: "test@example.com",
+                    signType: "signin",
+                    ipAddress: "203.0.113.1",
+                    latitude: -15.7801,
+                    longitude: -47.9292,
+                }),
+            )
+            expect(mockProcessSignRequest.process).toHaveBeenCalled()
+        })
+
+        it("deve rejeitar solicitação com risco crítico de segurança", async () => {
+            // Arrange
+            const input: InputDto = {
+                email: "test@example.com",
+                password: "password123",
+                device: Device.WEB,
+                securityData: {
+                    ipAddress: "192.168.1.100", // IP suspeito
+                    userAgent: "curl/7.68.0", // User agent suspeito
+                    machineId: "device123",
+                    timezone: "UTC",
+                    latitude: 39.9042, // Beijing - localização bloqueada
+                    longitude: 116.4074,
+                },
+            }
+
+            const securityResult: ProcessSignRequestResponse = {
+                success: false,
+                message: "Login rejected due to security issues",
+                securityRisk: SecurityRisk.CRITICAL,
+                status: SignStatus.REJECTED,
+                reason: "Multiple critical security checks failed",
+                additionalData: {
+                    checks: [
+                        {
+                            risk: SecurityRisk.CRITICAL,
+                            reason: "Suspicious IP detected",
+                            weight: 3,
+                        },
+                        {
+                            risk: SecurityRisk.CRITICAL,
+                            reason: "Location completely blocked",
+                            weight: 10,
+                        },
+                    ],
+                    timestamp: new Date().toISOString(),
+                },
+            }
+
+            vi.mocked(mockProcessSignRequest.setSignRequest).mockResolvedValue()
+            vi.mocked(mockProcessSignRequest.process).mockResolvedValue(securityResult)
+
+            // Act & Assert
+            await expect(signInUseCase.execute(input)).rejects.toThrow(SecurityRiskError)
+            expect(mockProcessSignRequest.setSignRequest).toHaveBeenCalled()
+            expect(mockProcessSignRequest.process).toHaveBeenCalled()
+        })
+
+        it("deve permitir login com atividade suspeita mas com alerta", async () => {
+            // Arrange
+            const input: InputDto = {
+                email: "test@example.com",
+                password: "password123",
+                device: Device.WEB,
+                securityData: {
+                    ipAddress: "203.0.113.1",
+                    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                    machineId: "device123",
+                    timezone: "America/Sao_Paulo",
+                    latitude: -15.7801,
+                    longitude: -47.9292,
+                },
+            }
+
+            const securityResult: ProcessSignRequestResponse = {
+                success: true,
+                message: "Approved with minor security alerts",
+                securityRisk: SecurityRisk.MEDIUM,
+                status: SignStatus.APPROVED,
+                reason: "Approved with minor security alerts",
+                additionalData: {
+                    checks: [
+                        {
+                            risk: SecurityRisk.MEDIUM,
+                            reason: "Suspicious pattern in username",
+                            weight: 2,
+                        },
+                    ],
+                    timestamp: new Date().toISOString(),
+                },
+            }
+
+            vi.mocked(mockUserRepository.findByEmail).mockResolvedValue(mockUser)
+            vi.mocked(mockUser.validatePassword).mockResolvedValue(true)
+            vi.mocked(mockUserRepository.update).mockResolvedValue(mockUser)
+            vi.mocked(mockProcessSignRequest.setSignRequest).mockResolvedValue()
+            vi.mocked(mockProcessSignRequest.process).mockResolvedValue(securityResult)
+
+            // Act
+            const result = await signInUseCase.execute(input)
+
+            // Assert
+            expect(result.securityInfo).toBeDefined()
+            expect(result.securityInfo?.riskLevel).toBe(SecurityRisk.MEDIUM)
+            expect(result.securityInfo?.status).toBe(SignStatus.APPROVED)
+            expect(result.securityInfo?.message).toContain("minor security alerts")
+        })
+
+        it("deve funcionar sem dados de segurança quando ProcessSignRequest não está disponível", async () => {
+            // Arrange
+            const signInUseCaseWithoutSecurity = new SignInUseCase(
+                mockUserRepository,
+                mockAuthLogRepository,
+            )
+            const input: InputDto = {
+                email: "test@example.com",
+                password: "password123",
+                device: Device.WEB,
+            }
+
+            vi.mocked(mockUserRepository.findByEmail).mockResolvedValue(mockUser)
+            vi.mocked(mockUser.validatePassword).mockResolvedValue(true)
+            vi.mocked(mockUserRepository.update).mockResolvedValue(mockUser)
+
+            // Act
+            const result = await signInUseCaseWithoutSecurity.execute(input)
+
+            // Assert
+            expect(result.securityInfo).toBeUndefined()
+            expect(result.token).toBe("mock-jwt-token")
         })
     })
 })
