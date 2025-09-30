@@ -1,13 +1,13 @@
 import { BaseError, ErrorCode, ErrorType } from "./base"
 
 export class InvalidCredentialsError extends BaseError {
-    constructor(email?: string) {
+    constructor(message?: string, additionalContext?: any) {
         super({
-            message: "Invalid email or password",
+            message: message || "Credenciais inválidas",
             type: ErrorType.AUTHENTICATION,
             code: ErrorCode.INVALID_CREDENTIALS,
             action: "AUTHENTICATE_USER",
-            context: { additionalData: { email } },
+            context: { additionalData: additionalContext || {} },
             metadata: {
                 severity: "medium",
                 retryable: false,
@@ -187,5 +187,68 @@ export class SessionExpiredError extends BaseError {
 
     protected getHttpStatusCode(): number {
         return 401
+    }
+}
+
+export class UserAlreadyExistsError extends BaseError {
+    constructor(email: string) {
+        super({
+            message: `User with email ${email} already exists`,
+            type: ErrorType.VALIDATION,
+            code: ErrorCode.INVALID_INPUT,
+            action: "CREATE_USER",
+            context: { additionalData: { email } },
+            metadata: {
+                severity: "medium",
+                retryable: false,
+                logLevel: "warn",
+            },
+        })
+    }
+
+    protected getHttpStatusCode(): number {
+        return 409 // Conflict
+    }
+}
+
+export class SecurityRiskError extends BaseError {
+    constructor(reason: string, securityRisk: string) {
+        super({
+            message: `Security risk detected: ${reason}`,
+            type: ErrorType.SECURITY,
+            code: ErrorCode.SECURITY_VIOLATION,
+            action: "SECURITY_CHECK",
+            context: { additionalData: { reason, securityRisk } },
+            metadata: {
+                severity: "high",
+                retryable: false,
+                logLevel: "error",
+            },
+        })
+    }
+
+    protected getHttpStatusCode(): number {
+        return 403 // Forbidden
+    }
+}
+
+export class SuspiciousActivityError extends BaseError {
+    constructor(reason: string, additionalData?: any) {
+        super({
+            message: `Suspicious activity detected: ${reason}`,
+            type: ErrorType.SECURITY,
+            code: ErrorCode.SECURITY_VIOLATION,
+            action: "SECURITY_CHECK",
+            context: { additionalData: { reason, ...additionalData } },
+            metadata: {
+                severity: "high",
+                retryable: false,
+                logLevel: "warn",
+            },
+        })
+    }
+
+    protected getHttpStatusCode(): number {
+        return 403 // Forbidden
     }
 }
