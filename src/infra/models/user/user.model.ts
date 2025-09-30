@@ -74,9 +74,6 @@ export default class User extends Model<UserAttributes> implements UserAttribute
                     {
                         fields: ["search_match_term"],
                     },
-                    {
-                        fields: ["username"],
-                    },
                 ],
             },
         )
@@ -88,21 +85,9 @@ export default class User extends Model<UserAttributes> implements UserAttribute
     static async ensureFullTextIndex(sequelize: Sequelize) {
         try {
             // Verifica se os índices FULLTEXT já existem
-            const [usernameIndex] = await sequelize.query(
-                `SHOW INDEX FROM users WHERE Key_name = 'fulltext_index_username';`,
-            )
             const [searchTermIndex] = await sequelize.query(
                 `SHOW INDEX FROM users WHERE Key_name = 'fulltext_index_search_match_term';`,
             )
-
-            // Cria índice FULLTEXT para username se não existir
-            if ((usernameIndex as any[]).length === 0) {
-                await this.createFullTextIndexWithRetry(
-                    sequelize,
-                    "username",
-                    "fulltext_index_username",
-                )
-            }
 
             // Cria índice FULLTEXT para search_match_term se não existir
             if ((searchTermIndex as any[]).length === 0) {

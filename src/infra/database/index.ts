@@ -178,10 +178,12 @@ export class DatabaseManager {
      * Sincroniza modelos com o banco (apenas em desenvolvimento)
      */
     private async syncModels(): Promise<void> {
-        if (process.env.NODE_ENV === "development") {
-            logger.info("Sincronizando modelos com o banco")
-            await this.sequelize.sync({ alter: true })
-        }
+        // Desabilitar sync - usar apenas migrations para evitar conflitos de índices
+        logger.info("Sincronização de modelos desabilitada - usando migrations")
+        // if (process.env.NODE_ENV === "development") {
+        //     logger.info("Sincronizando modelos com o banco")
+        //     await this.sequelize.sync({ alter: true })
+        // }
     }
 
     /**

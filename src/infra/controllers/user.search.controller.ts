@@ -6,8 +6,9 @@ import {
     SearchUsersRequest,
     SearchUsersUseCase,
 } from "@/application/user.search.engine/use.cases/search.users.use.case"
-import { SearchErrorType } from "@/domain/user.search.engine/types"
 import { Request, Response } from "express"
+
+import { SearchErrorType } from "@/domain/user.search.engine/types"
 
 /**
  * User Search Controller

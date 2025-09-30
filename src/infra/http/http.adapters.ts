@@ -184,7 +184,12 @@ export class FastifyAdapter implements HttpAdapter {
         return async (request: FastifyRequest, reply: FastifyReply) => {
             const httpRequest = this.convertRequest(request)
             const httpResponse = this.convertResponse(reply)
-            await handler(httpRequest, httpResponse)
+            const result = await handler(httpRequest, httpResponse)
+
+            // Se o handler retornar algo, enviar como resposta
+            if (result !== undefined && result !== null && !reply.sent) {
+                return result
+            }
         }
     }
 

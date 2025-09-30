@@ -1,9 +1,10 @@
+import { SignInUseCase, SignUpUseCase } from "@/application/auth"
 import { DatabaseAdapter, DatabaseAdapterFactory } from "@/infra/database/adapter"
 
-import { SignInUseCase } from "@/application/auth"
 import { AuthLogRepository } from "@/domain/auth"
 import { UserRepository } from "@/domain/user"
 import { AuthController } from "@/infra/controllers/auth.controller"
+import { AuthHandlers } from "@/infra/http/handlers/auth.handlers"
 
 /**
  * Factory para criar instâncias do controller de autenticação
@@ -23,7 +24,9 @@ export class AuthFactory {
             const userRepository = new UserRepository(database)
             const authLogRepository = new AuthLogRepository(database)
             const signInUseCase = new SignInUseCase(userRepository, authLogRepository)
-            this.authController = new AuthController()
+            const signUpUseCase = new SignUpUseCase(userRepository, authLogRepository)
+            const authHandlers = new AuthHandlers(signInUseCase, signUpUseCase)
+            this.authController = new AuthController(authHandlers)
         }
         return this.authController
     }
