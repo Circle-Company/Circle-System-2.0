@@ -1,10 +1,11 @@
-import { describe, it, expect, beforeEach, vi } from "vitest"
-import { AdminBlockUserUseCase } from "../block.user.use.case"
-import { IUserRepository } from "@/domain/user/repositories/user.repository"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+
 import { User } from "@/domain/user/entities/user.entity"
+import { IUserRepository } from "@/domain/user/repositories/user.repository"
+import { ConflictError } from "@/shared/errors/conflict.error"
 import { NotFoundError } from "@/shared/errors/not.found.error"
 import { ValidationError } from "@/shared/errors/validation.error"
-import { ConflictError } from "@/shared/errors/conflict.error"
+import { AdminBlockUserUseCase } from "../block.user.use.case"
 
 describe("AdminBlockUserUseCase", () => {
     let adminBlockUserUseCase: AdminBlockUserUseCase
@@ -93,9 +94,9 @@ describe("AdminBlockUserUseCase", () => {
             mockUserRepository.findById.mockResolvedValue(null)
 
             // Act & Assert
-            await expect(adminBlockUserUseCase.execute({ userId, reason, adminId })).rejects.toThrow(
-                NotFoundError
-            )
+            await expect(
+                adminBlockUserUseCase.execute({ userId, reason, adminId }),
+            ).rejects.toThrow(NotFoundError)
             expect(mockUserRepository.findById).toHaveBeenCalledWith(userId)
             expect(mockUserRepository.update).not.toHaveBeenCalled()
         })
@@ -108,7 +109,7 @@ describe("AdminBlockUserUseCase", () => {
 
             // Act & Assert
             await expect(
-                adminBlockUserUseCase.execute({ userId: invalidUserId, reason, adminId })
+                adminBlockUserUseCase.execute({ userId: invalidUserId, reason, adminId }),
             ).rejects.toThrow(ValidationError)
             expect(mockUserRepository.findById).not.toHaveBeenCalled()
             expect(mockUserRepository.update).not.toHaveBeenCalled()
@@ -122,7 +123,7 @@ describe("AdminBlockUserUseCase", () => {
 
             // Act & Assert
             await expect(
-                adminBlockUserUseCase.execute({ userId, reason, adminId: invalidAdminId })
+                adminBlockUserUseCase.execute({ userId, reason, adminId: invalidAdminId }),
             ).rejects.toThrow(ValidationError)
             expect(mockUserRepository.findById).not.toHaveBeenCalled()
             expect(mockUserRepository.update).not.toHaveBeenCalled()
@@ -144,9 +145,9 @@ describe("AdminBlockUserUseCase", () => {
             mockUserRepository.findById.mockResolvedValue(user)
 
             // Act & Assert
-            await expect(adminBlockUserUseCase.execute({ userId, reason, adminId })).rejects.toThrow(
-                ConflictError
-            )
+            await expect(
+                adminBlockUserUseCase.execute({ userId, reason, adminId }),
+            ).rejects.toThrow(ConflictError)
             expect(mockUserRepository.findById).toHaveBeenCalledWith(userId)
             expect(mockUserRepository.update).not.toHaveBeenCalled()
         })
@@ -158,9 +159,9 @@ describe("AdminBlockUserUseCase", () => {
             const adminId = "admin-id"
 
             // Act & Assert
-            await expect(adminBlockUserUseCase.execute({ userId, reason, adminId })).rejects.toThrow(
-                ValidationError
-            )
+            await expect(
+                adminBlockUserUseCase.execute({ userId, reason, adminId }),
+            ).rejects.toThrow(ValidationError)
             expect(mockUserRepository.findById).not.toHaveBeenCalled()
             expect(mockUserRepository.update).not.toHaveBeenCalled()
         })
@@ -172,9 +173,9 @@ describe("AdminBlockUserUseCase", () => {
             const adminId = "admin-id"
 
             // Act & Assert
-            await expect(adminBlockUserUseCase.execute({ userId, reason, adminId })).rejects.toThrow(
-                ValidationError
-            )
+            await expect(
+                adminBlockUserUseCase.execute({ userId, reason, adminId }),
+            ).rejects.toThrow(ValidationError)
             expect(mockUserRepository.findById).not.toHaveBeenCalled()
             expect(mockUserRepository.update).not.toHaveBeenCalled()
         })

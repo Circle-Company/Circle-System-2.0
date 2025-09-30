@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { UserMetricsService, UserMetricsServiceConfig } from "../user.metrics.service"
+
 import { UserMetrics } from "../../../../domain/user/entities/user.metrics.entity"
 
 describe("UserMetricsService", () => {

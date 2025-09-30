@@ -6,6 +6,7 @@
  */
 
 import { IUserRepository, UserEntity, UserRole, UserStatusEnum } from "@/domain/user"
+
 import { UserService } from "../../services/user.service"
 
 export interface AdminListUsersRequest {
@@ -80,7 +81,7 @@ export class AdminListUsersUseCase {
 
             // Preparar filtros
             const filters = this.prepareFilters(request)
-            
+
             // Preparar opções de ordenação
             const sortBy = request.sortBy || "createdAt"
             const sortOrder = request.sortOrder || "desc"
@@ -99,7 +100,7 @@ export class AdminListUsersUseCase {
             )
 
             // Formatar usuários para resposta administrativa
-            const formattedUsers = result.users.map(user => this.formatUserForAdmin(user))
+            const formattedUsers = result.users.map((user) => this.formatUserForAdmin(user))
 
             return {
                 success: true,
@@ -130,7 +131,9 @@ export class AdminListUsersUseCase {
         }
     }
 
-    private async validateRequest(request: AdminListUsersRequest): Promise<{ isValid: boolean; error?: string }> {
+    private async validateRequest(
+        request: AdminListUsersRequest,
+    ): Promise<{ isValid: boolean; error?: string }> {
         // Validar paginação
         if (request.page && request.page < 1) {
             return {
@@ -193,10 +196,12 @@ export class AdminListUsersUseCase {
                 totalLikes: user.statistics?.totalLikes || 0,
                 totalComments: user.statistics?.totalComments || 0,
             },
-            subscription: user.subscription ? {
-                isActive: user.subscription.isActive || false,
-                plan: user.subscription.plan || "free",
-            } : undefined,
+            subscription: user.subscription
+                ? {
+                      isActive: user.subscription.isActive || false,
+                      plan: user.subscription.plan || "free",
+                  }
+                : undefined,
         }
     }
 }

@@ -6,6 +6,7 @@
  */
 
 import { IUserRepository, UserEntity, UserPreferences } from "@/domain/user"
+
 import { UserService } from "../services/user.service"
 
 export interface UpdateUserRequest {
@@ -79,7 +80,9 @@ export class UpdateUserUseCase {
         return userId === requestingUserId
     }
 
-    private async validateUpdates(updates: UpdateUserRequest["updates"]): Promise<{ isValid: boolean; error?: string }> {
+    private async validateUpdates(
+        updates: UpdateUserRequest["updates"],
+    ): Promise<{ isValid: boolean; error?: string }> {
         // Validar nome se fornecido
         if (updates.name !== undefined) {
             if (!updates.name || updates.name.trim().length < 2) {
@@ -124,27 +127,36 @@ export class UpdateUserUseCase {
         return { isValid: true }
     }
 
-    private validatePreferences(preferences: Partial<UserPreferences>): { isValid: boolean; error?: string } {
+    private validatePreferences(preferences: Partial<UserPreferences>): {
+        isValid: boolean
+        error?: string
+    } {
         // Validar configurações de notificação
         if (preferences.notifications) {
-            if (typeof preferences.notifications.email !== "boolean" &&
-                preferences.notifications.email !== undefined) {
+            if (
+                typeof preferences.notifications.email !== "boolean" &&
+                preferences.notifications.email !== undefined
+            ) {
                 return {
                     isValid: false,
                     error: "Configuração de email deve ser um booleano",
                 }
             }
 
-            if (typeof preferences.notifications.push !== "boolean" &&
-                preferences.notifications.push !== undefined) {
+            if (
+                typeof preferences.notifications.push !== "boolean" &&
+                preferences.notifications.push !== undefined
+            ) {
                 return {
                     isValid: false,
                     error: "Configuração de push deve ser um booleano",
                 }
             }
 
-            if (typeof preferences.notifications.marketing !== "boolean" &&
-                preferences.notifications.marketing !== undefined) {
+            if (
+                typeof preferences.notifications.marketing !== "boolean" &&
+                preferences.notifications.marketing !== undefined
+            ) {
                 return {
                     isValid: false,
                     error: "Configuração de marketing deve ser um booleano",
@@ -154,24 +166,30 @@ export class UpdateUserUseCase {
 
         // Validar configurações de privacidade
         if (preferences.privacy) {
-            if (preferences.privacy.profileVisibility &&
-                !["public", "private", "friends"].includes(preferences.privacy.profileVisibility)) {
+            if (
+                preferences.privacy.profileVisibility &&
+                !["public", "private", "friends"].includes(preferences.privacy.profileVisibility)
+            ) {
                 return {
                     isValid: false,
                     error: "Visibilidade do perfil deve ser 'public', 'private' ou 'friends'",
                 }
             }
 
-            if (typeof preferences.privacy.showEmail !== "boolean" &&
-                preferences.privacy.showEmail !== undefined) {
+            if (
+                typeof preferences.privacy.showEmail !== "boolean" &&
+                preferences.privacy.showEmail !== undefined
+            ) {
                 return {
                     isValid: false,
                     error: "Configuração de mostrar email deve ser um booleano",
                 }
             }
 
-            if (typeof preferences.privacy.showLocation !== "boolean" &&
-                preferences.privacy.showLocation !== undefined) {
+            if (
+                typeof preferences.privacy.showLocation !== "boolean" &&
+                preferences.privacy.showLocation !== undefined
+            ) {
                 return {
                     isValid: false,
                     error: "Configuração de mostrar localização deve ser um booleano",
@@ -181,24 +199,30 @@ export class UpdateUserUseCase {
 
         // Validar configurações de conteúdo
         if (preferences.content) {
-            if (typeof preferences.content.autoPlay !== "boolean" &&
-                preferences.content.autoPlay !== undefined) {
+            if (
+                typeof preferences.content.autoPlay !== "boolean" &&
+                preferences.content.autoPlay !== undefined
+            ) {
                 return {
                     isValid: false,
                     error: "Configuração de auto play deve ser um booleano",
                 }
             }
 
-            if (preferences.content.quality &&
-                !["low", "medium", "high"].includes(preferences.content.quality)) {
+            if (
+                preferences.content.quality &&
+                !["low", "medium", "high"].includes(preferences.content.quality)
+            ) {
                 return {
                     isValid: false,
                     error: "Qualidade deve ser 'low', 'medium' ou 'high'",
                 }
             }
 
-            if (typeof preferences.content.captions !== "boolean" &&
-                preferences.content.captions !== undefined) {
+            if (
+                typeof preferences.content.captions !== "boolean" &&
+                preferences.content.captions !== undefined
+            ) {
                 return {
                     isValid: false,
                     error: "Configuração de legendas deve ser um booleano",

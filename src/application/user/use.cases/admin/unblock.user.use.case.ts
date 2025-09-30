@@ -5,7 +5,8 @@
  * @version 1.0.0
  */
 
-import { IUserRepository, UserEntity, UserRole } from "@/domain/user"
+import { IUserRepository, UserRole } from "@/domain/user"
+
 import { UserService } from "../../services/user.service"
 
 export interface AdminUnblockUserRequest {
@@ -110,7 +111,9 @@ export class AdminUnblockUserUseCase {
         }
     }
 
-    private async validateRequest(request: AdminUnblockUserRequest): Promise<{ isValid: boolean; error?: string }> {
+    private async validateRequest(
+        request: AdminUnblockUserRequest,
+    ): Promise<{ isValid: boolean; error?: string }> {
         // Validar razão se fornecida
         if (request.reason && request.reason.length > 500) {
             return {
@@ -125,7 +128,11 @@ export class AdminUnblockUserUseCase {
     private async recordUnblockAction(request: AdminUnblockUserRequest): Promise<void> {
         try {
             // Aqui você pode implementar a lógica para registrar o desbloqueio
-            console.log(`Admin ${request.adminId} desbloqueou usuário ${request.userId}. Razão: ${request.reason || "Não especificada"}`)
+            console.log(
+                `Admin ${request.adminId} desbloqueou usuário ${request.userId}. Razão: ${
+                    request.reason || "Não especificada"
+                }`,
+            )
         } catch (error) {
             console.error("Erro ao registrar ação de desbloqueio:", error)
         }

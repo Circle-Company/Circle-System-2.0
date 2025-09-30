@@ -1,8 +1,8 @@
 // ===== USER APPLICATION EXPORTS =====
 
 // Services
-export * from "./services/user.service"
 export * from "./services/user.metrics.service"
+export * from "./services/user.service"
 
 // Use Cases
 export * from "./use.cases"
@@ -12,51 +12,27 @@ export * from "./use.cases/admin"
 
 // Tipos e Interfaces
 export type {
+    GrowthMetrics,
+    MetricsUpdateInput,
     UserMetricsEvent,
     UserMetricsServiceConfig,
-    MetricsUpdateInput,
-    GrowthMetrics,
 } from "./services/user.metrics.service"
 
-export type {
-    CreateUserInput,
-    CreateUserOutput,
-} from "./use.cases/create.user.use.case"
+export type { CreateUserInput, CreateUserOutput } from "./use.cases/create.user.use.case"
 
-export type {
-    GetUserInput,
-    GetUserOutput,
-} from "./use.cases/get.user.use.case"
+export type { GetUserInput, GetUserOutput } from "./use.cases/get.user.use.case"
 
-export type {
-    UpdateUserInput,
-    UpdateUserOutput,
-} from "./use.cases/update.user.use.case"
+export type { UpdateUserInput, UpdateUserOutput } from "./use.cases/update.user.use.case"
 
-export type {
-    DeleteUserInput,
-    DeleteUserOutput,
-} from "./use.cases/delete.user.use.case"
+export type { DeleteUserInput, DeleteUserOutput } from "./use.cases/delete.user.use.case"
 
-export type {
-    FollowUserInput,
-    FollowUserOutput,
-} from "./use.cases/follow.user.use.case"
+export type { FollowUserInput, FollowUserOutput } from "./use.cases/follow.user.use.case"
 
-export type {
-    UnfollowUserInput,
-    UnfollowUserOutput,
-} from "./use.cases/unfollow.user.use.case"
+export type { UnfollowUserInput, UnfollowUserOutput } from "./use.cases/unfollow.user.use.case"
 
-export type {
-    BlockUserInput,
-    BlockUserOutput,
-} from "./use.cases/block.user.use.case"
+export type { BlockUserInput, BlockUserOutput } from "./use.cases/block.user.use.case"
 
-export type {
-    UnblockUserInput,
-    UnblockUserOutput,
-} from "./use.cases/unblock.user.use.case"
+export type { UnblockUserInput, UnblockUserOutput } from "./use.cases/unblock.user.use.case"
 
 export type {
     GetUserFollowersInput,
@@ -68,10 +44,7 @@ export type {
     GetUserFollowingOutput,
 } from "./use.cases/get.user.following.use.case"
 
-export type {
-    SearchUsersInput,
-    SearchUsersOutput,
-} from "./use.cases/search.users.use.case"
+export type { SearchUsersInput, SearchUsersOutput } from "./use.cases/search.users.use.case"
 
 export type {
     GetUserMetricsInput,

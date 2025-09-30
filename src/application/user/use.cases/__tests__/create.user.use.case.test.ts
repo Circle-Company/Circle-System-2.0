@@ -1,11 +1,11 @@
-import { describe, it, expect, beforeEach, vi } from "vitest"
-import { CreateUserUseCase } from "../create.user.use.case"
-import { IUserRepository } from "@/domain/user/repositories/user.repository"
-import { IUserMetricsRepository } from "@/domain/user/repositories/user.metrics.repository"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+
 import { User } from "@/domain/user/entities/user.entity"
 import { UserMetrics } from "@/domain/user/entities/user.metrics.entity"
+import { IUserMetricsRepository } from "@/domain/user/repositories/user.metrics.repository"
+import { IUserRepository } from "@/domain/user/repositories/user.repository"
 import { ValidationError } from "@/shared/errors/validation.error"
-import { ConflictError } from "@/shared/errors/conflict.error"
+import { CreateUserUseCase } from "../create.user.use.case"
 
 describe("CreateUserUseCase", () => {
     let createUserUseCase: CreateUserUseCase

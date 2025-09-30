@@ -6,6 +6,7 @@
  */
 
 import { IUserRepository, UserEntity } from "@/domain/user"
+
 import { UserService } from "../services/user.service"
 
 export interface GetUserMetricsRequest {
@@ -201,14 +202,16 @@ export class GetUserMetricsUseCase {
                 reachScore: metrics.performance?.reachScore || 0,
                 trendingScore: metrics.performance?.trendingScore || 0,
             },
-            subscription: metrics.subscription ? {
-                isActive: metrics.subscription.isActive || false,
-                plan: metrics.subscription.plan || "free",
-                startDate: metrics.subscription.startDate,
-                endDate: metrics.subscription.endDate,
-                upgrades: metrics.subscription.upgrades || 0,
-                downgrades: metrics.subscription.downgrades || 0,
-            } : undefined,
+            subscription: metrics.subscription
+                ? {
+                      isActive: metrics.subscription.isActive || false,
+                      plan: metrics.subscription.plan || "free",
+                      startDate: metrics.subscription.startDate,
+                      endDate: metrics.subscription.endDate,
+                      upgrades: metrics.subscription.upgrades || 0,
+                      downgrades: metrics.subscription.downgrades || 0,
+                  }
+                : undefined,
             timeline: metrics.timeline || [],
         }
     }
@@ -256,14 +259,16 @@ export class GetUserMetricsUseCase {
                 reachScore: 0,
                 trendingScore: 0,
             },
-            subscription: user.subscription ? {
-                isActive: user.subscription.isActive || false,
-                plan: user.subscription.plan || "free",
-                startDate: user.subscription.startDate,
-                endDate: user.subscription.endDate,
-                upgrades: 0,
-                downgrades: 0,
-            } : undefined,
+            subscription: user.subscription
+                ? {
+                      isActive: user.subscription.isActive || false,
+                      plan: user.subscription.plan || "free",
+                      startDate: user.subscription.startDate,
+                      endDate: user.subscription.endDate,
+                      upgrades: 0,
+                      downgrades: 0,
+                  }
+                : undefined,
             timeline: [],
         }
     }

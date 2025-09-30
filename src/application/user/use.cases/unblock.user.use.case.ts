@@ -5,7 +5,7 @@
  * @version 1.0.0
  */
 
-import { IUserRepository, UserEntity } from "@/domain/user"
+import { IUserRepository } from "@/domain/user"
 import { UserService } from "../services/user.service"
 
 export interface UnblockUserRequest {
@@ -46,7 +46,10 @@ export class UnblockUserUseCase {
             }
 
             // Desbloquear usuário
-            const unblocked = await this.userService.unblockUser(request.userId, request.targetUserId)
+            const unblocked = await this.userService.unblockUser(
+                request.userId,
+                request.targetUserId,
+            )
             if (!unblocked) {
                 return {
                     success: false,
@@ -67,7 +70,9 @@ export class UnblockUserUseCase {
         }
     }
 
-    private async validateRequest(request: UnblockUserRequest): Promise<{ isValid: boolean; error?: string }> {
+    private async validateRequest(
+        request: UnblockUserRequest,
+    ): Promise<{ isValid: boolean; error?: string }> {
         // Verificar se o usuário está tentando desbloquear a si mesmo
         if (request.userId === request.targetUserId) {
             return {

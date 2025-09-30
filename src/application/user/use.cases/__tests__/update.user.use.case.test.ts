@@ -1,10 +1,11 @@
-import { describe, it, expect, beforeEach, vi } from "vitest"
-import { UpdateUserUseCase } from "../update.user.use.case"
-import { IUserRepository } from "@/domain/user/repositories/user.repository"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+
 import { User } from "@/domain/user/entities/user.entity"
+import { IUserRepository } from "@/domain/user/repositories/user.repository"
+import { ConflictError } from "@/shared/errors/conflict.error"
 import { NotFoundError } from "@/shared/errors/not.found.error"
 import { ValidationError } from "@/shared/errors/validation.error"
-import { ConflictError } from "@/shared/errors/conflict.error"
+import { UpdateUserUseCase } from "../update.user.use.case"
 
 describe("UpdateUserUseCase", () => {
     let updateUserUseCase: UpdateUserUseCase
@@ -129,7 +130,7 @@ describe("UpdateUserUseCase", () => {
 
             // Act & Assert
             await expect(updateUserUseCase.execute({ userId, ...updateData })).rejects.toThrow(
-                NotFoundError
+                NotFoundError,
             )
             expect(mockUserRepository.findById).toHaveBeenCalledWith(userId)
             expect(mockUserRepository.update).not.toHaveBeenCalled()
@@ -141,9 +142,9 @@ describe("UpdateUserUseCase", () => {
             const updateData = { firstName: "Updated" }
 
             // Act & Assert
-            await expect(updateUserUseCase.execute({ userId: invalidUserId, ...updateData })).rejects.toThrow(
-                ValidationError
-            )
+            await expect(
+                updateUserUseCase.execute({ userId: invalidUserId, ...updateData }),
+            ).rejects.toThrow(ValidationError)
             expect(mockUserRepository.findById).not.toHaveBeenCalled()
             expect(mockUserRepository.update).not.toHaveBeenCalled()
         })
@@ -154,9 +155,9 @@ describe("UpdateUserUseCase", () => {
             const invalidEmail = "invalid-email"
 
             // Act & Assert
-            await expect(updateUserUseCase.execute({ userId, email: invalidEmail })).rejects.toThrow(
-                ValidationError
-            )
+            await expect(
+                updateUserUseCase.execute({ userId, email: invalidEmail }),
+            ).rejects.toThrow(ValidationError)
             expect(mockUserRepository.findById).not.toHaveBeenCalled()
             expect(mockUserRepository.update).not.toHaveBeenCalled()
         })
@@ -167,9 +168,9 @@ describe("UpdateUserUseCase", () => {
             const invalidUsername = ""
 
             // Act & Assert
-            await expect(updateUserUseCase.execute({ userId, username: invalidUsername })).rejects.toThrow(
-                ValidationError
-            )
+            await expect(
+                updateUserUseCase.execute({ userId, username: invalidUsername }),
+            ).rejects.toThrow(ValidationError)
             expect(mockUserRepository.findById).not.toHaveBeenCalled()
             expect(mockUserRepository.update).not.toHaveBeenCalled()
         })
@@ -194,9 +195,9 @@ describe("UpdateUserUseCase", () => {
             mockUserRepository.findByEmail.mockResolvedValue(otherUser)
 
             // Act & Assert
-            await expect(updateUserUseCase.execute({ userId, email: existingEmail })).rejects.toThrow(
-                ConflictError
-            )
+            await expect(
+                updateUserUseCase.execute({ userId, email: existingEmail }),
+            ).rejects.toThrow(ConflictError)
             expect(mockUserRepository.findById).toHaveBeenCalledWith(userId)
             expect(mockUserRepository.findByEmail).toHaveBeenCalledWith(existingEmail)
             expect(mockUserRepository.update).not.toHaveBeenCalled()
@@ -222,9 +223,9 @@ describe("UpdateUserUseCase", () => {
             mockUserRepository.findByUsername.mockResolvedValue(otherUser)
 
             // Act & Assert
-            await expect(updateUserUseCase.execute({ userId, username: existingUsername })).rejects.toThrow(
-                ConflictError
-            )
+            await expect(
+                updateUserUseCase.execute({ userId, username: existingUsername }),
+            ).rejects.toThrow(ConflictError)
             expect(mockUserRepository.findById).toHaveBeenCalledWith(userId)
             expect(mockUserRepository.findByUsername).toHaveBeenCalledWith(existingUsername)
             expect(mockUserRepository.update).not.toHaveBeenCalled()

@@ -5,7 +5,8 @@
  * @version 1.0.0
  */
 
-import { IUserRepository, UserEntity, UserStatusEnum, UserRole } from "@/domain/user"
+import { IUserRepository, UserEntity, UserRole, UserStatusEnum } from "@/domain/user"
+
 import { UserService } from "../services/user.service"
 
 export interface SearchUsersRequest {
@@ -34,7 +35,14 @@ export interface SearchUsersRequest {
         }
     }
     sortBy?: {
-        field: "createdAt" | "updatedAt" | "lastActiveAt" | "followersCount" | "momentsCount" | "engagement" | "relevance"
+        field:
+            | "createdAt"
+            | "updatedAt"
+            | "lastActiveAt"
+            | "followersCount"
+            | "momentsCount"
+            | "engagement"
+            | "relevance"
         direction: "asc" | "desc"
     }
     pagination?: {
@@ -73,8 +81,11 @@ export class SearchUsersUseCase {
             }
 
             // Preparar filtros
-            const searchFilters = await this.prepareFilters(request.filters, request.requestingUserId)
-            
+            const searchFilters = await this.prepareFilters(
+                request.filters,
+                request.requestingUserId,
+            )
+
             // Preparar opções de ordenação
             const sortOptions = {
                 field: request.sortBy?.field || "relevance",
@@ -97,7 +108,10 @@ export class SearchUsersUseCase {
             )
 
             // Filtrar usuários que o usuário solicitante não pode ver
-            const filteredUsers = await this.filterVisibleUsers(result.users, request.requestingUserId)
+            const filteredUsers = await this.filterVisibleUsers(
+                result.users,
+                request.requestingUserId,
+            )
 
             return {
                 success: true,
@@ -117,7 +131,9 @@ export class SearchUsersUseCase {
         }
     }
 
-    private async validateRequest(request: SearchUsersRequest): Promise<{ isValid: boolean; error?: string }> {
+    private async validateRequest(
+        request: SearchUsersRequest,
+    ): Promise<{ isValid: boolean; error?: string }> {
         // Validar query
         if (!request.query || request.query.trim().length < 1) {
             return {
@@ -141,7 +157,10 @@ export class SearchUsersUseCase {
             }
         }
 
-        if (request.pagination?.limit && (request.pagination.limit < 1 || request.pagination.limit > 100)) {
+        if (
+            request.pagination?.limit &&
+            (request.pagination.limit < 1 || request.pagination.limit > 100)
+        ) {
             return {
                 isValid: false,
                 error: "Limite deve estar entre 1 e 100",
@@ -212,7 +231,10 @@ export class SearchUsersUseCase {
         return { isValid: true }
     }
 
-    private async prepareFilters(filters: SearchUsersRequest["filters"], requestingUserId?: string): Promise<any> {
+    private async prepareFilters(
+        filters: SearchUsersRequest["filters"],
+        requestingUserId?: string,
+    ): Promise<any> {
         const searchFilters: any = {}
 
         if (filters?.status) {
@@ -256,12 +278,13 @@ export class SearchUsersUseCase {
         return searchFilters
     }
 
-    private async filterVisibleUsers(users: UserEntity[], requestingUserId?: string): Promise<UserEntity[]> {
+    private async filterVisibleUsers(
+        users: UserEntity[],
+        requestingUserId?: string,
+    ): Promise<UserEntity[]> {
         if (!requestingUserId) {
             // Se não há usuário solicitante, mostrar apenas usuários públicos
-            return users.filter(user => 
-                user.preferences?.privacy?.profileVisibility === "public"
-            )
+            return users.filter((user) => user.preferences?.privacy?.profileVisibility === "public")
         }
 
         const visibleUsers: UserEntity[] = []
@@ -291,7 +314,7 @@ export class SearchUsersUseCase {
 
         // Verificar configurações de privacidade
         const visibility = user.preferences?.privacy?.profileVisibility || "public"
-        
+
         switch (visibility) {
             case "public":
                 return true

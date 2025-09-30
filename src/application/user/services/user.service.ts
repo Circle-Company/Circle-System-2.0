@@ -16,11 +16,12 @@
 import {
     IUserRepository,
     UserEntity,
-    UserStatusEnum,
-    UserRole,
     UserPreferences,
+    UserRole,
     UserStatistics,
+    UserStatusEnum,
 } from "@/domain/user"
+
 import { UserMetricsService } from "./user.metrics.service"
 
 // ===== INTERFACES DE DADOS =====
@@ -66,7 +67,13 @@ export interface UserSearchFilters {
 }
 
 export interface UserSortOptions {
-    field: "createdAt" | "updatedAt" | "lastActiveAt" | "followersCount" | "momentsCount" | "engagement"
+    field:
+        | "createdAt"
+        | "updatedAt"
+        | "lastActiveAt"
+        | "followersCount"
+        | "momentsCount"
+        | "engagement"
     direction: "asc" | "desc"
 }
 
@@ -88,7 +95,7 @@ export interface UserServiceConfig {
 }
 
 // ===== SERVIÇO PRINCIPAL DE USUÁRIO =====
-export class UserService {
+export class UserService implements IUserRepository {
     private config: UserServiceConfig
 
     constructor(
@@ -112,22 +119,26 @@ export class UserService {
     /**
      * Cria um novo usuário
      */
-    async createUser(data: CreateUserData): Promise<UserEntity> {
+    async createUser(data: CreateUserData): Promise<User> {
         try {
             if (this.config.enableValidation) {
                 await this.validateCreateData(data)
             }
 
-            const user = UserEntity.create({
+            const user = User.create({
+                username: data.email, // Usar email como username temporário
                 name: data.name,
-                email: data.email,
+                searchMatchTerm: `${data.name} ${data.email}`,
                 password: data.password,
-                profilePicture: data.profilePicture,
-                bio: data.bio,
-                preferences: data.preferences,
-                metadata: data.metadata,
-                role: this.config.defaultRole,
-                status: this.config.defaultStatus,
+                description: data.bio,
+                profilePicture: data.profilePicture
+                    ? {
+                          tinyResolution: data.profilePicture,
+                          fullhdResolution: data.profilePicture,
+                          createdAt: new Date(),
+                          updatedAt: new Date(),
+                      }
+                    : undefined,
             })
 
             const savedUser = await this.repository.save(user)
@@ -149,7 +160,7 @@ export class UserService {
     /**
      * Obtém usuário por ID
      */
-    async getUserById(id: string): Promise<UserEntity | null> {
+    async getUserById(id: string): Promise<User | null> {
         try {
             return await this.repository.findById(id)
         } catch (error) {
@@ -161,7 +172,7 @@ export class UserService {
     /**
      * Obtém usuário por email
      */
-    async getUserByEmail(email: string): Promise<UserEntity | null> {
+    async getUserByEmail(email: string): Promise<User | null> {
         try {
             return await this.repository.findByEmail(email)
         } catch (error) {
@@ -173,7 +184,7 @@ export class UserService {
     /**
      * Atualiza usuário
      */
-    async updateUser(id: string, data: UpdateUserData): Promise<UserEntity | null> {
+    async updateUser(id: string, data: UpdateUserData): Promise<User | null> {
         try {
             const user = await this.repository.findById(id)
             if (!user) {
@@ -245,7 +256,7 @@ export class UserService {
             }
 
             const result = await this.repository.blockUser(userId, blockedUserId)
-            
+
             if (result && this.config.enableMetrics) {
                 await this.metricsService.recordSocialActivity("block", userId, {
                     targetUserId: blockedUserId,
@@ -270,7 +281,7 @@ export class UserService {
             }
 
             const result = await this.repository.unblockUser(userId, unblockedUserId)
-            
+
             if (result && this.config.enableMetrics) {
                 await this.metricsService.recordSocialActivity("unblock", userId, {
                     targetUserId: unblockedUserId,
@@ -299,7 +310,7 @@ export class UserService {
             }
 
             const result = await this.repository.followUser(userId, targetUserId)
-            
+
             if (result && this.config.enableMetrics) {
                 await this.metricsService.recordSocialActivity("follow", userId, {
                     targetUserId,
@@ -324,7 +335,7 @@ export class UserService {
             }
 
             const result = await this.repository.unfollowUser(userId, targetUserId)
-            
+
             if (result && this.config.enableMetrics) {
                 await this.metricsService.recordSocialActivity("unfollow", userId, {
                     targetUserId,
@@ -366,7 +377,11 @@ export class UserService {
     /**
      * Obtém seguidores do usuário
      */
-    async getFollowers(userId: string, limit: number = 20, offset: number = 0): Promise<UserEntity[]> {
+    async getFollowers(
+        userId: string,
+        limit: number = 20,
+        offset: number = 0,
+    ): Promise<UserEntity[]> {
         try {
             return await this.repository.getFollowers(userId, limit, offset)
         } catch (error) {
@@ -378,7 +393,11 @@ export class UserService {
     /**
      * Obtém usuários seguidos
      */
-    async getFollowing(userId: string, limit: number = 20, offset: number = 0): Promise<UserEntity[]> {
+    async getFollowing(
+        userId: string,
+        limit: number = 20,
+        offset: number = 0,
+    ): Promise<UserEntity[]> {
         try {
             return await this.repository.getFollowing(userId, limit, offset)
         } catch (error) {
@@ -390,7 +409,11 @@ export class UserService {
     /**
      * Obtém usuários bloqueados
      */
-    async getBlockedUsers(userId: string, limit: number = 20, offset: number = 0): Promise<UserEntity[]> {
+    async getBlockedUsers(
+        userId: string,
+        limit: number = 20,
+        offset: number = 0,
+    ): Promise<UserEntity[]> {
         try {
             return await this.repository.getBlockedUsers(userId, limit, offset)
         } catch (error) {
@@ -402,7 +425,10 @@ export class UserService {
     /**
      * Atualiza preferências do usuário
      */
-    async updatePreferences(userId: string, preferences: Partial<UserPreferences>): Promise<UserEntity | null> {
+    async updatePreferences(
+        userId: string,
+        preferences: Partial<UserPreferences>,
+    ): Promise<UserEntity | null> {
         try {
             const user = await this.repository.findById(userId)
             if (!user) {
@@ -435,7 +461,10 @@ export class UserService {
     /**
      * Atualiza estatísticas do usuário
      */
-    async updateStatistics(userId: string, statistics: Partial<UserStatistics>): Promise<UserEntity | null> {
+    async updateStatistics(
+        userId: string,
+        statistics: Partial<UserStatistics>,
+    ): Promise<UserEntity | null> {
         try {
             const user = await this.repository.findById(userId)
             if (!user) {
@@ -556,7 +585,11 @@ export class UserService {
     /**
      * Obtém usuários por status
      */
-    async getUsersByStatus(status: UserStatusEnum, limit: number = 20, offset: number = 0): Promise<UserEntity[]> {
+    async getUsersByStatus(
+        status: UserStatusEnum,
+        limit: number = 20,
+        offset: number = 0,
+    ): Promise<UserEntity[]> {
         try {
             return await this.repository.findByStatus(status, limit, offset)
         } catch (error) {
@@ -568,7 +601,11 @@ export class UserService {
     /**
      * Obtém usuários por role
      */
-    async getUsersByRole(role: UserRole, limit: number = 20, offset: number = 0): Promise<UserEntity[]> {
+    async getUsersByRole(
+        role: UserRole,
+        limit: number = 20,
+        offset: number = 0,
+    ): Promise<UserEntity[]> {
         try {
             return await this.repository.findByRole(role, limit, offset)
         } catch (error) {
@@ -650,6 +687,87 @@ export class UserService {
             console.error("Erro ao obter top usuários por seguidores:", error)
             return []
         }
+    }
+
+    // ===== IMPLEMENTAÇÃO DA INTERFACE IUserRepository =====
+
+    async save(user: User): Promise<User> {
+        // Se o usuário já tem ID, atualizar
+        if (user.id) {
+            const updatedUser = await this.updateUser(user.id, {
+                name: user.name || "",
+                bio: user.description,
+                profilePicture: user.profilePicture,
+                preferences: user.preferences,
+                metadata: user.metadata,
+            })
+            if (!updatedUser) {
+                throw new Error("Erro ao atualizar usuário")
+            }
+            return updatedUser
+        }
+
+        // Caso contrário, criar novo usuário
+        return await this.createUser({
+            name: user.name || "",
+            email: user.email,
+            password: user.password,
+            profilePicture: user.profilePicture,
+            bio: user.description,
+            preferences: user.preferences,
+            metadata: user.metadata,
+        })
+    }
+
+    async findByEmail(email: string): Promise<User | null> {
+        return await this.getUserByEmail(email)
+    }
+
+    async findByUsername(username: string): Promise<User | null> {
+        try {
+            return await this.repository.findByUsername(username)
+        } catch (error) {
+            console.error("Erro ao obter usuário por username:", error)
+            return null
+        }
+    }
+
+    async exists(id: string): Promise<boolean> {
+        try {
+            const user = await this.repository.findById(id)
+            return user !== null
+        } catch (error) {
+            console.error("Erro ao verificar se usuário existe:", error)
+            return false
+        }
+    }
+
+    async existsByEmail(email: string): Promise<boolean> {
+        return await this.emailExists(email)
+    }
+
+    async findByStatus(status: any, limit: number = 20, offset: number = 0): Promise<User[]> {
+        return await this.getUsersByStatus(status, limit, offset)
+    }
+
+    async findByRole(role: any, limit: number = 20, offset: number = 0): Promise<User[]> {
+        return await this.getUsersByRole(role, limit, offset)
+    }
+
+    async countByStatus(status: any): Promise<number> {
+        return await this.countUsersByStatus(status)
+    }
+
+    async countByRole(role: any): Promise<number> {
+        return await this.countUsersByRole(role)
+    }
+
+    async findMostActive(limit: number = 10): Promise<User[]> {
+        return await this.getMostActiveUsers(limit)
+    }
+
+    async findTopByFollowers(limit: number = 10): Promise<User[]> {
+        return await this.getTopUsersByFollowers(limit)
     }
 
     // ===== MÉTODOS PRIVADOS =====

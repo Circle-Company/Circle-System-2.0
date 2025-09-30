@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeEach, vi } from "vitest"
-import { GetUserMetricsUseCase } from "../get.user.metrics.use.case"
-import { IUserMetricsRepository } from "@/domain/user/repositories/user.metrics.repository"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+
 import { UserMetrics } from "@/domain/user/entities/user.metrics.entity"
+import { IUserMetricsRepository } from "@/domain/user/repositories/user.metrics.repository"
 import { NotFoundError } from "@/shared/errors/not.found.error"
 import { ValidationError } from "@/shared/errors/validation.error"
+import { GetUserMetricsUseCase } from "../get.user.metrics.use.case"
 
 describe("GetUserMetricsUseCase", () => {
     let getUserMetricsUseCase: GetUserMetricsUseCase
@@ -57,7 +58,7 @@ describe("GetUserMetricsUseCase", () => {
 
             // Act & Assert
             await expect(getUserMetricsUseCase.execute({ userId: invalidUserId })).rejects.toThrow(
-                ValidationError
+                ValidationError,
             )
             expect(mockUserMetricsRepository.findByUserId).not.toHaveBeenCalled()
         })

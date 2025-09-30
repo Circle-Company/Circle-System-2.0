@@ -1,12 +1,13 @@
-import { describe, it, expect, beforeEach, vi } from "vitest"
-import { FollowUserUseCase } from "../follow.user.use.case"
-import { IUserRepository } from "@/domain/user/repositories/user.repository"
-import { IUserMetricsRepository } from "@/domain/user/repositories/user.metrics.repository"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+
 import { User } from "@/domain/user/entities/user.entity"
 import { UserMetrics } from "@/domain/user/entities/user.metrics.entity"
+import { IUserMetricsRepository } from "@/domain/user/repositories/user.metrics.repository"
+import { IUserRepository } from "@/domain/user/repositories/user.repository"
+import { ConflictError } from "@/shared/errors/conflict.error"
 import { NotFoundError } from "@/shared/errors/not.found.error"
 import { ValidationError } from "@/shared/errors/validation.error"
-import { ConflictError } from "@/shared/errors/conflict.error"
+import { FollowUserUseCase } from "../follow.user.use.case"
 
 describe("FollowUserUseCase", () => {
     let followUserUseCase: FollowUserUseCase
@@ -102,7 +103,7 @@ describe("FollowUserUseCase", () => {
 
             // Act & Assert
             await expect(followUserUseCase.execute({ followerId, followingId })).rejects.toThrow(
-                NotFoundError
+                NotFoundError,
             )
             expect(mockUserRepository.findById).toHaveBeenCalledWith(followerId)
             expect(mockUserRepository.findById).not.toHaveBeenCalledWith(followingId)
@@ -119,13 +120,11 @@ describe("FollowUserUseCase", () => {
                 password: "password123",
             })
 
-            mockUserRepository.findById
-                .mockResolvedValueOnce(follower)
-                .mockResolvedValueOnce(null)
+            mockUserRepository.findById.mockResolvedValueOnce(follower).mockResolvedValueOnce(null)
 
             // Act & Assert
             await expect(followUserUseCase.execute({ followerId, followingId })).rejects.toThrow(
-                NotFoundError
+                NotFoundError,
             )
             expect(mockUserRepository.findById).toHaveBeenCalledWith(followerId)
             expect(mockUserRepository.findById).toHaveBeenCalledWith(followingId)
@@ -136,9 +135,9 @@ describe("FollowUserUseCase", () => {
             const userId = "same-user-id"
 
             // Act & Assert
-            await expect(followUserUseCase.execute({ followerId: userId, followingId: userId })).rejects.toThrow(
-                ValidationError
-            )
+            await expect(
+                followUserUseCase.execute({ followerId: userId, followingId: userId }),
+            ).rejects.toThrow(ValidationError)
             expect(mockUserRepository.findById).not.toHaveBeenCalled()
         })
 
@@ -168,7 +167,7 @@ describe("FollowUserUseCase", () => {
 
             // Act & Assert
             await expect(followUserUseCase.execute({ followerId, followingId })).rejects.toThrow(
-                ConflictError
+                ConflictError,
             )
             expect(mockUserRepository.findById).toHaveBeenCalledWith(followerId)
             expect(mockUserRepository.findById).toHaveBeenCalledWith(followingId)
@@ -200,7 +199,7 @@ describe("FollowUserUseCase", () => {
 
             // Act & Assert
             await expect(followUserUseCase.execute({ followerId, followingId })).rejects.toThrow(
-                ValidationError
+                ValidationError,
             )
             expect(mockUserRepository.findById).toHaveBeenCalledWith(followerId)
             expect(mockUserRepository.findById).toHaveBeenCalledWith(followingId)

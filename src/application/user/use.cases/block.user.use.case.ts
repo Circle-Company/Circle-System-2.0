@@ -5,8 +5,7 @@
  * @version 1.0.0
  */
 
-import { IUserRepository, UserEntity } from "@/domain/user"
-import { UserService } from "../services/user.service"
+import { IUserRepository } from "@/domain/user"
 
 export interface BlockUserRequest {
     userId: string
@@ -20,10 +19,7 @@ export interface BlockUserResponse {
 }
 
 export class BlockUserUseCase {
-    constructor(
-        private readonly userRepository: IUserRepository,
-        private readonly userService: UserService,
-    ) {}
+    constructor(private readonly userRepository: IUserRepository) {}
 
     async execute(request: BlockUserRequest): Promise<BlockUserResponse> {
         try {
@@ -37,7 +33,10 @@ export class BlockUserUseCase {
             }
 
             // Verificar se já está bloqueado
-            const isAlreadyBlocked = await this.userService.isBlocked(request.userId, request.targetUserId)
+            const isAlreadyBlocked = await this.userRepository.isBlocked(
+                request.userId,
+                request.targetUserId,
+            )
             if (isAlreadyBlocked) {
                 return {
                     success: false,
@@ -46,7 +45,10 @@ export class BlockUserUseCase {
             }
 
             // Bloquear usuário
-            const blocked = await this.userService.blockUser(request.userId, request.targetUserId)
+            const blocked = await this.userRepository.blockUser(
+                request.userId,
+                request.targetUserId,
+            )
             if (!blocked) {
                 return {
                     success: false,
@@ -55,9 +57,12 @@ export class BlockUserUseCase {
             }
 
             // Se estava seguindo, parar de seguir automaticamente
-            const isFollowing = await this.userService.isFollowing(request.userId, request.targetUserId)
+            const isFollowing = await this.userRepository.isFollowing(
+                request.userId,
+                request.targetUserId,
+            )
             if (isFollowing) {
-                await this.userService.unfollowUser(request.userId, request.targetUserId)
+                await this.userRepository.unfollowUser(request.userId, request.targetUserId)
             }
 
             return {
@@ -73,7 +78,9 @@ export class BlockUserUseCase {
         }
     }
 
-    private async validateRequest(request: BlockUserRequest): Promise<{ isValid: boolean; error?: string }> {
+    private async validateRequest(
+        request: BlockUserRequest,
+    ): Promise<{ isValid: boolean; error?: string }> {
         // Verificar se o usuário está tentando bloquear a si mesmo
         if (request.userId === request.targetUserId) {
             return {
@@ -83,7 +90,7 @@ export class BlockUserUseCase {
         }
 
         // Verificar se o usuário existe
-        const user = await this.userService.getUserById(request.userId)
+        const user = await this.userRepository.findById(request.userId)
         if (!user) {
             return {
                 isValid: false,
@@ -92,7 +99,7 @@ export class BlockUserUseCase {
         }
 
         // Verificar se o usuário alvo existe
-        const targetUser = await this.userService.getUserById(request.targetUserId)
+        const targetUser = await this.userRepository.findById(request.targetUserId)
         if (!targetUser) {
             return {
                 isValid: false,
@@ -101,7 +108,7 @@ export class BlockUserUseCase {
         }
 
         // Verificar se o usuário está ativo
-        if (user.status !== "active") {
+        if (user.status?.blocked || user.status?.deleted) {
             return {
                 isValid: false,
                 error: "Usuário inativo não pode bloquear outros usuários",

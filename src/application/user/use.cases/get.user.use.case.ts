@@ -5,8 +5,7 @@
  * @version 1.0.0
  */
 
-import { IUserRepository, UserEntity } from "@/domain/user"
-import { UserService } from "../services/user.service"
+import { IUserRepository, User } from "@/domain/user"
 
 export interface GetUserRequest {
     userId: string
@@ -16,20 +15,17 @@ export interface GetUserRequest {
 
 export interface GetUserResponse {
     success: boolean
-    user?: UserEntity
+    user?: User
     error?: string
 }
 
 export class GetUserUseCase {
-    constructor(
-        private readonly userRepository: IUserRepository,
-        private readonly userService: UserService,
-    ) {}
+    constructor(private readonly userRepository: IUserRepository) {}
 
     async execute(request: GetUserRequest): Promise<GetUserResponse> {
         try {
             // Buscar usuário
-            const user = await this.userService.getUserById(request.userId)
+            const user = await this.userRepository.findById(request.userId)
             if (!user) {
                 return {
                     success: false,
@@ -46,20 +42,9 @@ export class GetUserUseCase {
                 }
             }
 
-            // Se incluir métricas, buscar dados adicionais
-            let userWithMetrics = user
-            if (request.includeMetrics && request.requestingUserId === request.userId) {
-                // Apenas o próprio usuário pode ver suas métricas
-                const metrics = await this.userService.getAggregatedMetrics([request.userId])
-                if (metrics) {
-                    // Adicionar métricas ao objeto do usuário se necessário
-                    userWithMetrics = { ...user, metrics } as UserEntity
-                }
-            }
-
             return {
                 success: true,
-                user: userWithMetrics,
+                user,
             }
         } catch (error: any) {
             console.error("Erro ao obter usuário:", error)
@@ -70,10 +55,10 @@ export class GetUserUseCase {
         }
     }
 
-    private async canViewUser(user: UserEntity, requestingUserId?: string): Promise<boolean> {
-        // Se não há usuário solicitante, verificar configurações de privacidade
+    private async canViewUser(user: User, requestingUserId?: string): Promise<boolean> {
+        // Se não há usuário solicitante, permitir acesso público
         if (!requestingUserId) {
-            return user.preferences?.privacy?.profileVisibility === "public"
+            return true
         }
 
         // Se é o próprio usuário, sempre pode ver
@@ -82,25 +67,13 @@ export class GetUserUseCase {
         }
 
         // Se o usuário está bloqueado, não pode ver
-        const isBlocked = await this.userService.isBlocked(requestingUserId, user.id)
+        const isBlocked = await this.userRepository.isBlocked(requestingUserId, user.id)
         if (isBlocked) {
             return false
         }
 
-        // Verificar configurações de privacidade
-        const visibility = user.preferences?.privacy?.profileVisibility || "public"
-        
-        switch (visibility) {
-            case "public":
-                return true
-            case "friends":
-                // Verificar se são amigos/seguindo
-                const isFollowing = await this.userService.isFollowing(requestingUserId, user.id)
-                return isFollowing
-            case "private":
-                return false
-            default:
-                return true
-        }
+        // Por enquanto, permitir acesso público
+        // TODO: Implementar verificação de privacidade quando necessário
+        return true
     }
 }

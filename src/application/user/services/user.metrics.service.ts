@@ -11,8 +11,8 @@
  * @version 1.0.0
  */
 
-import { IUserMetricsRepository } from "@/domain/user/repositories/user.metrics.repository"
 import { UserMetrics } from "@/domain/user/entities/user.metrics.entity"
+import { IUserMetricsRepository } from "@/domain/user/repositories/user.metrics.repository"
 
 // ===== INTERFACES DE EVENTOS =====
 export interface UserMetricsEvent {
@@ -382,11 +382,13 @@ export class UserMetricsService {
                 (acc, metric) => ({
                     totalLogins: acc.totalLogins + 1, // Assumindo 1 login por métrica
                     totalProfileViews: acc.totalProfileViews + (metric.totalViewsReceived || 0),
-                    totalMomentsCreated: acc.totalMomentsCreated + (metric.totalMomentsCreated || 0),
+                    totalMomentsCreated:
+                        acc.totalMomentsCreated + (metric.totalMomentsCreated || 0),
                     totalLikes: acc.totalLikes + (metric.totalLikesGiven || 0),
                     totalComments: acc.totalComments + (metric.totalCommentsGiven || 0),
                     averageEngagement: acc.averageEngagement + (metric.engagementRate || 0),
-                    averageSessionDuration: acc.averageSessionDuration + (metric.momentsPerDayAverage || 0),
+                    averageSessionDuration:
+                        acc.averageSessionDuration + (metric.momentsPerDayAverage || 0),
                     premiumUsers: acc.premiumUsers + 0, // Premium users não disponível nesta versão
                     activeUsers: acc.activeUsers + (metric.totalMomentsCreated > 0 ? 1 : 0),
                 }),
@@ -631,7 +633,8 @@ export class UserMetricsService {
     }
 
     private calculateActivityLevel(metrics: UserMetrics): string {
-        const totalActions = metrics.totalLikesGiven + metrics.totalCommentsGiven + metrics.totalSharesGiven
+        const totalActions =
+            metrics.totalLikesGiven + metrics.totalCommentsGiven + metrics.totalSharesGiven
         const daysSinceRegistration = this.getDaysSinceRegistration(metrics)
 
         if (totalActions / daysSinceRegistration > 5) return "high"
@@ -651,7 +654,8 @@ export class UserMetricsService {
     private analyzeSessionPatterns(metrics: UserMetrics): any {
         return {
             averageActivity: metrics.momentsPerDayAverage,
-            totalInteractions: metrics.totalLikesGiven + metrics.totalCommentsGiven + metrics.totalSharesGiven,
+            totalInteractions:
+                metrics.totalLikesGiven + metrics.totalCommentsGiven + metrics.totalSharesGiven,
             contentCreated: metrics.totalMomentsCreated,
         }
     }
@@ -659,8 +663,12 @@ export class UserMetricsService {
     private analyzeContentPreferences(metrics: UserMetrics): any {
         return {
             totalContent: metrics.totalMomentsCreated,
-            engagementReceived: metrics.totalLikesReceived + metrics.totalCommentsReceived + metrics.totalSharesReceived,
-            engagementGiven: metrics.totalLikesGiven + metrics.totalCommentsGiven + metrics.totalSharesGiven,
+            engagementReceived:
+                metrics.totalLikesReceived +
+                metrics.totalCommentsReceived +
+                metrics.totalSharesReceived,
+            engagementGiven:
+                metrics.totalLikesGiven + metrics.totalCommentsGiven + metrics.totalSharesGiven,
         }
     }
 

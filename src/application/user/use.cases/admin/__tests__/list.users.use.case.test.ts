@@ -1,8 +1,9 @@
-import { describe, it, expect, beforeEach, vi } from "vitest"
-import { AdminListUsersUseCase } from "../list.users.use.case"
-import { IUserRepository } from "@/domain/user/repositories/user.repository"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+
 import { User } from "@/domain/user/entities/user.entity"
+import { IUserRepository } from "@/domain/user/repositories/user.repository"
 import { ValidationError } from "@/shared/errors/validation.error"
+import { AdminListUsersUseCase } from "../list.users.use.case"
 
 describe("AdminListUsersUseCase", () => {
     let adminListUsersUseCase: AdminListUsersUseCase

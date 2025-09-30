@@ -6,6 +6,7 @@
  */
 
 import { IUserRepository, UserEntity, UserRole } from "@/domain/user"
+
 import { UserService } from "../../services/user.service"
 
 export interface AdminDeleteUserRequest {
@@ -119,7 +120,9 @@ export class AdminDeleteUserUseCase {
         return true
     }
 
-    private async validateRequest(request: AdminDeleteUserRequest): Promise<{ isValid: boolean; error?: string }> {
+    private async validateRequest(
+        request: AdminDeleteUserRequest,
+    ): Promise<{ isValid: boolean; error?: string }> {
         // Validar razão
         if (!request.reason || request.reason.trim().length < 5) {
             return {
@@ -141,7 +144,9 @@ export class AdminDeleteUserUseCase {
     private async recordDeleteAction(request: AdminDeleteUserRequest): Promise<void> {
         try {
             // Aqui você pode implementar a lógica para registrar a exclusão
-            console.log(`Admin ${request.adminId} deletou usuário ${request.userId}. Razão: ${request.reason}`)
+            console.log(
+                `Admin ${request.adminId} deletou usuário ${request.userId}. Razão: ${request.reason}`,
+            )
         } catch (error) {
             console.error("Erro ao registrar ação de exclusão:", error)
         }

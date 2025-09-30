@@ -5,8 +5,7 @@
  * @version 1.0.0
  */
 
-import { IUserRepository, UserEntity } from "@/domain/user"
-import { UserService } from "../services/user.service"
+import { IUserRepository } from "@/domain/user"
 
 export interface FollowUserRequest {
     userId: string
@@ -20,10 +19,7 @@ export interface FollowUserResponse {
 }
 
 export class FollowUserUseCase {
-    constructor(
-        private readonly userRepository: IUserRepository,
-        private readonly userService: UserService,
-    ) {}
+    constructor(private readonly userRepository: IUserRepository) {}
 
     async execute(request: FollowUserRequest): Promise<FollowUserResponse> {
         try {
@@ -37,7 +33,10 @@ export class FollowUserUseCase {
             }
 
             // Verificar se já está seguindo
-            const isAlreadyFollowing = await this.userService.isFollowing(request.userId, request.targetUserId)
+            const isAlreadyFollowing = await this.userRepository.isFollowing(
+                request.userId,
+                request.targetUserId,
+            )
             if (isAlreadyFollowing) {
                 return {
                     success: false,
@@ -46,7 +45,10 @@ export class FollowUserUseCase {
             }
 
             // Verificar se o usuário alvo bloqueou o usuário
-            const isBlocked = await this.userService.isBlocked(request.userId, request.targetUserId)
+            const isBlocked = await this.userRepository.isBlocked(
+                request.userId,
+                request.targetUserId,
+            )
             if (isBlocked) {
                 return {
                     success: false,
@@ -55,7 +57,10 @@ export class FollowUserUseCase {
             }
 
             // Seguir usuário
-            const followed = await this.userService.followUser(request.userId, request.targetUserId)
+            const followed = await this.userRepository.followUser(
+                request.userId,
+                request.targetUserId,
+            )
             if (!followed) {
                 return {
                     success: false,
@@ -76,7 +81,9 @@ export class FollowUserUseCase {
         }
     }
 
-    private async validateRequest(request: FollowUserRequest): Promise<{ isValid: boolean; error?: string }> {
+    private async validateRequest(
+        request: FollowUserRequest,
+    ): Promise<{ isValid: boolean; error?: string }> {
         // Verificar se o usuário está tentando seguir a si mesmo
         if (request.userId === request.targetUserId) {
             return {
@@ -86,7 +93,7 @@ export class FollowUserUseCase {
         }
 
         // Verificar se o usuário existe
-        const user = await this.userService.getUserById(request.userId)
+        const user = await this.userRepository.findById(request.userId)
         if (!user) {
             return {
                 isValid: false,
@@ -95,7 +102,7 @@ export class FollowUserUseCase {
         }
 
         // Verificar se o usuário alvo existe
-        const targetUser = await this.userService.getUserById(request.targetUserId)
+        const targetUser = await this.userRepository.findById(request.targetUserId)
         if (!targetUser) {
             return {
                 isValid: false,
@@ -104,7 +111,7 @@ export class FollowUserUseCase {
         }
 
         // Verificar se o usuário está ativo
-        if (user.status !== "active") {
+        if (user.status?.blocked || user.status?.deleted) {
             return {
                 isValid: false,
                 error: "Usuário inativo não pode seguir outros usuários",
@@ -112,7 +119,7 @@ export class FollowUserUseCase {
         }
 
         // Verificar se o usuário alvo está ativo
-        if (targetUser.status !== "active") {
+        if (targetUser.status?.blocked || targetUser.status?.deleted) {
             return {
                 isValid: false,
                 error: "Não é possível seguir um usuário inativo",

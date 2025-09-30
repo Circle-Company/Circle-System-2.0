@@ -1,16 +1,17 @@
 /**
  * Create User Use Case - Caso de uso para criação de usuário
  *
- * @author Circle System Team
+ * @author Circle Team
  * @version 1.0.0
  */
 
-import { IUserRepository, UserEntity } from "@/domain/user"
-import { UserService } from "../services/user.service"
+import { IUserRepository, User } from "@/domain/user"
+
+import { CircleText } from "circle-text-library"
 
 export interface CreateUserRequest {
     name: string
-    email: string
+    username: string
     password: string
     profilePicture?: string
     bio?: string
@@ -37,15 +38,12 @@ export interface CreateUserRequest {
 
 export interface CreateUserResponse {
     success: boolean
-    user?: UserEntity
+    user?: User
     error?: string
 }
 
 export class CreateUserUseCase {
-    constructor(
-        private readonly userRepository: IUserRepository,
-        private readonly userService: UserService,
-    ) {}
+    constructor(private readonly userRepository: IUserRepository) {}
 
     async execute(request: CreateUserRequest): Promise<CreateUserResponse> {
         try {
@@ -58,20 +56,28 @@ export class CreateUserUseCase {
                 }
             }
 
-            // Criar usuário usando o serviço
-            const user = await this.userService.createUser({
+            // Criar usuário usando o repositório
+            const user = new User({
+                username: request.username, // Usar email como username temporário
                 name: request.name,
-                email: request.email,
+                searchMatchTerm: `${request.name} ${request.username}`,
                 password: request.password,
-                profilePicture: request.profilePicture,
-                bio: request.bio,
-                preferences: request.preferences,
-                metadata: request.metadata,
+                description: request.bio,
+                profilePicture: request.profilePicture
+                    ? {
+                          tinyResolution: request.profilePicture,
+                          fullhdResolution: request.profilePicture,
+                          createdAt: new Date(),
+                          updatedAt: new Date(),
+                      }
+                    : undefined,
             })
+
+            const savedUser = await this.userRepository.save(user)
 
             return {
                 success: true,
-                user,
+                user: savedUser,
             }
         } catch (error: any) {
             console.error("Erro ao criar usuário:", error)
@@ -82,7 +88,9 @@ export class CreateUserUseCase {
         }
     }
 
-    private async validateRequest(request: CreateUserRequest): Promise<{ isValid: boolean; error?: string }> {
+    private async validateRequest(
+        request: CreateUserRequest,
+    ): Promise<{ isValid: boolean; error?: string }> {
         // Validar nome
         if (!request.name || request.name.trim().length < 2) {
             return {
@@ -98,20 +106,20 @@ export class CreateUserUseCase {
             }
         }
 
-        // Validar email
-        if (!request.email || !this.isValidEmail(request.email)) {
+        // Validar username
+        if (!request.username || !this.isValidUsername(request.username)) {
             return {
                 isValid: false,
-                error: "Email inválido",
+                error: "Username inválido",
             }
         }
 
         // Verificar se email já existe
-        const emailExists = await this.userService.emailExists(request.email)
-        if (emailExists) {
+        const usernameExists = await this.userRepository.existsByUsername(request.username)
+        if (usernameExists) {
             return {
                 isValid: false,
-                error: "Email já está em uso",
+                error: "Username já está em uso",
             }
         }
 
@@ -149,9 +157,9 @@ export class CreateUserUseCase {
         return { isValid: true }
     }
 
-    private isValidEmail(email: string): boolean {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-        return emailRegex.test(email)
+    private isValidUsername(username: string): boolean {
+        const circleTextLibrary = new CircleText()
+        return circleTextLibrary.validate.username(username).isValid
     }
 
     private isValidUrl(url: string): boolean {

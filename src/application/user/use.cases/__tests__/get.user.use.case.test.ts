@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeEach, vi } from "vitest"
-import { GetUserUseCase } from "../get.user.use.case"
-import { IUserRepository } from "@/domain/user/repositories/user.repository"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+
 import { User } from "@/domain/user/entities/user.entity"
+import { IUserRepository } from "@/domain/user/repositories/user.repository"
 import { NotFoundError } from "@/shared/errors/not.found.error"
 import { ValidationError } from "@/shared/errors/validation.error"
+import { GetUserUseCase } from "../get.user.use.case"
 
 describe("GetUserUseCase", () => {
     let getUserUseCase: GetUserUseCase
@@ -132,7 +133,7 @@ describe("GetUserUseCase", () => {
                 getUserUseCase.execute({
                     id: "user-id",
                     email: "test@example.com",
-                })
+                }),
             ).rejects.toThrow(ValidationError)
             expect(mockUserRepository.findById).not.toHaveBeenCalled()
             expect(mockUserRepository.findByEmail).not.toHaveBeenCalled()
@@ -145,7 +146,7 @@ describe("GetUserUseCase", () => {
 
             // Act & Assert
             await expect(getUserUseCase.execute({ email: invalidEmail })).rejects.toThrow(
-                ValidationError
+                ValidationError,
             )
             expect(mockUserRepository.findByEmail).not.toHaveBeenCalled()
         })
@@ -156,7 +157,7 @@ describe("GetUserUseCase", () => {
 
             // Act & Assert
             await expect(getUserUseCase.execute({ username: invalidUsername })).rejects.toThrow(
-                ValidationError
+                ValidationError,
             )
             expect(mockUserRepository.findByUsername).not.toHaveBeenCalled()
         })

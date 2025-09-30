@@ -1,8 +1,9 @@
-import { describe, it, expect, beforeEach, vi } from "vitest"
-import { SearchUsersUseCase } from "../search.users.use.case"
-import { IUserRepository } from "@/domain/user/repositories/user.repository"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+
 import { User } from "@/domain/user/entities/user.entity"
+import { IUserRepository } from "@/domain/user/repositories/user.repository"
 import { ValidationError } from "@/shared/errors/validation.error"
+import { SearchUsersUseCase } from "../search.users.use.case"
 
 describe("SearchUsersUseCase", () => {
     let searchUsersUseCase: SearchUsersUseCase
@@ -188,7 +189,9 @@ describe("SearchUsersUseCase", () => {
             }
 
             // Act & Assert
-            await expect(searchUsersUseCase.execute(searchCriteria)).rejects.toThrow(ValidationError)
+            await expect(searchUsersUseCase.execute(searchCriteria)).rejects.toThrow(
+                ValidationError,
+            )
             expect(mockUserRepository.findMany).not.toHaveBeenCalled()
         })
 
@@ -201,7 +204,9 @@ describe("SearchUsersUseCase", () => {
             }
 
             // Act & Assert
-            await expect(searchUsersUseCase.execute(searchCriteria)).rejects.toThrow(ValidationError)
+            await expect(searchUsersUseCase.execute(searchCriteria)).rejects.toThrow(
+                ValidationError,
+            )
             expect(mockUserRepository.findMany).not.toHaveBeenCalled()
         })
 
@@ -214,7 +219,9 @@ describe("SearchUsersUseCase", () => {
             }
 
             // Act & Assert
-            await expect(searchUsersUseCase.execute(searchCriteria)).rejects.toThrow(ValidationError)
+            await expect(searchUsersUseCase.execute(searchCriteria)).rejects.toThrow(
+                ValidationError,
+            )
             expect(mockUserRepository.findMany).not.toHaveBeenCalled()
         })
 

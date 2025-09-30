@@ -6,6 +6,7 @@
  */
 
 import { IUserRepository, UserEntity } from "@/domain/user"
+
 import { UserService } from "../services/user.service"
 
 export interface GetUserFollowingRequest {
@@ -77,7 +78,9 @@ export class GetUserFollowingUseCase {
         }
     }
 
-    private async validateRequest(request: GetUserFollowingRequest): Promise<{ isValid: boolean; error?: string }> {
+    private async validateRequest(
+        request: GetUserFollowingRequest,
+    ): Promise<{ isValid: boolean; error?: string }> {
         // Verificar se o usuário existe
         const user = await this.userService.getUserById(request.userId)
         if (!user) {
@@ -128,7 +131,7 @@ export class GetUserFollowingUseCase {
         if (!user) return false
 
         const visibility = user.preferences?.privacy?.profileVisibility || "public"
-        
+
         switch (visibility) {
             case "public":
                 return true

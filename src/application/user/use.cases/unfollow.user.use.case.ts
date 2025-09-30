@@ -5,7 +5,7 @@
  * @version 1.0.0
  */
 
-import { IUserRepository, UserEntity } from "@/domain/user"
+import { IUserRepository } from "@/domain/user"
 import { UserService } from "../services/user.service"
 
 export interface UnfollowUserRequest {
@@ -37,7 +37,10 @@ export class UnfollowUserUseCase {
             }
 
             // Verificar se está seguindo
-            const isFollowing = await this.userService.isFollowing(request.userId, request.targetUserId)
+            const isFollowing = await this.userService.isFollowing(
+                request.userId,
+                request.targetUserId,
+            )
             if (!isFollowing) {
                 return {
                     success: false,
@@ -46,7 +49,10 @@ export class UnfollowUserUseCase {
             }
 
             // Parar de seguir usuário
-            const unfollowed = await this.userService.unfollowUser(request.userId, request.targetUserId)
+            const unfollowed = await this.userService.unfollowUser(
+                request.userId,
+                request.targetUserId,
+            )
             if (!unfollowed) {
                 return {
                     success: false,
@@ -67,7 +73,9 @@ export class UnfollowUserUseCase {
         }
     }
 
-    private async validateRequest(request: UnfollowUserRequest): Promise<{ isValid: boolean; error?: string }> {
+    private async validateRequest(
+        request: UnfollowUserRequest,
+    ): Promise<{ isValid: boolean; error?: string }> {
         // Verificar se o usuário está tentando parar de seguir a si mesmo
         if (request.userId === request.targetUserId) {
             return {

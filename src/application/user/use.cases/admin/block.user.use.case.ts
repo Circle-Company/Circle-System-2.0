@@ -5,7 +5,8 @@
  * @version 1.0.0
  */
 
-import { IUserRepository, UserEntity, UserRole } from "@/domain/user"
+import { IUserRepository, UserRole } from "@/domain/user"
+
 import { UserService } from "../../services/user.service"
 
 export interface AdminBlockUserRequest {
@@ -72,7 +73,10 @@ export class AdminBlockUserUseCase {
             }
 
             // Bloquear usuário
-            const updatedUser = await this.userService.updateStatus(request.userId, "blocked" as any)
+            const updatedUser = await this.userService.updateStatus(
+                request.userId,
+                "blocked" as any,
+            )
             if (!updatedUser) {
                 return {
                     success: false,
@@ -91,7 +95,9 @@ export class AdminBlockUserUseCase {
                     blockedAt: new Date(),
                     blockedBy: request.adminId,
                     reason: request.reason,
-                    unblockAt: request.duration ? new Date(Date.now() + request.duration * 24 * 60 * 60 * 1000) : undefined,
+                    unblockAt: request.duration
+                        ? new Date(Date.now() + request.duration * 24 * 60 * 60 * 1000)
+                        : undefined,
                 },
             }
         } catch (error: any) {
@@ -113,7 +119,9 @@ export class AdminBlockUserUseCase {
         }
     }
 
-    private async validateRequest(request: AdminBlockUserRequest): Promise<{ isValid: boolean; error?: string }> {
+    private async validateRequest(
+        request: AdminBlockUserRequest,
+    ): Promise<{ isValid: boolean; error?: string }> {
         // Validar razão
         if (!request.reason || request.reason.trim().length < 5) {
             return {
@@ -152,7 +160,9 @@ export class AdminBlockUserUseCase {
         try {
             // Aqui você pode implementar a lógica para registrar o bloqueio
             // Por exemplo, salvar em uma tabela de histórico de ações administrativas
-            console.log(`Admin ${request.adminId} bloqueou usuário ${request.userId}. Razão: ${request.reason}`)
+            console.log(
+                `Admin ${request.adminId} bloqueou usuário ${request.userId}. Razão: ${request.reason}`,
+            )
         } catch (error) {
             console.error("Erro ao registrar ação de bloqueio:", error)
         }

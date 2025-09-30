@@ -5,7 +5,8 @@
  * @version 1.0.0
  */
 
-import { IUserRepository, UserEntity, UserRole } from "@/domain/user"
+import { IUserRepository, UserRole } from "@/domain/user"
+
 import { UserService } from "../services/user.service"
 
 export interface DeleteUserRequest {
@@ -59,7 +60,11 @@ export class DeleteUserUseCase {
             }
 
             if (deleted) {
-                console.log(`Usuário ${request.userId} ${request.permanent ? "deletado permanentemente" : "desativado"}. Razão: ${request.reason || "Não especificada"}`)
+                console.log(
+                    `Usuário ${request.userId} ${
+                        request.permanent ? "deletado permanentemente" : "desativado"
+                    }. Razão: ${request.reason || "Não especificada"}`,
+                )
             }
 
             return {
@@ -88,6 +93,8 @@ export class DeleteUserUseCase {
         }
 
         // Apenas admins podem deletar outros usuários
-        return requestingUser.role === UserRole.ADMIN || requestingUser.role === UserRole.SUPER_ADMIN
+        return (
+            requestingUser.role === UserRole.ADMIN || requestingUser.role === UserRole.SUPER_ADMIN
+        )
     }
 }
