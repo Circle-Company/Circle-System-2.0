@@ -1,15 +1,15 @@
-import { AuthLogStatus, AuthLogType } from "./auth.type"
-import { Op, literal } from "sequelize"
 import SignLog, {
     SecurityRisk,
     SignLogAttributes,
     SignStatus,
     SignType,
 } from "@/infra/models/auth/sign.logs.model"
+import { Op, literal } from "sequelize"
+import { AuthLogStatus, AuthLogType } from "./auth.type"
 
 import { DatabaseAdapter } from "@/infra/database/adapter"
-import { Device } from "@/domain/authorization"
 import { logger } from "@/shared"
+import { Device } from "./auth.type"
 
 export interface AuthLogData {
     username: string

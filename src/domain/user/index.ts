@@ -27,7 +27,7 @@ export type {
     UserMetricsSortOptions,
     UserMetricsStats,
 } from "./repositories/user.metrics.repository"
-export { UserRepository } from "./repositories/user.repository"
+export { IUserRepository, UserRepository } from "./repositories/user.repository"
 
 // Tipos
 export type {
@@ -37,11 +37,11 @@ export type {
     UserPreferences,
     UserProfilePicture,
     UserProps,
-    UserRole,
     UserStatus,
-    UserStatusEnum,
     UserTerms,
 } from "./types/user.type"
+
+export { UserRole, UserStatusEnum } from "./types/user.type"
 
 export type {
     ActivityMetrics,

@@ -22,12 +22,11 @@ export interface IUserRepository {
     // ===== OPERAÇÕES BÁSICAS =====
     save(user: User): Promise<User>
     findById(id: string): Promise<User | null>
-    findByEmail(email: string): Promise<User | null>
     findByUsername(username: string): Promise<User | null>
     update(user: User): Promise<User>
     deleteUser(id: string): Promise<boolean>
     exists(id: string): Promise<boolean>
-    existsByEmail(email: string): Promise<boolean>
+    existsByUsername(username: string): Promise<boolean>
 
     // ===== OPERAÇÕES SOCIAIS =====
     followUser(userId: string, targetUserId: string): Promise<boolean>

@@ -139,6 +139,10 @@ export class User {
         return this._updatedAt
     }
 
+    get role(): string {
+        return this._status?.accessLevel || "user"
+    }
+
     // Métodos de domínio
     public updateUsername(username: string): void {
         if (!username || username.trim().length < 3) {
@@ -161,16 +165,6 @@ export class User {
             throw new Error("Termo de busca deve ter pelo menos 2 caracteres")
         }
         this._searchMatchTerm = searchTerm.trim()
-        this._updatedAt = new Date()
-    }
-
-    public updatePassword(password: string): void {
-        if (!this.isValidPassword(password)) {
-            throw new Error("Senha deve ter pelo menos 8 caracteres")
-        }
-        this._oldPassword = this._password
-        this._password = password
-        this._lastPasswordUpdatedAt = new Date()
         this._updatedAt = new Date()
     }
 
@@ -539,6 +533,70 @@ export class User {
         }
 
         this._updatedAt = new Date()
+    }
+
+    /**
+     * Registra login do usuário - atualiza lastLogin e outras propriedades
+     */
+    public recordLogin(loginData?: {
+        device?: string
+        ipAddress?: string
+        userAgent?: string
+        location?: string
+    }): void {
+        // Atualizar timestamp de última atividade
+        this._updatedAt = new Date()
+
+        // Atualizar métricas se disponível
+        if (this._metrics) {
+            this._metrics.incrementActionMetrics({ likesGiven: 0 }) // Apenas para atualizar timestamp
+        }
+
+        // Atualizar embedding com dados de login se disponível
+        if (this._embedding && loginData) {
+            const metadata = {
+                ...this._embedding.metadata,
+                lastLogin: new Date().toISOString(),
+                lastLoginDevice: loginData.device,
+                lastLoginIp: loginData.ipAddress,
+                loginHistory: [
+                    ...(this._embedding.metadata?.loginHistory || []).slice(-9), // Manter últimos 10
+                    {
+                        timestamp: new Date().toISOString(),
+                        device: loginData.device,
+                        ip: loginData.ipAddress,
+                        location: loginData.location,
+                    },
+                ],
+            }
+
+            this._embedding.metadata = metadata
+            this._embedding.updatedAt = new Date()
+        }
+    }
+
+    /**
+     * Atualiza senha do usuário
+     */
+    public updatePassword(newPassword: string): void {
+        // Armazenar senha antiga
+        this._oldPassword = this._password
+        this._password = newPassword
+        this._lastPasswordUpdatedAt = new Date()
+        this._updatedAt = new Date()
+    }
+
+    /**
+     * Verifica se a senha precisa ser atualizada (política de segurança)
+     */
+    public shouldUpdatePassword(maxDays: number = 90): boolean {
+        if (!this._lastPasswordUpdatedAt) return true
+
+        const daysSinceUpdate = Math.floor(
+            (new Date().getTime() - this._lastPasswordUpdatedAt.getTime()) / (1000 * 60 * 60 * 24),
+        )
+
+        return daysSinceUpdate > maxDays
     }
 
     // ===== MÉTODOS DE COMPATIBILIDADE COM MOMENTS =====
