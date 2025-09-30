@@ -10,7 +10,7 @@ module.exports = {
                 allowNull: false,
             },
             post_id: {
-                type: Sequelize.STRING,
+                type: Sequelize.BIGINT,
                 allowNull: false,
                 references: {
                     model: "moments",
