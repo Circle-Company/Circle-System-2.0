@@ -73,7 +73,7 @@ if (process.env.NODE_ENV === "production") {
 const baseConfig = {
     define: {
         timestamps: true,
-        underscored: false, // Mudança: usar camelCase para timestamps
+        underscored: true, // Usar snake_case para timestamps (created_at, updated_at)
         paranoid: false,
         freezeTableName: true,
     },
