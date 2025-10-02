@@ -13,8 +13,8 @@ interface UserModelAttributes {
     old_encrypted_password: string | null
     description: string | null
     last_password_updated_at: Date | null
-    createdAt: Date
-    updatedAt: Date
+    created_at: Date
+    updated_at: Date
 }
 
 interface UserStatusModelAttributes {
@@ -24,8 +24,8 @@ interface UserStatusModelAttributes {
     deleted: boolean
     blocked: boolean
     muted: boolean
-    createdAt: Date
-    updatedAt: Date
+    created_at: Date
+    updated_at: Date
 }
 
 interface UserPreferencesModelAttributes {
@@ -45,8 +45,8 @@ interface UserPreferencesModelAttributes {
     disable_sugestions_push_notification: boolean
     disable_around_you_push_notification: boolean
     default_moment_visibility?: string
-    createdAt: Date
-    updatedAt: Date
+    created_at: Date
+    updated_at: Date
 }
 
 interface UserStatisticsModelAttributes {
@@ -82,8 +82,8 @@ interface UserStatisticsModelAttributes {
     reports_received: number
     violations_count: number
     last_metrics_update: Date
-    createdAt: Date
-    updatedAt: Date
+    created_at: Date
+    updated_at: Date
 }
 
 interface UserTermsModelAttributes {
@@ -91,8 +91,8 @@ interface UserTermsModelAttributes {
     terms_and_conditions_agreed: boolean
     terms_and_conditions_agreed_version: string
     terms_and_conditions_agreed_at: Date
-    createdAt: Date
-    updatedAt: Date
+    created_at: Date
+    updated_at: Date
 }
 
 interface UserEmbeddingModelAttributes {
@@ -100,8 +100,8 @@ interface UserEmbeddingModelAttributes {
     vector: string
     dimension: number
     metadata: Record<string, any>
-    createdAt: Date
-    updatedAt: Date
+    created_at: Date
+    updated_at: Date
 }
 
 interface UserInteractionSummaryModelAttributes {
@@ -109,8 +109,8 @@ interface UserInteractionSummaryModelAttributes {
     totalInteractions: number
     lastInteractionDate: Date | null
     interactionCounts: Record<string, number>
-    createdAt: Date
-    updatedAt: Date
+    created_at: Date
+    updated_at: Date
 }
 
 // Interface para o modelo completo com relacionamentos
@@ -123,9 +123,9 @@ interface CompleteUserModel {
     old_encrypted_password: string | null
     description: string | null
     last_password_updated_at: Date | null
-    createdAt: Date
-    updatedAt: Date
-    user_status?: UserStatusModelAttributes
+    created_at: Date
+    updated_at: Date
+    status?: UserStatusModelAttributes
     preferences?: UserPreferencesModelAttributes
     statistics?: UserStatisticsModelAttributes
     user_terms?: UserTermsModelAttributes
@@ -147,20 +147,20 @@ export class UserMapper {
             oldPassword: sequelizeUser.old_encrypted_password,
             description: sequelizeUser.description,
             lastPasswordUpdatedAt: sequelizeUser.last_password_updated_at,
-            createdAt: sequelizeUser.createdAt,
-            updatedAt: sequelizeUser.updatedAt,
+            created_at: sequelizeUser.created_at,
+            updated_at: sequelizeUser.updated_at,
         }
 
         // Mapear dados relacionados se existirem
-        if (sequelizeUser.user_status) {
+        if (sequelizeUser.status) {
             userData.status = {
-                accessLevel: sequelizeUser.user_status.access_level,
-                verified: sequelizeUser.user_status.verified,
-                deleted: sequelizeUser.user_status.deleted,
-                blocked: sequelizeUser.user_status.blocked,
-                muted: sequelizeUser.user_status.muted,
-                createdAt: sequelizeUser.user_status.createdAt,
-                updatedAt: sequelizeUser.user_status.updatedAt,
+                accessLevel: sequelizeUser.status.access_level,
+                verified: sequelizeUser.status.verified,
+                deleted: sequelizeUser.status.deleted,
+                blocked: sequelizeUser.status.blocked,
+                muted: sequelizeUser.status.muted,
+                created_at: sequelizeUser.status.created_at,
+                updated_at: sequelizeUser.status.updated_at,
             }
         }
 
@@ -192,8 +192,8 @@ export class UserMapper {
                     | "public"
                     | "followers_only"
                     | "private",
-                createdAt: sequelizeUser.preferences.createdAt,
-                updatedAt: sequelizeUser.preferences.updatedAt,
+                created_at: sequelizeUser.preferences.created_at,
+                updated_at: sequelizeUser.preferences.updated_at,
             }
         }
 
@@ -228,8 +228,8 @@ export class UserMapper {
                 reportsReceived: sequelizeUser.statistics.reports_received,
                 violationsCount: sequelizeUser.statistics.violations_count,
                 lastMetricsUpdate: sequelizeUser.statistics.last_metrics_update,
-                createdAt: sequelizeUser.statistics.createdAt,
-                updatedAt: sequelizeUser.statistics.updatedAt,
+                created_at: sequelizeUser.statistics.created_at,
+                updated_at: sequelizeUser.statistics.updated_at,
             })
         }
 
@@ -239,8 +239,8 @@ export class UserMapper {
                 termsAndConditionsAgreedVersion:
                     sequelizeUser.user_terms.terms_and_conditions_agreed_version,
                 termsAndConditionsAgreedAt: sequelizeUser.user_terms.terms_and_conditions_agreed_at,
-                createdAt: sequelizeUser.user_terms.createdAt,
-                updatedAt: sequelizeUser.user_terms.updatedAt,
+                created_at: sequelizeUser.user_terms.created_at,
+                updated_at: sequelizeUser.user_terms.updated_at,
             }
         }
 
@@ -249,8 +249,8 @@ export class UserMapper {
                 vector: sequelizeUser.user_embedding.vector,
                 dimension: sequelizeUser.user_embedding.dimension,
                 metadata: sequelizeUser.user_embedding.metadata,
-                createdAt: sequelizeUser.user_embedding.createdAt,
-                updatedAt: sequelizeUser.user_embedding.updatedAt,
+                created_at: sequelizeUser.user_embedding.created_at,
+                updated_at: sequelizeUser.user_embedding.updated_at,
             }
         }
 
@@ -259,8 +259,8 @@ export class UserMapper {
                 totalInteractions: sequelizeUser.user_interaction_summary.totalInteractions,
                 lastInteractionDate: sequelizeUser.user_interaction_summary.lastInteractionDate,
                 interactionCounts: sequelizeUser.user_interaction_summary.interactionCounts,
-                createdAt: sequelizeUser.user_interaction_summary.createdAt,
-                updatedAt: sequelizeUser.user_interaction_summary.updatedAt,
+                created_at: sequelizeUser.user_interaction_summary.created_at,
+                updated_at: sequelizeUser.user_interaction_summary.updated_at,
             }
         }
 
@@ -282,17 +282,15 @@ export class UserMapper {
             old_encrypted_password: userData.oldPassword || null,
             description: userData.description || null,
             last_password_updated_at: userData.lastPasswordUpdatedAt || null,
-            createdAt: userData.createdAt!,
-            updatedAt: userData.updatedAt!,
+            created_at: userData.created_at || new Date(),
+            updated_at: userData.updated_at || new Date(),
         }
     }
 
     /**
      * Converte entidade de domínio para atributos do modelo UserStatus
      */
-    static toUserStatusAttributes(
-        domainUser: DomainUser,
-    ): Omit<UserStatusModelAttributes, "createdAt" | "updatedAt"> | null {
+    static toUserStatusAttributes(domainUser: DomainUser): UserStatusModelAttributes | null {
         const userData = domainUser.toJSON()
 
         if (!userData.status) return null
@@ -304,6 +302,8 @@ export class UserMapper {
             deleted: userData.status.deleted,
             blocked: userData.status.blocked,
             muted: userData.status.muted,
+            created_at: userData.status.created_at,
+            updated_at: userData.status.updated_at,
         }
     }
 
@@ -312,7 +312,7 @@ export class UserMapper {
      */
     static toUserPreferencesAttributes(
         domainUser: DomainUser,
-    ): Omit<UserPreferencesModelAttributes, "createdAt" | "updatedAt"> | null {
+    ): UserPreferencesModelAttributes | null {
         const userData = domainUser.toJSON()
 
         if (!userData.preferences) return null
@@ -349,7 +349,7 @@ export class UserMapper {
      */
     static toUserStatisticsAttributes(
         domainUser: DomainUser,
-    ): Omit<UserStatisticsModelAttributes, "createdAt" | "updatedAt"> | null {
+    ): Omit<UserStatisticsModelAttributes, "created_at" | "updated_at"> | null {
         const userData = domainUser.toJSON()
 
         if (!userData.metrics) return null
@@ -395,7 +395,7 @@ export class UserMapper {
      */
     static toUserTermsAttributes(
         domainUser: DomainUser,
-    ): Omit<UserTermsModelAttributes, "createdAt" | "updatedAt"> | null {
+    ): Omit<UserTermsModelAttributes, "created_at" | "updated_at"> | null {
         const userData = domainUser.toJSON()
 
         if (!userData.terms) return null
@@ -413,7 +413,7 @@ export class UserMapper {
      */
     static toUserEmbeddingAttributes(
         domainUser: DomainUser,
-    ): Omit<UserEmbeddingModelAttributes, "createdAt" | "updatedAt"> | null {
+    ): Omit<UserEmbeddingModelAttributes, "created_at" | "updated_at"> | null {
         const userData = domainUser.toJSON()
 
         if (!userData.embedding) return null
@@ -431,7 +431,7 @@ export class UserMapper {
      */
     static toUserInteractionSummaryAttributes(
         domainUser: DomainUser,
-    ): Omit<UserInteractionSummaryModelAttributes, "createdAt" | "updatedAt"> | null {
+    ): Omit<UserInteractionSummaryModelAttributes, "created_at" | "updated_at"> | null {
         const userData = domainUser.toJSON()
 
         if (!userData.interctionsSummary) return null
