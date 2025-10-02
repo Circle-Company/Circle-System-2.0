@@ -1,3 +1,4 @@
+export * from "./circle.text.library"
 export * from "./encrypt"
 export * from "./errors"
 export * from "./id"
