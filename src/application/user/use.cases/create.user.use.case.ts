@@ -56,9 +56,9 @@ export class CreateUserUseCase {
                 }
             }
 
-            // Criar usuário usando o repositório
-            const user = new User({
-                username: request.username, // Usar email como username temporário
+            // Criar usuário usando o método estático que encripta a senha automaticamente
+            const user = await User.create({
+                username: request.username,
                 name: request.name,
                 searchMatchTerm: `${request.name} ${request.username}`,
                 password: request.password,
