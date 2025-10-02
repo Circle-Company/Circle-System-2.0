@@ -181,13 +181,13 @@ export class ApplicationBootstrapper {
             case "info":
                 logger.info(message, logData)
                 if (this.shouldLog()) {
-                    console.log(`ℹ️  ${message}`, data ? data : "")
+                    console.log(`${message}`, data ? data : "")
                 }
                 break
             case "warn":
                 logger.warn(message, logData)
                 if (this.shouldLog()) {
-                    console.warn(`⚠️  ${message}`, data ? data : "")
+                    console.warn(`⚠️ ${message}`, data ? data : "")
                 }
                 break
             case "error":
