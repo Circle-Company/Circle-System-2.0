@@ -3,7 +3,7 @@ import { BaseError, ErrorCode, ErrorType } from "./base"
 export class InvalidCredentialsError extends BaseError {
     constructor(message?: string, additionalContext?: any) {
         super({
-            message: message || "Credenciais inválidas",
+            message: message || "Invalid credentials",
             type: ErrorType.AUTHENTICATION,
             code: ErrorCode.INVALID_CREDENTIALS,
             action: "AUTHENTICATE_USER",
@@ -17,7 +17,7 @@ export class InvalidCredentialsError extends BaseError {
     }
 
     protected getHttpStatusCode(): number {
-        return 401
+        return 401 // Unauthorized
     }
 }
 
@@ -38,7 +38,7 @@ export class TokenExpiredError extends BaseError {
     }
 
     protected getHttpStatusCode(): number {
-        return 401
+        return 401 // Unauthorized
     }
 }
 
@@ -59,7 +59,7 @@ export class TokenInvalidError extends BaseError {
     }
 
     protected getHttpStatusCode(): number {
-        return 401
+        return 401 // Unauthorized
     }
 }
 
@@ -80,7 +80,7 @@ export class AccessDeniedError extends BaseError {
     }
 
     protected getHttpStatusCode(): number {
-        return 403
+        return 403 // Forbidden
     }
 }
 
@@ -88,7 +88,7 @@ export class UserInactiveError extends BaseError {
     constructor(userId: string) {
         super({
             message:
-                "Sua conta está desativada. Entre em contato com o suporte para reativar sua conta.",
+                "Your account has been deactivated. Contact support to reactivate your account.",
             type: ErrorType.AUTHENTICATION,
             code: ErrorCode.ACCESS_DENIED,
             action: "AUTHENTICATE_USER",
@@ -102,7 +102,7 @@ export class UserInactiveError extends BaseError {
     }
 
     protected getHttpStatusCode(): number {
-        return 401
+        return 401 // Unauthorized
     }
 }
 
@@ -128,13 +128,13 @@ export class AccountLockedError extends BaseError {
 }
 
 export class TooManyAttemptsError extends BaseError {
-    constructor(email: string, attempts: number) {
+    constructor(username: string, attempts: number) {
         super({
-            message: `Too many authentication attempts for ${email}`,
+            message: `Too many authentication attempts for @${username}`,
             type: ErrorType.AUTHENTICATION,
             code: ErrorCode.ACCESS_DENIED,
             action: "AUTHENTICATE_USER",
-            context: { additionalData: { email, attempts } },
+            context: { additionalData: { username, attempts } },
             metadata: {
                 severity: "medium",
                 retryable: false,
@@ -165,7 +165,7 @@ export class InvalidDeviceError extends BaseError {
     }
 
     protected getHttpStatusCode(): number {
-        return 400
+        return 400 // Bad Request
     }
 }
 
@@ -186,18 +186,18 @@ export class SessionExpiredError extends BaseError {
     }
 
     protected getHttpStatusCode(): number {
-        return 401
+        return 401 // Unauthorized
     }
 }
 
 export class UserAlreadyExistsError extends BaseError {
-    constructor(email: string) {
+    constructor(username: string) {
         super({
-            message: `User with email ${email} already exists`,
+            message: `User with username @${username} already exists`,
             type: ErrorType.VALIDATION,
             code: ErrorCode.INVALID_INPUT,
             action: "CREATE_USER",
-            context: { additionalData: { email } },
+            context: { additionalData: { username } },
             metadata: {
                 severity: "medium",
                 retryable: false,
@@ -207,7 +207,7 @@ export class UserAlreadyExistsError extends BaseError {
     }
 
     protected getHttpStatusCode(): number {
-        return 409 // Conflict
+        return 401 // Unauthorized
     }
 }
 
@@ -215,8 +215,8 @@ export class SecurityRiskError extends BaseError {
     constructor(reason: string, securityRisk: string) {
         super({
             message: `Security risk detected: ${reason}`,
-            type: ErrorType.SECURITY,
-            code: ErrorCode.SECURITY_VIOLATION,
+            type: ErrorType.AUTHORIZATION,
+            code: ErrorCode.ACCESS_DENIED,
             action: "SECURITY_CHECK",
             context: { additionalData: { reason, securityRisk } },
             metadata: {
@@ -236,8 +236,8 @@ export class SuspiciousActivityError extends BaseError {
     constructor(reason: string, additionalData?: any) {
         super({
             message: `Suspicious activity detected: ${reason}`,
-            type: ErrorType.SECURITY,
-            code: ErrorCode.SECURITY_VIOLATION,
+            type: ErrorType.AUTHORIZATION,
+            code: ErrorCode.ACCESS_DENIED,
             action: "SECURITY_CHECK",
             context: { additionalData: { reason, ...additionalData } },
             metadata: {
