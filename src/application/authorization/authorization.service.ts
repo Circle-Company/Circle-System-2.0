@@ -5,8 +5,9 @@ import {
     Level,
     Permission,
     getAuthorizationRule,
-} from "@/domain/authorization"
 
+} from "@/domain/authorization"
+import { RouteConfig } from "@/domain/authorization/authorization.type"
 /**
  * Interface para serviço de autorização
  * Seguindo Clean Architecture - Application Layer
