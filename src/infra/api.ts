@@ -190,7 +190,7 @@ api.addHook("onResponse", async (request: HttpRequest, response: HttpResponse) =
 })
 
 // Error handler personalizado e profissional
-api.setErrorHandler((error: any, request: HttpRequest, response: HttpResponse) => {
+api.setErrorHandler(async (error: any, request: HttpRequest, response: HttpResponse) => {
     // Log do erro
     logger.error("Request error", {
         error: error.message,
@@ -204,15 +204,16 @@ api.setErrorHandler((error: any, request: HttpRequest, response: HttpResponse) =
     // Se for um erro customizado do sistema
     if (isBaseError(error)) {
         const errorInfo = extractErrorInfo(error)
-        return response.status(error.toHttpResponse().statusCode).send({
+        response.status(error.toHttpResponse().statusCode).send({
             success: false,
             error: errorInfo,
         })
+        return
     }
 
     // Erro de validação
     if (error.validation) {
-        return response.status(400).send({
+        response.status(400).send({
             success: false,
             error: {
                 message: "Validation error",
@@ -220,10 +221,11 @@ api.setErrorHandler((error: any, request: HttpRequest, response: HttpResponse) =
                 code: "VALIDATION_ERROR",
             },
         })
+        return
     }
 
     // Erro genérico
-    return response.status(500).send({
+    response.status(500).send({
         success: false,
         error: {
             message: "Internal server error",
