@@ -18,6 +18,8 @@ export interface SignUpInputDto {
     password: string
     device: Device
     termsAccepted?: boolean
+    appLanguage?: string
+    appTimezone?: string
     metadata?: {
         ipAddress: string
         userAgent?: string
@@ -117,15 +119,15 @@ export class SignUpUseCase {
             throw new UserAlreadyExistsError(request.username)
         }
 
-        // Criar novo usuário
-        const newUser = new User({
-            username: request.username, // Usar email como username temporário
+        // Criar novo usuário usando o método estático que encripta a senha automaticamente
+        const newUser = await User.create({
+            username: request.username,
             name: null,
             searchMatchTerm: `${request.username}`,
             password: request.password,
             description: null,
             preferences: {
-                appLanguage: "pt",
+                appLanguage: request.appLanguage || "pt",
                 appTimezone: -3,
                 disableAutoplay: false,
                 disableHaptics: false,
@@ -213,11 +215,11 @@ export class SignUpUseCase {
 
     private async validateInput(request: SignUpInputDto): Promise<void> {
         if (!request.username || !this.isValidUsername(request.username)) {
-            throw new InvalidCredentialsError("Username inválido")
+            throw new InvalidCredentialsError("Invalid username")
         }
 
         if (!request.password || request.password.length < 6) {
-            throw new InvalidCredentialsError("Senha deve ter pelo menos 6 caracteres")
+            throw new InvalidCredentialsError("Password must be at least 6 characters")
         }
 
         if (!request.termsAccepted) {
