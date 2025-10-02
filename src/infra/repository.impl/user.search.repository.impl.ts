@@ -251,7 +251,7 @@ export class UserSearchRepositoryImpl
                     ...this.getUserIncludes(),
                     {
                         model: UserStatusModel,
-                        as: "user_status",
+                        as: "status",
                         where: { verified: true },
                         required: true,
                     },
@@ -416,7 +416,7 @@ export class UserSearchRepositoryImpl
             if (relationship.mutualConnections > 0) factors.push("mutual_connections")
 
             // Fatores de qualidade
-            const status = (user as any).user_status
+            const status = (user as any).status
             if (status?.verified) factors.push("verified")
 
             const stats = (user as any).statistics
@@ -590,7 +590,7 @@ export class UserSearchRepositoryImpl
         return [
             {
                 model: UserStatusModel,
-                as: "user_status",
+                as: "status",
                 required: false,
             },
             {
@@ -664,7 +664,7 @@ export class UserSearchRepositoryImpl
         searcherLocation?: any,
     ): UserSearchResultEntity[] {
         return users.map((user) => {
-            const status = user.user_status
+            const status = user.status
             const stats = user.statistics
             const profilePicture = user.profile_pictures?.[0]
             const coordinates = user.coordinates
@@ -717,7 +717,7 @@ export class UserSearchRepositoryImpl
     ): UserSearchResultEntity[] {
         return relations.map((relation) => {
             const user = relation.related_user
-            const status = user.user_status
+            const status = user.status
             const stats = user.statistics
             const profilePicture = user.profile_pictures?.[0]
 
@@ -790,7 +790,7 @@ export class UserSearchRepositoryImpl
                         ? [
                               {
                                   model: UserStatusModel,
-                                  as: "user_status",
+                                  as: "status",
                                   where: { verified: true },
                                   required: true,
                               },
