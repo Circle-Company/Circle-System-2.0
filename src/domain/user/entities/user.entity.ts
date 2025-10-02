@@ -1,4 +1,4 @@
-import { circleTextLibrary, Encrypt, generateId } from "@/shared"
+import { Encrypt, generateId } from "@/shared"
 import {
     UserEmbedding,
     UserInterctionsSummary,
@@ -10,7 +10,6 @@ import {
 } from "../types/user.type"
 
 import { Level } from "@/domain/authorization"
-import { CircleText } from "circle-text-library"
 import { UserMetrics } from "./user.metrics.entity"
 
 /**
@@ -146,12 +145,8 @@ export class User {
 
     // Métodos de domínio
     public updateUsername(username: string): void {
-        if (!username) {
-            throw new Error("Username não pode ser vazio")
-        }
-        const { isValid, errors } = circleTextLibrary.validate.username(username)
-        if (!isValid) {
-            throw new Error(errors.join(", "))
+        if (!username || username.trim().length < 3) {
+            throw new Error("Username deve ter pelo menos 3 caracteres")
         }
         this._username = username.trim()
         this._updatedAt = new Date()
@@ -792,7 +787,6 @@ export class User {
 
     // Métodos privados de validação
     private validate(): void {
-        const circleText = new CircleText()
         if (!this._username || this._username.trim().length < 3) {
             throw new Error("Username deve ter pelo menos 3 caracteres")
         }

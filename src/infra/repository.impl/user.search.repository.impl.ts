@@ -21,11 +21,11 @@ import BlockModel from "@/infra/models/user/block-model"
 import FollowModel from "@/infra/models/user/follow-model"
 import RelationModel from "@/infra/models/user/relation-model"
 import CoordinateModel from "@/infra/models/user/user.coordinate.model"
+import UserModel from "@/infra/models/user/user.model"
+import UserPreferencesModel from "@/infra/models/user/user.preferences.model"
 import ProfilePictureModel from "@/infra/models/user/user.profile.picture.model"
 // Models
 import { UserSearchResult as UserSearchResultEntity } from "@/domain/user.search.engine/entities/user.search.result.entity"
-import UserModel from "@/infra/models/user/user.model"
-import UserPreferencesModel from "@/infra/models/user/user.preferences.model"
 import UserStatisticsModel from "@/infra/models/user/user.statistics.model"
 import UserStatusModel from "@/infra/models/user/user.status.model"
 
