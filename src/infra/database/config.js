@@ -16,7 +16,7 @@ const config = {
         },
         define: {
             timestamps: true,
-            underscored: false,
+            underscored: true,
             paranoid: false,
             freezeTableName: true,
         },
@@ -40,7 +40,7 @@ const config = {
         },
         define: {
             timestamps: true,
-            underscored: false,
+            underscored: true,
             paranoid: false,
             freezeTableName: true,
         },
@@ -74,7 +74,7 @@ const config = {
         },
         define: {
             timestamps: true,
-            underscored: false,
+            underscored: true,
             paranoid: false,
             freezeTableName: true,
         },
