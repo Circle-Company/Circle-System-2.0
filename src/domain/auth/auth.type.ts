@@ -1,6 +1,5 @@
 export enum Device {
     WEB = "web",
-    DESKTOP = "desktop",
     MOBILE = "mobile",
 }
 

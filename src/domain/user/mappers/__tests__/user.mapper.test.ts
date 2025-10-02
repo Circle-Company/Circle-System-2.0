@@ -58,7 +58,7 @@ describe("UserMapper", () => {
         it("deve converter modelo Sequelize com dados relacionados", () => {
             const sequelizeUserWithRelations = {
                 ...mockSequelizeUser,
-                user_status: {
+                status: {
                     access_level: Level.USER,
                     verified: true,
                     deleted: false,

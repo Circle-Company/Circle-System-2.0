@@ -242,7 +242,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
                 ...this.getIncludeOptions(),
                 {
                     model: UserStatusModel,
-                    as: "user_status",
+                    as: "status",
                     where: {
                         deleted: false,
                         blocked: false,
@@ -264,7 +264,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
                 ...this.getIncludeOptions(),
                 {
                     model: UserStatusModel,
-                    as: "user_status",
+                    as: "status",
                     where: {
                         access_level: status,
                     },
@@ -285,7 +285,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
                 ...this.getIncludeOptions(),
                 {
                     model: UserStatusModel,
-                    as: "user_status",
+                    as: "status",
                     where: {
                         verified: true,
                     },
@@ -306,7 +306,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
                 ...this.getIncludeOptions(),
                 {
                     model: UserStatusModel,
-                    as: "user_status",
+                    as: "status",
                     where: {
                         verified: false,
                     },
@@ -327,7 +327,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
                 ...this.getIncludeOptions(),
                 {
                     model: UserStatusModel,
-                    as: "user_status",
+                    as: "status",
                     where: {
                         blocked: true,
                     },
@@ -348,7 +348,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
                 ...this.getIncludeOptions(),
                 {
                     model: UserStatusModel,
-                    as: "user_status",
+                    as: "status",
                     where: {
                         deleted: true,
                     },
@@ -412,13 +412,13 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
         const queryOptions = this.buildQueryOptions(options)
 
         const whereClause: WhereOptions = {
-            createdAt: {
+            created_at: {
                 [Op.gte]: startDate,
             },
         }
 
         if (endDate) {
-            whereClause.createdAt = {
+            whereClause.created_at = {
                 [Op.between]: [startDate, endDate],
             }
         }
@@ -754,7 +754,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
             include: [
                 {
                     model: UserStatusModel,
-                    as: "user_status",
+                    as: "status",
                     where: {
                         deleted: false,
                         blocked: false,
@@ -771,7 +771,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
             include: [
                 {
                     model: UserStatusModel,
-                    as: "user_status",
+                    as: "status",
                     where: {
                         verified: true,
                     },
@@ -787,7 +787,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
             include: [
                 {
                     model: UserStatusModel,
-                    as: "user_status",
+                    as: "status",
                     where: {
                         access_level: status,
                     },
@@ -1065,7 +1065,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
         return [
             {
                 model: UserStatusModel,
-                as: "user_status",
+                as: "status",
                 required: false,
             },
             {
@@ -1114,7 +1114,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
 
             queryOptions.order = [[...orderField, options.orderBy.direction]]
         } else {
-            queryOptions.order = [["createdAt", "DESC"]]
+            queryOptions.order = [["created_at", "DESC"]]
         }
 
         if (options?.filters) {
@@ -1144,12 +1144,12 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
 
         // Filtros temporais
         if (filters.createdAfter || filters.createdBefore) {
-            whereClause.createdAt = {}
+            whereClause.created_at = {}
             if (filters.createdAfter) {
-                whereClause.createdAt[Op.gte] = filters.createdAfter
+                whereClause.created_at[Op.gte] = filters.createdAfter
             }
             if (filters.createdBefore) {
-                whereClause.createdAt[Op.lte] = filters.createdBefore
+                whereClause.created_at[Op.lte] = filters.createdBefore
             }
         }
 

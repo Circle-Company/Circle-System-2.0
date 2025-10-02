@@ -300,7 +300,7 @@ describe("UserRepository", () => {
                 last_password_updated_at: new Date(),
                 createdAt: new Date(),
                 updatedAt: new Date(),
-                user_status: {
+                status: {
                     user_id: BigInt(userId),
                     access_level: Level.USER,
                     verified: true,

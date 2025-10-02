@@ -734,7 +734,7 @@ export class UserRepository implements UserRepositoryInterface, IUserRepository 
                 ...this.getIncludeOptions(),
                 {
                     model: UserStatusModel,
-                    as: "user_status",
+                    as: "status",
                     where: {
                         deleted: false,
                         blocked: false,
@@ -756,7 +756,7 @@ export class UserRepository implements UserRepositoryInterface, IUserRepository 
                 ...this.getIncludeOptions(),
                 {
                     model: UserStatusModel,
-                    as: "user_status",
+                    as: "status",
                     where: {
                         access_level: status,
                     },
@@ -777,7 +777,7 @@ export class UserRepository implements UserRepositoryInterface, IUserRepository 
                 ...this.getIncludeOptions(),
                 {
                     model: UserStatusModel,
-                    as: "user_status",
+                    as: "status",
                     where: {
                         verified: true,
                     },
@@ -798,7 +798,7 @@ export class UserRepository implements UserRepositoryInterface, IUserRepository 
                 ...this.getIncludeOptions(),
                 {
                     model: UserStatusModel,
-                    as: "user_status",
+                    as: "status",
                     where: {
                         verified: false,
                     },
@@ -819,7 +819,7 @@ export class UserRepository implements UserRepositoryInterface, IUserRepository 
                 ...this.getIncludeOptions(),
                 {
                     model: UserStatusModel,
-                    as: "user_status",
+                    as: "status",
                     where: {
                         blocked: true,
                     },
@@ -840,7 +840,7 @@ export class UserRepository implements UserRepositoryInterface, IUserRepository 
                 ...this.getIncludeOptions(),
                 {
                     model: UserStatusModel,
-                    as: "user_status",
+                    as: "status",
                     where: {
                         deleted: true,
                     },
@@ -1246,7 +1246,7 @@ export class UserRepository implements UserRepositoryInterface, IUserRepository 
             include: [
                 {
                     model: UserStatusModel,
-                    as: "user_status",
+                    as: "status",
                     where: {
                         deleted: false,
                         blocked: false,
@@ -1263,7 +1263,7 @@ export class UserRepository implements UserRepositoryInterface, IUserRepository 
             include: [
                 {
                     model: UserStatusModel,
-                    as: "user_status",
+                    as: "status",
                     where: {
                         verified: true,
                     },
@@ -1279,7 +1279,7 @@ export class UserRepository implements UserRepositoryInterface, IUserRepository 
             include: [
                 {
                     model: UserStatusModel,
-                    as: "user_status",
+                    as: "status",
                     where: {
                         access_level: status,
                     },
@@ -1557,7 +1557,7 @@ export class UserRepository implements UserRepositoryInterface, IUserRepository 
         return [
             {
                 model: UserStatusModel,
-                as: "user_status",
+                as: "status",
                 required: false,
             },
             {
