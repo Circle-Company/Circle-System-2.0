@@ -2,10 +2,10 @@ import {
     UserSearchError,
     UserSearchErrorCode,
 } from "@/domain/user.search.engine/errors/user.search.errors"
-import { SearchResult } from "@/domain/user.search.engine/types"
 import { SearchUsersRequest, SearchUsersUseCase } from "../search.users.use.case"
 
 import { UserSearchRepositoryInterface } from "@/domain/user.search.engine/repositories/user.search.repository"
+import { SearchResult } from "@/domain/user.search.engine/types"
 
 // Mocks
 const mockUserSearchRepository: jest.Mocked<UserSearchRepositoryInterface> = {
