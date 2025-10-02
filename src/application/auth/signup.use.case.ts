@@ -56,10 +56,9 @@ export class SignUpUseCase {
         private processSignRequest?: ProcessSignRequest,
     ) {}
 
-    async execute(request: SignUpInputDto): Promise<SignUpOutputDto> {
-        // Validar entrada
-        await this.validateInput(request)
-
+    private async processSecurityRisk(
+        request: SignUpInputDto,
+    ): Promise<ProcessSignRequestResponse | null> {
         // Processar solicitação com gerenciamento de risco de segurança
         let securityResult: ProcessSignRequestResponse | null = null
         if (this.processSignRequest && request.metadata) {
@@ -80,7 +79,7 @@ export class SignUpUseCase {
             securityResult = await this.processSignRequest.process()
 
             // Verificar se a solicitação foi rejeitada por questões de segurança
-            if (securityResult.status === SignStatus.REJECTED) {
+            if (securityResult && securityResult.status === SignStatus.REJECTED) {
                 throw new SecurityRiskError(
                     securityResult.reason || "Request rejected by security system",
                     securityResult.securityRisk,
@@ -88,18 +87,25 @@ export class SignUpUseCase {
             }
 
             // Verificar se há atividade suspeita que requer atenção
-            if (securityResult.status === SignStatus.SUSPICIOUS) {
-                // Para signup, podemos permitir mas com alerta
-                // Em um sistema mais rigoroso, poderíamos rejeitar também
-                console.warn(
-                    `Suspicious signup attempt: ${securityResult.reason}`,
-                    securityResult.additionalData,
+            if (securityResult && securityResult.status === SignStatus.SUSPICIOUS) {
+                throw new SecurityRiskError(
+                    securityResult.reason || "Request rejected by security system",
+                    securityResult.securityRisk,
                 )
             }
         }
+        return securityResult
+    }
 
-        // Verificar se usuário já existe
-        const userExists = await this.userRepository.existsByUsername(request.username)
+    async execute(request: SignUpInputDto): Promise<SignUpOutputDto> {
+        // Validar entrada
+        await this.validateInput(request)
+
+        const [securityResult, userExists] = await Promise.all([
+            this.processSecurityRisk(request),
+            this.userRepository.existsByUsername(request.username),
+        ])
+
         if (userExists) {
             // Log tentativa de registro com email existente
             if (this.authLogRepository && request.metadata) {
@@ -165,7 +171,7 @@ export class SignUpUseCase {
         })
 
         // Salvar atualizações
-        const updatedUser = await this.userRepository.update(savedUser)
+        await this.userRepository.update(savedUser)
 
         // Gerar token
         const token = await jwtEncoder({
@@ -228,7 +234,16 @@ export class SignUpUseCase {
     }
 
     private isValidUsername(username: string): boolean {
-        const circleTextLibrary = new CircleText()
-        return circleTextLibrary.validate.username(username)
+        try {
+            const circleTextLibrary = new CircleText()
+            return circleTextLibrary.validate.username(username)
+        } catch (error) {
+            // Fallback para validação básica se CircleText falhar
+            // Validar se é um email válido ou username válido
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+            const usernameRegex = /^[a-zA-Z0-9._-]{3,50}$/
+
+            return emailRegex.test(username) || usernameRegex.test(username)
+        }
     }
 }
