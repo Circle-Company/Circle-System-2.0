@@ -5,7 +5,6 @@ import {
     AuthLogType,
     Device,
 } from "@/domain/auth"
-import { SignStatus, SignType } from "@/infra/models/auth/sign.logs.model"
 import {
     InvalidCredentialsError,
     SecurityRiskError,
@@ -13,7 +12,9 @@ import {
 } from "@/shared/errors/auth.errors"
 import { ProcessSignRequest, ProcessSignRequestResponse } from "./process.sign.request"
 
+import { SignStatus } from "@/domain/auth/auth.type"
 import { IUserRepository } from "@/domain/user"
+import { SignType } from "@/infra/models/auth/sign.logs.model"
 import { SignRequest } from "@/modules/auth/types"
 import { jwtEncoder } from "@/shared"
 
@@ -98,8 +99,10 @@ export class SignInUseCase {
             }
         }
 
-        // Buscar usuário por email
+        // Buscar usuário por username
+        console.log("Buscando usuário com username:", request.username)
         const user = await this.userRepository.findByUsername(request.username)
+        console.log("Usuário encontrado:", user ? "SIM" : "NÃO")
         if (!user) {
             // Log tentativa falhada - usuário não encontrado
             if (this.authLogRepository && request.logContext) {
@@ -113,7 +116,6 @@ export class SignInUseCase {
                     deviceType: request.device,
                     deviceId: "unknown",
                     deviceTimezone: "UTC",
-                    createdAt: new Date(),
                 })
             }
             throw new InvalidCredentialsError()
@@ -134,7 +136,6 @@ export class SignInUseCase {
                     deviceType: request.device,
                     deviceId: "unknown",
                     deviceTimezone: "UTC",
-                    createdAt: new Date(),
                 })
             }
             throw new InvalidCredentialsError()
@@ -153,7 +154,6 @@ export class SignInUseCase {
                     deviceType: request.device,
                     deviceId: "unknown",
                     deviceTimezone: "UTC",
-                    createdAt: new Date(),
                 })
             }
             throw new UserInactiveError(user.id)
@@ -189,7 +189,6 @@ export class SignInUseCase {
                 deviceType: request.device,
                 deviceId: "unknown",
                 deviceTimezone: "UTC",
-                createdAt: new Date(),
             })
         }
 

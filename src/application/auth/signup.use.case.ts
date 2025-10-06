@@ -1,6 +1,6 @@
 import { AuthLogRepository, AuthLogStatus, AuthLogType, Device } from "@/domain/auth"
-import { IUserRepository, User } from "@/domain/user"
-import { SignStatus, SignType } from "@/infra/models/auth/sign.logs.model"
+import { IUserRepository, User, validatePassword } from "@/domain/user"
+import { jwtEncoder, parseTimezone } from "@/shared"
 import {
     AccessDeniedError,
     InvalidCredentialsError,
@@ -9,9 +9,11 @@ import {
 } from "@/shared/errors/auth.errors"
 import { ProcessSignRequest, ProcessSignRequestResponse } from "./process.sign.request"
 
+import { SignStatus } from "@/domain/auth/auth.type"
+import { UserMetrics } from "@/domain/user/entities/user.metrics.entity"
+import { SignType } from "@/infra/models/auth/sign.logs.model"
 import { SignRequest } from "@/modules/auth/types"
-import { jwtEncoder } from "@/shared"
-import { CircleText } from "circle-text-library"
+import { circleTextLibrary } from "@/shared/circle.text.library"
 
 export interface SignUpInputDto {
     username: string
@@ -98,16 +100,159 @@ export class SignUpUseCase {
     }
 
     async execute(request: SignUpInputDto): Promise<SignUpOutputDto> {
-        // Validar entrada
-        await this.validateInput(request)
+        try {
+            // Validar entrada
+            await this.validateInput(request)
 
-        const [securityResult, userExists] = await Promise.all([
-            this.processSecurityRisk(request),
-            this.userRepository.existsByUsername(request.username),
-        ])
+            const [securityResult, userExists] = await Promise.all([
+                this.processSecurityRisk(request),
+                this.userRepository.existsByUsername(request.username),
+            ])
 
-        if (userExists) {
-            // Log tentativa de registro com email existente
+            if (userExists) {
+                // Log tentativa de registro com username existente
+                if (this.authLogRepository && request.metadata) {
+                    await this.authLogRepository.create({
+                        username: request.username,
+                        ipAddress: request.metadata.ipAddress || "unknown",
+                        userAgent: request.metadata.userAgent || "unknown",
+                        type: AuthLogType.SIGNUP,
+                        status: AuthLogStatus.FAILED,
+                        failureReason: "User already exists",
+                        deviceType: request.device,
+                        deviceId: "unknown",
+                        deviceTimezone: request.metadata.timezone || "UTC",
+                    })
+                }
+                throw new UserAlreadyExistsError(request.username)
+            }
+
+            // Criar novo usuário usando o método estático que encripta a senha automaticamente
+            const newUser = await User.create({
+                username: request.username,
+                name: null,
+                searchMatchTerm: `${request.username}`,
+                password: request.password,
+                description: null,
+                // Foto de perfil vazia
+                profilePicture: {
+                    tinyResolution: null,
+                    fullhdResolution: null,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                },
+                // Status ativo
+                status: {
+                    accessLevel: "user" as any, // Level.USER
+                    verified: false,
+                    deleted: false,
+                    blocked: false,
+                    muted: false,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                },
+                // Métricas inicializadas - será criada usando UserMetrics.create()
+                metrics: undefined, // Será criada após salvar o usuário
+                // Embedding vazio
+                embedding: {
+                    vector: "",
+                    dimension: 0,
+                    metadata: {},
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                },
+                // Preferências
+                preferences: {
+                    appLanguage: request.appLanguage || "pt",
+                    appTimezone: this.parseTimezone(request.appTimezone),
+                    disableAutoplay: false,
+                    disableHaptics: false,
+                    disableTranslation: false,
+                    translationLanguage: request.appLanguage || "pt",
+                    disableLikeMomentPushNotification: false,
+                    disableNewMemoryPushNotification: false,
+                    disableAddToMemoryPushNotification: false,
+                    disableFollowUserPushNotification: false,
+                    disableViewUserPushNotification: false,
+                    disableNewsPushNotification: false,
+                    disableSugestionsPushNotification: false,
+                    disableAroundYouPushNotification: false,
+                    defaultMomentVisibility: "public",
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                },
+                // Termos
+                terms: {
+                    termsAndConditionsAgreed: request.termsAccepted || false,
+                    termsAndConditionsAgreedVersion: "1.0",
+                    termsAndConditionsAgreedAt: request.termsAccepted ? new Date() : new Date(),
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                },
+            })
+
+            // Salvar usuário
+            const savedUser = await this.userRepository.save(newUser)
+
+            // Criar métricas inicializadas após salvar o usuário
+            const initialMetrics = UserMetrics.create(savedUser.id)
+            savedUser.updateMetrics(initialMetrics)
+
+            // Registrar primeiro login
+            savedUser.recordLogin({
+                device: request.device,
+                ipAddress: request.metadata?.ipAddress,
+                userAgent: request.metadata?.userAgent,
+            })
+
+            // Salvar atualizações
+            await this.userRepository.update(savedUser)
+
+            // Gerar token
+            const token = await jwtEncoder({
+                userId: savedUser.id,
+                device: request.device as any, // Converter Device do auth para Device do authorization
+                role: savedUser.role || "user",
+            })
+            const expiresIn = 3600 // 1 hora
+
+            // Log registro bem-sucedido
+            if (this.authLogRepository && request.metadata) {
+                await this.authLogRepository.create({
+                    username: request.username,
+                    ipAddress: request.metadata?.ipAddress || "unknown",
+                    userAgent: request.metadata?.userAgent || "unknown",
+                    type: AuthLogType.SIGNUP,
+                    status: AuthLogStatus.SUCCESS,
+                    failureReason: "Registration successful",
+                    deviceType: request.device,
+                    deviceId: "unknown",
+                    deviceTimezone: request.metadata.timezone || "UTC",
+                })
+            }
+
+            return {
+                token,
+                expiresIn,
+                user: {
+                    id: savedUser.id,
+                    username: savedUser.username,
+                    name: savedUser.name || null,
+                    role: savedUser.role || "user",
+                    status: "active",
+                    lastLogin: new Date(),
+                },
+                securityInfo: securityResult
+                    ? {
+                          riskLevel: securityResult.securityRisk,
+                          status: securityResult.status,
+                          message: securityResult.message,
+                          additionalData: securityResult.additionalData,
+                      }
+                    : undefined,
+            }
+        } catch (error) {
+            // Log erro de registro
             if (this.authLogRepository && request.metadata) {
                 await this.authLogRepository.create({
                     username: request.username,
@@ -115,128 +260,51 @@ export class SignUpUseCase {
                     userAgent: request.metadata.userAgent || "unknown",
                     type: AuthLogType.SIGNUP,
                     status: AuthLogStatus.FAILED,
-                    failureReason: "User already exists",
+                    failureReason: error instanceof Error ? error.message : "Unknown error",
                     deviceType: request.device,
                     deviceId: "unknown",
-                    deviceTimezone: "UTC",
-                    createdAt: new Date(),
+                    deviceTimezone: request.metadata.timezone || "UTC",
                 })
             }
-            throw new UserAlreadyExistsError(request.username)
-        }
 
-        // Criar novo usuário usando o método estático que encripta a senha automaticamente
-        const newUser = await User.create({
-            username: request.username,
-            name: null,
-            searchMatchTerm: `${request.username}`,
-            password: request.password,
-            description: null,
-            preferences: {
-                appLanguage: request.appLanguage || "pt",
-                appTimezone: -3,
-                disableAutoplay: false,
-                disableHaptics: false,
-                disableTranslation: false,
-                translationLanguage: "pt",
-                disableLikeMomentPushNotification: false,
-                disableNewMemoryPushNotification: false,
-                disableAddToMemoryPushNotification: false,
-                disableFollowUserPushNotification: false,
-                disableViewUserPushNotification: false,
-                disableNewsPushNotification: false,
-                disableSugestionsPushNotification: false,
-                disableAroundYouPushNotification: false,
-                defaultMomentVisibility: "public",
-                createdAt: new Date(),
-                updatedAt: new Date(),
-            },
-            terms: {
-                termsAndConditionsAgreed: request.termsAccepted || false,
-                termsAndConditionsAgreedVersion: "1.0",
-                termsAndConditionsAgreedAt: request.termsAccepted ? new Date() : new Date(),
-                createdAt: new Date(),
-                updatedAt: new Date(),
-            },
-        })
-
-        // Salvar usuário
-        const savedUser = await this.userRepository.save(newUser)
-
-        // Registrar primeiro login
-        savedUser.recordLogin({
-            device: request.device,
-            ipAddress: request.metadata?.ipAddress,
-            userAgent: request.metadata?.userAgent,
-        })
-
-        // Salvar atualizações
-        await this.userRepository.update(savedUser)
-
-        // Gerar token
-        const token = await jwtEncoder({
-            userId: savedUser.id,
-            device: request.device as any, // Converter Device do auth para Device do authorization
-            role: savedUser.role || "user",
-        })
-        const expiresIn = 3600 // 1 hora
-
-        // Log registro bem-sucedido
-        if (this.authLogRepository && request.metadata) {
-            await this.authLogRepository.create({
-                username: request.username,
-                ipAddress: request.metadata?.ipAddress || "unknown",
-                userAgent: request.metadata?.userAgent || "unknown",
-                type: AuthLogType.SIGNUP,
-                status: AuthLogStatus.SUCCESS,
-                failureReason: "Registration successful",
-                deviceType: request.device,
-                deviceId: "unknown",
-                deviceTimezone: "UTC",
-                createdAt: new Date(),
-            })
-        }
-
-        return {
-            token,
-            expiresIn,
-            user: {
-                id: savedUser.id,
-                username: savedUser.username,
-                name: savedUser.name || null,
-                role: savedUser.role || "user",
-                status: "active",
-                lastLogin: new Date(),
-            },
-            securityInfo: securityResult
-                ? {
-                      riskLevel: securityResult.securityRisk,
-                      status: securityResult.status,
-                      message: securityResult.message,
-                      additionalData: securityResult.additionalData,
-                  }
-                : undefined,
+            // Re-lançar o erro para que seja tratado pelo controller
+            throw error
         }
     }
 
     private async validateInput(request: SignUpInputDto): Promise<void> {
-        if (!request.username || !this.isValidUsername(request.username)) {
-            throw new InvalidCredentialsError("Invalid username")
+        // Validar username
+        if (!request.username || request.username.trim().length === 0) {
+            throw new InvalidCredentialsError("Username é obrigatório")
         }
 
-        if (!request.password || request.password.length < 6) {
-            throw new InvalidCredentialsError("Password must be at least 6 characters")
+        if (!this.isValidUsername(request.username)) {
+            throw new InvalidCredentialsError("Username inválido")
         }
 
+        // Validar senha
+        if (!request.password) {
+            throw new InvalidCredentialsError("Senha é obrigatória")
+        }
+
+        if (!this.isValidPassword(request.password)) {
+            throw new InvalidCredentialsError("Senha inválida")
+        }
+
+        // Validar termos
         if (!request.termsAccepted) {
-            throw new AccessDeniedError("terms", "accept")
+            throw new AccessDeniedError("Você deve aceitar os termos de uso")
+        }
+
+        // Validar device
+        if (!request.device) {
+            throw new InvalidCredentialsError("Informações do dispositivo são obrigatórias")
         }
     }
 
     private isValidUsername(username: string): boolean {
         try {
-            const circleTextLibrary = new CircleText()
-            return circleTextLibrary.validate.username(username)
+            return circleTextLibrary.validate.username(username).isValid
         } catch (error) {
             // Fallback para validação básica se CircleText falhar
             // Validar se é um email válido ou username válido
@@ -245,5 +313,15 @@ export class SignUpUseCase {
 
             return emailRegex.test(username) || usernameRegex.test(username)
         }
+    }
+
+    private isValidPassword(password: string): boolean {
+        // Usar as regras permissivas do user.rules.ts
+        return validatePassword(password)
+    }
+
+    private parseTimezone(timezone?: string): number {
+        // Usar o helper para converter timezone
+        return parseTimezone(timezone)
     }
 }
