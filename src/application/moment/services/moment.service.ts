@@ -1,5 +1,7 @@
-import { MomentEntity, MomentStatusEnum, MomentVisibilityEnum } from "@/domain/moment"
+import { ContentProcessor, StorageAdapter } from "@/core/content.processor"
+import { Moment, MomentStatusEnum, MomentVisibilityEnum } from "@/domain/moment"
 
+import { ModerationEngine } from "@/core/content.moderation"
 import { IMomentRepository } from "@/domain/moment/repositories/moment.repository"
 import { generateId } from "@/shared"
 import { MomentMetricsService } from "./moment.metrics.service"
@@ -7,14 +9,11 @@ import { MomentMetricsService } from "./moment.metrics.service"
 // ===== INTERFACES =====
 export interface CreateMomentData {
     ownerId: string
-    content: {
-        duration: number
+    videoData: Buffer // Dados do vídeo para processamento
+    videoMetadata: {
+        filename: string
+        mimeType: string
         size: number
-        format: string
-        width: number
-        height: number
-        hasAudio: boolean
-        codec: string
     }
     description?: string
     hashtags?: string[]
@@ -87,11 +86,14 @@ export interface MomentServiceConfig {
 // ===== SERVIÇO PRINCIPAL DE MOMENT =====
 export class MomentService {
     private config: MomentServiceConfig
+    private contentProcessor: ContentProcessor | null = null
 
     constructor(
         private repository: IMomentRepository,
         private metricsService: MomentMetricsService,
         config?: Partial<MomentServiceConfig>,
+        storageAdapter?: StorageAdapter,
+        moderationEngine?: ModerationEngine,
     ) {
         this.config = {
             enableValidation: true,
@@ -104,6 +106,15 @@ export class MomentService {
             cacheTimeout: 300000, // 5 minutos
             ...config,
         }
+
+        // Inicializar processador de conteúdo se adapter fornecido
+        if (storageAdapter) {
+            this.contentProcessor = new ContentProcessor(
+                storageAdapter,
+                undefined,
+                moderationEngine,
+            )
+        }
     }
 
     // ===== MÉTODOS DE CRIAÇÃO =====
@@ -111,37 +122,98 @@ export class MomentService {
     /**
      * Cria um novo momento
      */
-    async createMoment(data: CreateMomentData): Promise<MomentEntity> {
+    async createMoment(data: CreateMomentData): Promise<Moment> {
         // Validar dados de entrada
         if (this.config.enableValidation) {
             await this.validateCreateData(data)
         }
 
-        // Criar dados do momento
+        // 1. Processar vídeo (extração de metadados, thumbnail, moderação e upload)
+        if (!this.contentProcessor) {
+            throw new Error("Content processor não configurado. Configure o storage adapter.")
+        }
+
+        const contentId = generateId()
+
+        const processingResult = await this.contentProcessor.processContent({
+            contentId,
+            ownerId: data.ownerId,
+            videoData: data.videoData,
+            metadata: data.videoMetadata,
+        })
+
+        if (!processingResult.success) {
+            throw new Error(
+                `Erro ao processar conteúdo: ${processingResult.error || "Erro desconhecido"}`,
+            )
+        }
+
+        // Verificar se foi aprovado pela moderação
+        if (!processingResult.moderation.approved && !processingResult.moderation.requiresReview) {
+            throw new Error(
+                `Conteúdo bloqueado pela moderação: ${processingResult.moderation.flags.join(
+                    ", ",
+                )}`,
+            )
+        }
+
+        // 2. Criar dados do momento com informações do processamento
         const momentData = {
-            id: generateId(),
+            id: contentId,
             ownerId: data.ownerId,
             content: {
-                duration: data.content.duration,
-                size: data.content.size,
-                format: data.content.format as any,
+                duration: processingResult.videoMetadata.duration,
+                size: processingResult.videoMetadata.size,
+                format: processingResult.videoMetadata.format as any,
                 resolution: {
-                    width: data.content.width,
-                    height: data.content.height,
+                    width: processingResult.videoMetadata.width,
+                    height: processingResult.videoMetadata.height,
                     quality: "medium" as any,
                 },
-                hasAudio: data.content.hasAudio,
-                codec: data.content.codec as any,
+                hasAudio: processingResult.videoMetadata.hasAudio,
+                codec: processingResult.videoMetadata.codec as any,
                 createdAt: new Date(),
                 updatedAt: new Date(),
             },
             description: data.description || "",
             hashtags: data.hashtags || [],
             mentions: data.mentions || [],
+            media: {
+                urls: {
+                    low: processingResult.videoUrls.low,
+                    medium: processingResult.videoUrls.medium,
+                    high: processingResult.videoUrls.high,
+                },
+                storage: {
+                    provider: processingResult.storage.provider as any,
+                    bucket: processingResult.storage.bucket || "",
+                    key: processingResult.storage.videoKey,
+                    region: processingResult.storage.region || "",
+                },
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            },
+            thumbnail: {
+                url: processingResult.thumbnailUrl,
+                width: processingResult.videoMetadata.width,
+                height: processingResult.videoMetadata.height,
+                storage: {
+                    provider: processingResult.storage.provider as any,
+                    bucket: processingResult.storage.bucket || "",
+                    key: processingResult.storage.thumbnailKey,
+                    region: processingResult.storage.region || "",
+                },
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            },
             status: {
-                current: this.config.defaultStatus,
+                current: processingResult.moderation.requiresReview
+                    ? MomentStatusEnum.UNDER_REVIEW
+                    : this.config.defaultStatus,
                 previous: null,
-                reason: null,
+                reason: processingResult.moderation.requiresReview
+                    ? "Aguardando revisão de moderação"
+                    : null,
                 changedBy: data.ownerId,
                 changedAt: new Date(),
                 createdAt: new Date(),
@@ -174,12 +246,37 @@ export class MomentService {
                       }
                     : undefined,
             processing: {
-                status: "pending" as any,
-                progress: 0,
-                steps: [],
+                status: "completed" as any,
+                progress: 100,
+                steps: [
+                    {
+                        name: "video_processing",
+                        status: "completed" as any,
+                        progress: 100,
+                        startedAt: new Date(),
+                        completedAt: new Date(),
+                        error: null,
+                    },
+                    {
+                        name: "moderation",
+                        status: "completed" as any,
+                        progress: 100,
+                        startedAt: new Date(),
+                        completedAt: new Date(),
+                        error: null,
+                    },
+                    {
+                        name: "upload",
+                        status: "completed" as any,
+                        progress: 100,
+                        startedAt: new Date(),
+                        completedAt: new Date(),
+                        error: null,
+                    },
+                ],
                 error: null,
-                startedAt: null,
-                completedAt: null,
+                startedAt: new Date(),
+                completedAt: new Date(),
                 estimatedCompletion: null,
             },
             createdAt: new Date(),
@@ -189,11 +286,13 @@ export class MomentService {
             deletedAt: null,
         }
 
-        // Salvar no repositório
-        // TODO: Criar entidade Moment corretamente
-        const createdMoment = await this.repository.findById(generateId())
+        // 3. Criar entidade Moment
+        const moment = new Moment(momentData)
 
-        // Inicializar métricas se habilitado
+        // 4. Salvar no repositório
+        const createdMoment = await this.repository.create(moment)
+
+        // 5. Inicializar métricas se habilitado
         if (this.config.enableMetrics && createdMoment) {
             await this.metricsService.recordView(createdMoment.id, {
                 userId: data.ownerId,
@@ -204,26 +303,7 @@ export class MomentService {
             })
         }
 
-        return createdMoment || ({} as MomentEntity)
-    }
-
-    /**
-     * Cria múltiplos momentos em lote
-     */
-    async createMomentsBatch(data: CreateMomentData[]): Promise<MomentEntity[]> {
-        const results: MomentEntity[] = []
-
-        for (const momentData of data) {
-            try {
-                const moment = await this.createMoment(momentData)
-                results.push(moment)
-            } catch (error) {
-                console.error(`Erro ao criar momento para ${momentData.ownerId}:`, error)
-                // Continuar com os próximos momentos
-            }
-        }
-
-        return results
+        return createdMoment || ({} as Moment)
     }
 
     // ===== MÉTODOS DE BUSCA =====
@@ -231,7 +311,7 @@ export class MomentService {
     /**
      * Busca um momento por ID
      */
-    async getMomentById(id: string): Promise<MomentEntity | null> {
+    async getMomentById(id: string): Promise<Moment | null> {
         return await this.repository.findById(id)
     }
 
@@ -246,7 +326,7 @@ export class MomentService {
             limit?: number
             offset?: number
         },
-    ): Promise<MomentEntity[]> {
+    ): Promise<Moment[]> {
         return await this.repository.findByOwnerId(ownerId, options?.limit, options?.offset)
     }
 
@@ -259,7 +339,7 @@ export class MomentService {
             limit?: number
             offset?: number
         },
-    ): Promise<MomentEntity[]> {
+    ): Promise<Moment[]> {
         return await this.repository.findByStatus(status, options?.limit, options?.offset)
     }
 
@@ -272,7 +352,7 @@ export class MomentService {
             limit?: number
             offset?: number
         },
-    ): Promise<MomentEntity[]> {
+    ): Promise<Moment[]> {
         return await this.repository.findByVisibility(visibility, options?.limit, options?.offset)
     }
 
@@ -285,7 +365,7 @@ export class MomentService {
             limit?: number
             offset?: number
         },
-    ): Promise<MomentEntity[]> {
+    ): Promise<Moment[]> {
         return await this.repository.findByHashtag(hashtag, options?.limit, options?.offset)
     }
 
@@ -298,24 +378,21 @@ export class MomentService {
             limit?: number
             offset?: number
         },
-    ): Promise<MomentEntity[]> {
+    ): Promise<Moment[]> {
         return await this.repository.findByMention(mention, options?.limit, options?.offset)
     }
 
     /**
      * Busca momentos publicados
      */
-    async getPublishedMoments(options?: {
-        limit?: number
-        offset?: number
-    }): Promise<MomentEntity[]> {
+    async getPublishedMoments(options?: { limit?: number; offset?: number }): Promise<Moment[]> {
         return await this.repository.findPublished(options?.limit, options?.offset)
     }
 
     /**
      * Busca momentos recentes
      */
-    async getRecentMoments(options?: { limit?: number; offset?: number }): Promise<MomentEntity[]> {
+    async getRecentMoments(options?: { limit?: number; offset?: number }): Promise<Moment[]> {
         return await this.repository.findRecent(options?.limit, options?.offset)
     }
 
@@ -324,7 +401,7 @@ export class MomentService {
     /**
      * Atualiza um momento
      */
-    async updateMoment(id: string, data: UpdateMomentData): Promise<MomentEntity | null> {
+    async updateMoment(id: string, data: UpdateMomentData): Promise<Moment | null> {
         const existingMoment = await this.repository.findById(id)
         if (!existingMoment) {
             throw new Error(`Momento com ID ${id} não encontrado`)
@@ -371,9 +448,11 @@ export class MomentService {
 
         updatedProps.updatedAt = new Date()
 
+        // Aplicar atualizações ao momento existente
+        Object.assign(existingMoment, updatedProps)
+
         // Salvar atualizações
-        // TODO: Implementar atualização correta
-        const updatedMoment = await this.repository.findById(id)
+        const updatedMoment = await this.repository.update(existingMoment)
 
         // Registrar métricas se habilitado
         if (this.config.enableMetrics && updatedMoment) {
@@ -383,29 +462,6 @@ export class MomentService {
         }
 
         return updatedMoment
-    }
-
-    /**
-     * Atualiza múltiplos momentos em lote
-     */
-    async updateMomentsBatch(
-        updates: Array<{ id: string; data: UpdateMomentData }>,
-    ): Promise<MomentEntity[]> {
-        const results: MomentEntity[] = []
-
-        for (const update of updates) {
-            try {
-                const updatedMoment = await this.updateMoment(update.id, update.data)
-                if (updatedMoment) {
-                    results.push(updatedMoment)
-                }
-            } catch (error) {
-                console.error(`Erro ao atualizar momento ${update.id}:`, error)
-                // Continuar com os próximos momentos
-            }
-        }
-
-        return results
     }
 
     // ===== MÉTODOS DE EXCLUSÃO =====
@@ -434,30 +490,12 @@ export class MomentService {
             updatedAt: new Date(),
         }
 
-        // TODO: Implementar exclusão correta
-        const result = await this.repository.findById(id)
-        return result !== null
-    }
+        // Aplicar atualizações ao momento existente
+        Object.assign(existingMoment, updatedProps)
 
-    /**
-     * Exclui múltiplos momentos em lote
-     */
-    async deleteMomentsBatch(ids: string[], reason?: string): Promise<number> {
-        let deletedCount = 0
-
-        for (const id of ids) {
-            try {
-                const deleted = await this.deleteMoment(id, reason)
-                if (deleted) {
-                    deletedCount++
-                }
-            } catch (error) {
-                console.error(`Erro ao excluir momento ${id}:`, error)
-                // Continuar com os próximos momentos
-            }
-        }
-
-        return deletedCount
+        // Salvar exclusão (soft delete)
+        const updatedMoment = await this.repository.update(existingMoment)
+        return updatedMoment !== null
     }
 
     // ===== MÉTODOS DE ESTATÍSTICAS =====
@@ -559,21 +597,25 @@ export class MomentService {
      * Verifica se o usuário curtiu o momento
      */
     async hasUserLikedMoment(momentId: string, userId: string): Promise<boolean> {
-        // Implementar verificação de like do usuário
+        // Validar parâmetros
+        if (!momentId || !userId) {
+            return false
+        }
+
+        // Verificar se o momento existe
         const moment = await this.repository.findById(momentId)
         if (!moment) {
             return false
         }
 
-        // TODO: Implementar verificação real no banco de dados
-        // Por enquanto, retorna false como mock
-        return false
+        // Verificar se o usuário curtiu o momento
+        return await this.repository.hasUserLikedMoment(momentId, userId)
     }
 
     /**
      * Curte um momento
      */
-    async likeMoment(momentId: string, userId: string): Promise<MomentEntity | null> {
+    async likeMoment(momentId: string, userId: string): Promise<Moment | null> {
         const moment = await this.repository.findById(momentId)
         if (!moment) {
             return null
@@ -585,17 +627,19 @@ export class MomentService {
             return moment
         }
 
+        // Adicionar like no banco de dados
+        await this.repository.addLike(momentId, userId)
+
         // Incrementar contador de likes
         const updatedMoment = await this.incrementMomentLikes(momentId, userId)
 
-        // TODO: Salvar like do usuário no banco de dados
         return updatedMoment
     }
 
     /**
      * Remove like de um momento
      */
-    async unlikeMoment(momentId: string, userId: string): Promise<MomentEntity | null> {
+    async unlikeMoment(momentId: string, userId: string): Promise<Moment | null> {
         const moment = await this.repository.findById(momentId)
         if (!moment) {
             return null
@@ -607,24 +651,29 @@ export class MomentService {
             return moment
         }
 
+        // Remover like do banco de dados
+        await this.repository.removeLike(momentId, userId)
+
         // Decrementar contador de likes
         const updatedMoment = await this.decrementMomentLikes(momentId, userId)
 
-        // TODO: Remover like do usuário no banco de dados
         return updatedMoment
     }
 
     /**
      * Incrementa contador de likes
      */
-    async incrementMomentLikes(momentId: string, userId: string): Promise<MomentEntity | null> {
+    async incrementMomentLikes(momentId: string, userId: string): Promise<Moment | null> {
         const moment = await this.repository.findById(momentId)
         if (!moment) {
             return null
         }
 
-        // TODO: Implementar incremento real do contador de likes
-        const updatedMoment = await this.repository.findById(momentId)
+        // Incrementar contador de likes
+        moment.incrementLikes()
+
+        // Salvar no repositório
+        const updatedMoment = await this.repository.update(moment)
 
         return updatedMoment
     }
@@ -632,66 +681,24 @@ export class MomentService {
     /**
      * Decrementa contador de likes
      */
-    async decrementMomentLikes(momentId: string, userId: string): Promise<MomentEntity | null> {
+    async decrementMomentLikes(momentId: string, userId: string): Promise<Moment | null> {
         const moment = await this.repository.findById(momentId)
         if (!moment) {
             return null
         }
 
-        // TODO: Implementar decremento real do contador de likes
-        const updatedMoment = await this.repository.findById(momentId)
+        // Decrementar contador de likes (método não existe na entidade, usar incrementLikes com valor negativo)
+        // Como não existe decrementLikes, vamos decrementar manualmente
+        if (moment.metrics.engagement.totalLikes > 0) {
+            moment.metrics.engagement.totalLikes--
+            moment.metrics.engagement.likeRate = moment.likeRate
+            moment.metrics.lastMetricsUpdate = new Date()
+        }
+
+        // Salvar no repositório
+        const updatedMoment = await this.repository.update(moment)
 
         return updatedMoment
-    }
-
-    /**
-     * Adiciona comentário ao momento
-     */
-    async addCommentToMoment(
-        momentId: string,
-        userId: string,
-        commentText: string,
-        parentCommentId?: string,
-    ): Promise<any> {
-        const moment = await this.repository.findById(momentId)
-        if (!moment) {
-            throw new Error(`Momento com ID ${momentId} não encontrado`)
-        }
-
-        // Validar comentário
-        if (!commentText || commentText.trim().length === 0) {
-            throw new Error("Comentário não pode estar vazio")
-        }
-
-        if (commentText.length > 1000) {
-            throw new Error("Comentário não pode ter mais de 1000 caracteres")
-        }
-
-        // Criar comentário
-        const comment = {
-            id: generateId(),
-            momentId,
-            userId,
-            text: commentText.trim(),
-            parentCommentId,
-            createdAt: new Date(),
-        }
-
-        // TODO: Salvar comentário no banco de dados
-        return comment
-    }
-
-    /**
-     * Busca comentário por ID
-     */
-    async getCommentById(commentId: string): Promise<any | null> {
-        if (!commentId) {
-            return null
-        }
-
-        // TODO: Implementar busca real de comentário no banco de dados
-        // Por enquanto, retorna null como mock
-        return null
     }
 
     /**
@@ -748,7 +755,7 @@ export class MomentService {
         userId: string,
         limit: number = 20,
         offset: number = 0,
-    ): Promise<{ moments: MomentEntity[]; total: number }> {
+    ): Promise<{ moments: Moment[]; total: number }> {
         if (!userId) {
             return { moments: [], total: 0 }
         }
@@ -768,7 +775,7 @@ export class MomentService {
         userId: string,
         limit: number = 20,
         offset: number = 0,
-    ): Promise<{ moments: MomentEntity[]; total: number }> {
+    ): Promise<{ moments: Moment[]; total: number }> {
         if (!userId) {
             return { moments: [], total: 0 }
         }
@@ -789,7 +796,7 @@ export class MomentService {
         limit: number = 20,
         offset: number = 0,
         filters?: any,
-    ): Promise<{ moments: MomentEntity[]; total: number }> {
+    ): Promise<{ moments: Moment[]; total: number }> {
         const moments = await this.repository.findByOwnerId(ownerId, limit, offset)
         const total = await this.repository.countByOwnerId(ownerId)
 
@@ -1028,7 +1035,7 @@ export class MomentService {
         sortBy?: string
         sortOrder?: string
     }): Promise<{
-        moments: MomentEntity[]
+        moments: Moment[]
         total: number
         page: number
         limit: number
@@ -1064,224 +1071,6 @@ export class MomentService {
             hasNext: result.page < result.totalPages,
             hasPrev: result.page > 1,
         }
-    }
-
-    /**
-     * Obtém comentários de um momento
-     */
-    async getMomentComments(data: {
-        momentId: string
-        page?: number
-        limit?: number
-        sortBy?: "created_at" | "likes" | "replies"
-        sortOrder?: "asc" | "desc"
-    }): Promise<{
-        success: boolean
-        comments?: Array<{
-            id: string
-            authorId: string
-            content: string
-            parentId?: string
-            likes: number
-            replies: number
-            isEdited: boolean
-            editedAt?: Date
-            isDeleted: boolean
-            deletedAt?: Date
-            createdAt: Date
-            updatedAt: Date
-        }>
-        pagination?: {
-            page: number
-            limit: number
-            total: number
-            totalPages: number
-        }
-        error?: string
-    }> {
-        const { momentId, page = 1, limit = 20, sortBy = "created_at", sortOrder = "desc" } = data
-
-        try {
-            // Verificar se o momento existe
-            const moment = await this.repository.findById(momentId)
-            if (!moment) {
-                return {
-                    success: false,
-                    error: `Momento com ID ${momentId} não encontrado`,
-                }
-            }
-
-            // TODO: Implementar busca real de comentários no banco de dados
-            // Por enquanto, retorna estrutura mock
-            return {
-                success: true,
-                comments: [],
-                pagination: {
-                    page,
-                    limit,
-                    total: 0,
-                    totalPages: 0,
-                },
-            }
-        } catch (error) {
-            return {
-                success: false,
-                error: `Erro ao buscar comentários: ${
-                    error instanceof Error ? error.message : String(error)
-                }`,
-            }
-        }
-    }
-
-    /**
-     * Edita um comentário de um momento
-     */
-    async editMomentComment(data: {
-        momentId: string
-        commentId: string
-        userId: string
-        content: string
-    }): Promise<{
-        success: boolean
-        comment?: {
-            id: string
-            authorId: string
-            content: string
-            parentId?: string
-            likes: number
-            replies: number
-            isEdited: boolean
-            editedAt: Date
-            isDeleted: boolean
-            deletedAt?: Date
-            createdAt: Date
-            updatedAt: Date
-        }
-        error?: string
-    }> {
-        const { momentId, commentId, userId, content } = data
-
-        // Verificar se o momento existe
-        const moment = await this.repository.findById(momentId)
-        if (!moment) {
-            return {
-                success: false,
-                error: "Moment not found",
-            }
-        }
-
-        // Validar conteúdo
-        if (!content || content.trim().length === 0) {
-            return {
-                success: false,
-                error: "Comment content cannot be empty",
-            }
-        }
-
-        if (content.length > 1000) {
-            return {
-                success: false,
-                error: "Comment cannot be longer than 1000 characters",
-            }
-        }
-
-        // TODO: Implementar edição real de comentário no banco de dados
-        // Por enquanto, retorna estrutura mock
-        return {
-            success: true,
-            comment: {
-                id: commentId,
-                authorId: userId,
-                content: content.trim(),
-                likes: 0,
-                replies: 0,
-                isEdited: true,
-                editedAt: new Date(),
-                isDeleted: false,
-                createdAt: new Date(),
-                updatedAt: new Date(),
-            },
-        }
-    }
-
-    /**
-     * Deleta um comentário de um momento
-     */
-    async deleteMomentComment(data: {
-        momentId: string
-        commentId: string
-        userId: string
-    }): Promise<{
-        success: boolean
-        error?: string
-    }> {
-        const { momentId, commentId, userId } = data
-
-        // Verificar se o momento existe
-        const moment = await this.repository.findById(momentId)
-        if (!moment) {
-            return {
-                success: false,
-                error: "Moment not found",
-            }
-        }
-
-        // TODO: Implementar verificação de propriedade do comentário
-        // TODO: Implementar exclusão real de comentário no banco de dados
-        // Por enquanto, retorna sucesso mock
-        return {
-            success: true,
-        }
-    }
-
-    /**
-     * Cria um comentário em um momento
-     */
-    async createComment(data: {
-        momentId: string
-        userId: string
-        content: string
-        parentCommentId?: string
-    }): Promise<{
-        id: string
-        momentId: string
-        userId: string
-        content: string
-        parentCommentId?: string
-        createdAt: Date
-    }> {
-        // Validar dados
-        if (!data.momentId || !data.userId || !data.content) {
-            throw new Error("momentId, userId e content são obrigatórios")
-        }
-
-        // Verificar se o momento existe
-        const moment = await this.repository.findById(data.momentId)
-        if (!moment) {
-            throw new Error(`Momento com ID ${data.momentId} não encontrado`)
-        }
-
-        // Validar conteúdo
-        if (data.content.trim().length === 0) {
-            throw new Error("Conteúdo do comentário não pode estar vazio")
-        }
-
-        if (data.content.length > 1000) {
-            throw new Error("Comentário não pode ter mais de 1000 caracteres")
-        }
-
-        // Criar comentário
-        const comment = {
-            id: generateId(),
-            momentId: data.momentId,
-            userId: data.userId,
-            content: data.content.trim(),
-            parentCommentId: data.parentCommentId,
-            createdAt: new Date(),
-        }
-
-        // TODO: Salvar comentário real no banco de dados
-        return comment
     }
 
     /**
@@ -1565,16 +1354,26 @@ export class MomentService {
             throw new Error("ID do proprietário é obrigatório")
         }
 
-        if (!data.content || data.content.duration <= 0) {
-            throw new Error("Duração do conteúdo deve ser maior que zero")
+        // Validar videoData
+        if (!data.videoData || data.videoData.length === 0) {
+            throw new Error("Dados do vídeo são obrigatórios")
         }
 
-        if (!data.content.format) {
-            throw new Error("Formato do conteúdo é obrigatório")
+        // Validar metadata do vídeo
+        if (!data.videoMetadata) {
+            throw new Error("Metadados do vídeo são obrigatórios")
         }
 
-        if (data.content.width <= 0 || data.content.height <= 0) {
-            throw new Error("Dimensões do conteúdo devem ser maiores que zero")
+        if (!data.videoMetadata.filename) {
+            throw new Error("Nome do arquivo é obrigatório")
+        }
+
+        if (!data.videoMetadata.mimeType) {
+            throw new Error("Tipo MIME do arquivo é obrigatório")
+        }
+
+        if (!data.videoMetadata.mimeType.startsWith("video/")) {
+            throw new Error("Arquivo deve ser um vídeo")
         }
 
         // Validações de texto
@@ -1588,6 +1387,21 @@ export class MomentService {
 
         if (data.mentions && data.mentions.length > 50) {
             throw new Error("Máximo de 50 menções permitidas")
+        }
+
+        // Validar que usuário não pode mencionar a si mesmo
+        if (data.mentions && data.mentions.includes(data.ownerId)) {
+            throw new Error("Você não pode mencionar a si mesmo")
+        }
+
+        // Validar menções duplicadas
+        if (data.mentions && new Set(data.mentions).size !== data.mentions.length) {
+            throw new Error("Não é permitido mencionar o mesmo usuário mais de uma vez")
+        }
+
+        // Validar hashtags duplicadas
+        if (data.hashtags && new Set(data.hashtags).size !== data.hashtags.length) {
+            throw new Error("Não é permitido usar a mesma hashtag mais de uma vez")
         }
     }
 
