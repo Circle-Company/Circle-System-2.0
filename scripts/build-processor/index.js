@@ -3,7 +3,7 @@
  * Apenas Path Fixer
  */
 
-const { AdvancedPathFixer } = require("./core/path-fixer")
+const { AdvancedPathFixer } = require("./core/path.fixer")
 
 class BuildProcessor {
     constructor(options = {}) {
