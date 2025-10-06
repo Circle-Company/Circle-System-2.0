@@ -6,6 +6,7 @@ describe("CreateMomentUseCase", () => {
     let createMomentUseCase: CreateMomentUseCase
     let mockMomentRepository: any
     let mockMomentService: any
+    let mockUserRepository: any
 
     const validRequest: CreateMomentRequest = {
         ownerId: "user_123",
@@ -116,7 +117,26 @@ describe("CreateMomentUseCase", () => {
             ownerHasMoments: vi.fn(),
         } as any
 
-        createMomentUseCase = new CreateMomentUseCase(mockMomentRepository, mockMomentService)
+        mockUserRepository = {
+            findById: vi.fn(),
+            findByEmail: vi.fn(),
+            create: vi.fn(),
+            update: vi.fn(),
+            delete: vi.fn(),
+            findByUsername: vi.fn(),
+            findActiveUsers: vi.fn(),
+            findUsersByRole: vi.fn(),
+            countUsers: vi.fn(),
+            exists: vi.fn(),
+            existsByEmail: vi.fn(),
+            existsByUsername: vi.fn(),
+        } as any
+
+        createMomentUseCase = new CreateMomentUseCase(
+            mockMomentRepository,
+            mockMomentService,
+            mockUserRepository,
+        )
     })
 
     describe("execute", () => {
@@ -162,6 +182,16 @@ describe("CreateMomentUseCase", () => {
 
             mockMomentService.createMoment.mockResolvedValue(mockMoment)
 
+            // Mock do usuário válido
+            const mockUser = {
+                id: "user_123",
+                canCreateMoments: vi.fn().mockReturnValue(true),
+                isActive: vi.fn().mockReturnValue(true),
+                isBlocked: vi.fn().mockReturnValue(false),
+                isDeleted: vi.fn().mockReturnValue(false),
+            } as any
+            mockUserRepository.findById.mockResolvedValue(mockUser)
+
             // Act
             const result = await createMomentUseCase.execute(validRequest)
 
@@ -206,6 +236,13 @@ describe("CreateMomentUseCase", () => {
             // Arrange
             const invalidRequest = { ...validRequest, content: undefined as any }
 
+            // Mock do usuário válido
+            const mockUser = {
+                id: "user_123",
+                canCreateMoments: vi.fn().mockReturnValue(true),
+            } as any
+            mockUserRepository.findById.mockResolvedValue(mockUser)
+
             // Act
             const result = await createMomentUseCase.execute(invalidRequest)
 
@@ -219,6 +256,13 @@ describe("CreateMomentUseCase", () => {
         it("deve falhar quando mídia não é fornecida", async () => {
             // Arrange
             const invalidRequest = { ...validRequest, media: undefined as any }
+
+            // Mock do usuário válido
+            const mockUser = {
+                id: "user_123",
+                canCreateMoments: vi.fn().mockReturnValue(true),
+            } as any
+            mockUserRepository.findById.mockResolvedValue(mockUser)
 
             // Act
             const result = await createMomentUseCase.execute(invalidRequest)
@@ -234,6 +278,13 @@ describe("CreateMomentUseCase", () => {
             // Arrange
             const invalidRequest = { ...validRequest, thumbnail: undefined as any }
 
+            // Mock do usuário válido
+            const mockUser = {
+                id: "user_123",
+                canCreateMoments: vi.fn().mockReturnValue(true),
+            } as any
+            mockUserRepository.findById.mockResolvedValue(mockUser)
+
             // Act
             const result = await createMomentUseCase.execute(invalidRequest)
 
@@ -247,6 +298,13 @@ describe("CreateMomentUseCase", () => {
         it("deve falhar quando service lança erro", async () => {
             // Arrange
             mockMomentService.createMoment.mockRejectedValue(new Error("Erro de validação"))
+
+            // Mock do usuário válido
+            const mockUser = {
+                id: "user_123",
+                canCreateMoments: vi.fn().mockReturnValue(true),
+            } as any
+            mockUserRepository.findById.mockResolvedValue(mockUser)
 
             // Act
             const result = await createMomentUseCase.execute(validRequest)
@@ -305,6 +363,16 @@ describe("CreateMomentUseCase", () => {
             } as any
 
             mockMomentService.createMoment.mockResolvedValue(mockMoment)
+
+            // Mock do usuário válido
+            const mockUser = {
+                id: "user_123",
+                canCreateMoments: vi.fn().mockReturnValue(true),
+                isActive: vi.fn().mockReturnValue(true),
+                isBlocked: vi.fn().mockReturnValue(false),
+                isDeleted: vi.fn().mockReturnValue(false),
+            } as any
+            mockUserRepository.findById.mockResolvedValue(mockUser)
 
             // Act
             const result = await createMomentUseCase.execute(minimalRequest)
