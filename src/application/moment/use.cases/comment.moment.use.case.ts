@@ -1,7 +1,7 @@
-import { MomentEntity, MomentStatusEnum } from "@/domain/moment"
-
+import { Comment } from "@/domain/moment/entities/comment.entity"
+import { ICommentRepository } from "@/domain/moment/repositories/comment.repository"
 import { IMomentRepository } from "@/domain/moment/repositories/moment.repository"
-import { MomentService } from "../services/moment.service"
+import { IUserRepository } from "@/domain/user/repositories/user.repository"
 
 export interface CommentMomentRequest {
     momentId: string
@@ -12,57 +12,38 @@ export interface CommentMomentRequest {
 
 export interface CommentMomentResponse {
     success: boolean
-    comment?: {
-        id: string
-        momentId: string
-        userId: string
-        content: string
-        parentCommentId?: string
-        createdAt: Date
-    }
+    comment?: Comment
     error?: string
 }
 
 export class CommentMomentUseCase {
     constructor(
+        private readonly commentRepository: ICommentRepository,
         private readonly momentRepository: IMomentRepository,
-        private readonly momentService: MomentService,
+        private readonly userRepository: IUserRepository,
     ) {}
 
     async execute(request: CommentMomentRequest): Promise<CommentMomentResponse> {
         try {
-            // Validar parâmetros
-            if (!request.momentId) {
+            // Validar se o usuário existe e pode comentar
+            const user = await this.userRepository.findById(request.userId)
+            if (!user) {
                 return {
                     success: false,
-                    error: "ID do momento é obrigatório",
+                    error: "Usuário não encontrado",
                 }
             }
 
-            if (!request.userId) {
+            // Verificar se o usuário pode comentar
+            if (!user.canInteractWithMoments()) {
                 return {
                     success: false,
-                    error: "ID do usuário é obrigatório",
+                    error: "Usuário não pode interagir com momentos",
                 }
             }
 
-            if (!request.content || request.content.trim().length === 0) {
-                return {
-                    success: false,
-                    error: "Conteúdo do comentário é obrigatório",
-                }
-            }
-
-            if (request.content.length > 1000) {
-                return {
-                    success: false,
-                    error: "Comentário não pode ter mais de 1000 caracteres",
-                }
-            }
-
-            // Buscar o momento
-            const moment = await this.momentService.getMomentById(request.momentId)
-
+            // Validar se o momento existe
+            const moment = await this.momentRepository.findById(request.momentId)
             if (!moment) {
                 return {
                     success: false,
@@ -70,45 +51,53 @@ export class CommentMomentUseCase {
                 }
             }
 
-            // Verificar se o momento pode ser comentado
-            if (!this.canCommentMoment(moment)) {
+            // Verificar se o momento é interagível
+            const isInteractable = await moment.isInteractable(request.userId, this.userRepository)
+            if (!isInteractable) {
                 return {
                     success: false,
-                    error: "Momento não pode ser comentado no estado atual",
+                    error: "Momento não está disponível para comentários",
                 }
             }
 
-            // Verificar se o comentário pai existe (se fornecido)
+            // Se for uma resposta a outro comentário, verificar se o comentário pai existe
             if (request.parentCommentId) {
-                const parentComment = await this.momentService.getCommentById(
-                    request.parentCommentId,
-                )
+                const parentComment = await this.commentRepository.findById(request.parentCommentId)
                 if (!parentComment) {
                     return {
                         success: false,
                         error: "Comentário pai não encontrado",
                     }
                 }
+
+                // Verificar se o comentário pai pertence ao mesmo momento
+                if (parentComment.momentId !== request.momentId) {
+                    return {
+                        success: false,
+                        error: "Comentário pai não pertence a este momento",
+                    }
+                }
             }
 
             // Criar o comentário
-            const comment = await this.momentService.createComment({
+            const comment = Comment.create({
                 momentId: request.momentId,
-                userId: request.userId,
-                content: request.content.trim(),
+                authorId: request.userId,
+                content: request.content,
                 parentCommentId: request.parentCommentId,
             })
 
+            // Salvar o comentário
+            const savedComment = await this.commentRepository.create(comment)
+
+            // Se for uma resposta, incrementar contador de respostas do comentário pai
+            if (request.parentCommentId) {
+                await this.commentRepository.incrementReplies(request.parentCommentId)
+            }
+
             return {
                 success: true,
-                comment: {
-                    id: comment.id,
-                    momentId: comment.momentId,
-                    userId: comment.userId,
-                    content: comment.content,
-                    parentCommentId: comment.parentCommentId,
-                    createdAt: comment.createdAt,
-                },
+                comment: savedComment,
             }
         } catch (error) {
             return {
@@ -116,24 +105,5 @@ export class CommentMomentUseCase {
                 error: error instanceof Error ? error.message : "Erro interno do servidor",
             }
         }
-    }
-
-    private canCommentMoment(moment: MomentEntity): boolean {
-        // Verificar se o momento não está deletado
-        if (moment.deletedAt) {
-            return false
-        }
-
-        // Verificar se o momento está publicado
-        if (moment.status.current !== MomentStatusEnum.PUBLISHED) {
-            return false
-        }
-
-        // Verificar se o momento não está bloqueado
-        if (moment.status.current === MomentStatusEnum.BLOCKED) {
-            return false
-        }
-
-        return true
     }
 }

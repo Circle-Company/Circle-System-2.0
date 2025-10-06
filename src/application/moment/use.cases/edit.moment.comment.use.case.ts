@@ -1,8 +1,6 @@
-// ===== EDIT MOMENT COMMENT USE CASE =====
-
-import { CommentNotFoundError, CommentNotOwnedError } from "@/domain/moment/errors/moment.errors"
-
-import { MomentService } from "@/application/moment/services/moment.service"
+import { Comment } from "@/domain/moment/entities/comment.entity"
+import { ICommentRepository } from "@/domain/moment/repositories/comment.repository"
+import { IUserRepository } from "@/domain/user/repositories/user.repository"
 
 export interface EditMomentCommentRequest {
     momentId: string
@@ -13,81 +11,73 @@ export interface EditMomentCommentRequest {
 
 export interface EditMomentCommentResponse {
     success: boolean
-    comment?: {
-        id: string
-        authorId: string
-        content: string
-        parentId?: string
-        likes: number
-        replies: number
-        isEdited: boolean
-        editedAt: Date
-        isDeleted: boolean
-        deletedAt?: Date
-        createdAt: Date
-        updatedAt: Date
-    }
+    comment?: Comment
     error?: string
 }
 
 export class EditMomentCommentUseCase {
-    constructor(private readonly momentService: MomentService) {}
+    constructor(
+        private readonly commentRepository: ICommentRepository,
+        private readonly userRepository: IUserRepository,
+    ) {}
 
     async execute(request: EditMomentCommentRequest): Promise<EditMomentCommentResponse> {
-        const { momentId, commentId, userId, content } = request
-
-        // Validate content
-        if (!content || content.trim().length === 0) {
-            return {
-                success: false,
-                error: "Comment content cannot be empty",
-            }
-        }
-
-        if (content.length > 1000) {
-            return {
-                success: false,
-                error: "Comment content cannot exceed 1000 characters",
-            }
-        }
-
         try {
-            const result = await this.momentService.editMomentComment({
-                momentId,
-                commentId,
-                userId,
-                content: content.trim(),
-            })
-
-            if (!result.success) {
+            // Validar se o usuário existe
+            const user = await this.userRepository.findById(request.userId)
+            if (!user) {
                 return {
                     success: false,
-                    error: result.error || "Failed to edit comment",
+                    error: "Usuário não encontrado",
                 }
             }
+
+            // Buscar o comentário
+            const comment = await this.commentRepository.findById(request.commentId)
+            if (!comment) {
+                return {
+                    success: false,
+                    error: "Comentário não encontrado",
+                }
+            }
+
+            // Verificar se o comentário pertence ao momento correto
+            if (comment.momentId !== request.momentId) {
+                return {
+                    success: false,
+                    error: "Comentário não pertence a este momento",
+                }
+            }
+
+            // Verificar se o usuário pode editar o comentário
+            const canEdit = comment.canEditComment(request.userId, user)
+            if (!canEdit.allowed) {
+                return {
+                    success: false,
+                    error: canEdit.reason || "Não autorizado a editar este comentário",
+                }
+            }
+
+            // Editar o conteúdo
+            const editResult = comment.editContent(request.content, request.userId, user)
+            if (!editResult.success) {
+                return {
+                    success: false,
+                    error: editResult.error,
+                }
+            }
+
+            // Salvar as alterações
+            const updatedComment = await this.commentRepository.update(comment)
 
             return {
                 success: true,
-                comment: result.comment,
+                comment: updatedComment,
             }
         } catch (error) {
-            if (error instanceof CommentNotFoundError) {
-                return {
-                    success: false,
-                    error: "Comment not found",
-                }
-            }
-
-            if (error instanceof CommentNotOwnedError) {
-                return {
-                    success: false,
-                    error: "You can only edit your own comments",
-                }
-            }
-
             return {
                 success: false,
-                error: "An unexpected error occurred",
+                error: error instanceof Error ? error.message : "Erro interno do servidor",
             }
         }
     }

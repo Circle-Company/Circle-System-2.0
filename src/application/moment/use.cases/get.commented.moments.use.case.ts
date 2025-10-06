@@ -1,65 +1,86 @@
-import { MomentEntity } from "@/domain/moment"
+import { Moment } from "@/domain/moment/entities/moment.entity"
+import { ICommentRepository } from "@/domain/moment/repositories/comment.repository"
 import { IMomentRepository } from "@/domain/moment/repositories/moment.repository"
-import { MomentService } from "../services/moment.service"
 
 export interface GetCommentedMomentsRequest {
     userId: string
+    page?: number
     limit?: number
-    offset?: number
+    sortBy?: "createdAt" | "updatedAt"
+    sortOrder?: "asc" | "desc"
 }
 
 export interface GetCommentedMomentsResponse {
     success: boolean
-    moments?: MomentEntity[]
-    total?: number
+    moments?: Moment[]
+    pagination?: {
+        page: number
+        limit: number
+        total: number
+        totalPages: number
+    }
     error?: string
 }
 
 export class GetCommentedMomentsUseCase {
     constructor(
+        private readonly commentRepository: ICommentRepository,
         private readonly momentRepository: IMomentRepository,
-        private readonly momentService: MomentService,
     ) {}
 
     async execute(request: GetCommentedMomentsRequest): Promise<GetCommentedMomentsResponse> {
         try {
-            // Validar parâmetros
-            if (!request.userId) {
-                return {
-                    success: false,
-                    error: "ID do usuário é obrigatório",
-                }
-            }
+            const page = request.page || 1
+            const limit = Math.min(request.limit || 20, 100)
 
-            // Validar limites
-            if (request.limit !== undefined && (request.limit < 1 || request.limit > 100)) {
-                return {
-                    success: false,
-                    error: "Limite deve estar entre 1 e 100",
-                }
-            }
-
-            if (request.offset !== undefined && request.offset < 0) {
-                return {
-                    success: false,
-                    error: "Offset deve ser maior ou igual a 0",
-                }
-            }
-
-            const limit = request.limit || 20
-            const offset = request.offset || 0
-
-            // Buscar momentos comentados pelo usuário
-            const result = await this.momentService.getCommentedMomentsByUser(
+            // Buscar comentários do usuário
+            const userComments = await this.commentRepository.findByAuthorId(
                 request.userId,
                 limit,
-                offset,
+                (page - 1) * limit,
             )
+
+            // Extrair IDs únicos dos momentos
+            const momentIds = [...new Set(userComments.map((comment) => comment.momentId))]
+
+            // Buscar os momentos correspondentes
+            const moments: Moment[] = []
+            for (const momentId of momentIds) {
+                const moment = await this.momentRepository.findById(momentId)
+                if (moment) {
+                    moments.push(moment)
+                }
+            }
+
+            // Ordenar momentos
+            const sortBy = request.sortBy || "createdAt"
+            const sortOrder = request.sortOrder || "desc"
+
+            moments.sort((a, b) => {
+                const aValue = a[sortBy as keyof Moment] as Date
+                const bValue = b[sortBy as keyof Moment] as Date
+
+                if (sortOrder === "asc") {
+                    return aValue.getTime() - bValue.getTime()
+                } else {
+                    return bValue.getTime() - aValue.getTime()
+                }
+            })
+
+            // Contar total de momentos comentados
+            const totalComments = await this.commentRepository.countByAuthorId(request.userId)
+            const uniqueMomentCount = momentIds.length
+            const totalPages = Math.ceil(uniqueMomentCount / limit)
 
             return {
                 success: true,
-                moments: result.moments,
-                total: result.total,
+                moments,
+                pagination: {
+                    page,
+                    limit,
+                    total: uniqueMomentCount,
+                    totalPages,
+                },
             }
         } catch (error) {
             return {

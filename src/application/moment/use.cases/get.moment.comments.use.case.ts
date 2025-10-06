@@ -1,72 +1,88 @@
-// ===== GET MOMENT COMMENTS USE CASE =====
-
-import { MomentService } from "@/application/moment/services/moment.service"
+import { Comment } from "@/domain/moment/entities/comment.entity"
+import { ICommentRepository } from "@/domain/moment/repositories/comment.repository"
 
 export interface GetMomentCommentsRequest {
     momentId: string
+    userId?: string
     page?: number
     limit?: number
-    sortBy?: "created_at" | "likes" | "replies"
+    sortBy?: "createdAt" | "likesCount" | "repliesCount"
     sortOrder?: "asc" | "desc"
+    includeReplies?: boolean
 }
 
 export interface GetMomentCommentsResponse {
     success: boolean
-    comments: Array<{
-        id: string
-        authorId: string
-        content: string
-        parentId?: string
-        likes: number
-        replies: number
-        isEdited: boolean
-        editedAt?: Date
-        isDeleted: boolean
-        deletedAt?: Date
-        createdAt: Date
-        updatedAt: Date
-    }>
-    pagination: {
+    comments?: Comment[]
+    pagination?: {
         page: number
         limit: number
         total: number
         totalPages: number
     }
+    error?: string
 }
 
 export class GetMomentCommentsUseCase {
-    constructor(private readonly momentService: MomentService) {}
+    constructor(private readonly commentRepository: ICommentRepository) {}
 
     async execute(request: GetMomentCommentsRequest): Promise<GetMomentCommentsResponse> {
-        const {
-            momentId,
-            page = 1,
-            limit = 20,
-            sortBy = "created_at",
-            sortOrder = "desc",
-        } = request
+        try {
+            const page = request.page || 1
+            const limit = Math.min(request.limit || 20, 100) // Máximo 100 por página
 
-        const result = await this.momentService.getMomentComments({
-            momentId,
-            page,
-            limit,
-            sortBy,
-            sortOrder,
-        })
+            if (request.includeReplies) {
+                // Buscar todos os comentários (incluindo respostas)
+                const result = await this.commentRepository.findPaginated(
+                    page,
+                    limit,
+                    {
+                        momentId: request.momentId,
+                    },
+                    {
+                        field: request.sortBy || "createdAt",
+                        direction: (request.sortOrder || "desc").toUpperCase() as "ASC" | "DESC",
+                    },
+                )
 
-        if (!result.success) {
-            throw new Error(result.error || "Failed to get moment comments")
-        }
+                return {
+                    success: true,
+                    comments: result.comments,
+                    pagination: {
+                        page: result.page,
+                        limit: result.limit,
+                        total: result.total,
+                        totalPages: result.totalPages,
+                    },
+                }
+            } else {
+                // Buscar apenas comentários de nível superior
+                const comments = await this.commentRepository.findTopLevelComments(
+                    request.momentId,
+                    limit,
+                    (page - 1) * limit,
+                )
 
-        return {
-            success: true,
-            comments: result.comments || [],
-            pagination: result.pagination || {
-                page,
-                limit,
-                total: 0,
-                totalPages: 0,
-            },
+                // Contar total de comentários de nível superior
+                const total = await this.commentRepository.countByMomentId(request.momentId)
+                const totalPages = Math.ceil(total / limit)
+
+                return {
+                    success: true,
+                    comments,
+                    pagination: {
+                        page,
+                        limit,
+                        total,
+                        totalPages,
+                    },
+                }
+            }
+        } catch (error) {
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : "Erro interno do servidor",
+            }
         }
     }
 }

@@ -1,6 +1,5 @@
-import { MomentEntity, MomentStatusEnum } from "@/domain/moment"
-
 import { IMomentRepository } from "@/domain/moment/repositories/moment.repository"
+import { IUserRepository } from "@/domain/user/repositories/user.repository"
 import { MomentService } from "../services/moment.service"
 
 export interface LikeMomentRequest {
@@ -18,6 +17,7 @@ export class LikeMomentUseCase {
     constructor(
         private readonly momentRepository: IMomentRepository,
         private readonly momentService: MomentService,
+        private readonly userRepository: IUserRepository,
     ) {}
 
     async execute(request: LikeMomentRequest): Promise<LikeMomentResponse> {
@@ -38,7 +38,15 @@ export class LikeMomentUseCase {
             }
 
             // Buscar o momento
-            const moment = await this.momentService.getMomentById(request.momentId)
+            const [moment, isOwner, isInteractable] = await Promise.all([
+                this.momentService.getMomentById(request.momentId),
+                this.momentRepository.isOwner(request.momentId, request.userId),
+                this.momentRepository.isInteractable(
+                    request.momentId,
+                    request.userId,
+                    this.userRepository,
+                ),
+            ])
 
             if (!moment) {
                 return {
@@ -47,8 +55,15 @@ export class LikeMomentUseCase {
                 }
             }
 
+            if (isOwner) {
+                return {
+                    success: false,
+                    error: "Usuário não pode curtir seu próprio momento",
+                }
+            }
+
             // Verificar se o momento pode ser curtido
-            if (!this.canLikeMoment(moment)) {
+            if (!isInteractable) {
                 return {
                     success: false,
                     error: "Momento não pode ser curtido no estado atual",
@@ -81,19 +96,5 @@ export class LikeMomentUseCase {
                 error: error instanceof Error ? error.message : "Erro interno do servidor",
             }
         }
-    }
-
-    private canLikeMoment(moment: MomentEntity): boolean {
-        // Verificar se o momento não está deletado
-        if (moment.deletedAt) {
-            return false
-        }
-
-        // Verificar se o momento está publicado
-        if (moment.status.current !== MomentStatusEnum.PUBLISHED) {
-            return false
-        }
-
-        return true
     }
 }

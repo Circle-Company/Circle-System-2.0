@@ -22,19 +22,13 @@ export { GetMomentsAnalyticsUseCase } from "./get.moments.analytics.use.case"
 
 // Search and listing
 export { ListMomentsUseCase } from "./list.moments.use.case"
-export { SearchMomentsUseCase } from "./search.moments.use.case"
-
 // Reports management
 export { GetMomentReportsUseCase } from "./get.moment.reports.use.case"
-
-// Admin use cases
-export { BlockMomentUseCase } from "./admin/block.moment.use.case"
-export { ChangeMomentStatusUseCase } from "./admin/change.moment.status.use.case"
-export { DeleteMomentUseCase } from "./admin/delete.moment.use.case"
-export { ListAllMomentsUseCase } from "./admin/list.all.moments.use.case"
-export { UnblockMomentUseCase } from "./admin/unblock.moment.use.case"
 
 // Comment management
 export { DeleteMomentCommentUseCase } from "./delete.moment.comment.use.case"
 export { EditMomentCommentUseCase } from "./edit.moment.comment.use.case"
 export { GetMomentCommentsUseCase } from "./get.moment.comments.use.case"
+
+// Moment management
+export { DeleteMomentUseCase } from "./delete.moment.use.case"
