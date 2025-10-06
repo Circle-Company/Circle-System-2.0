@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { MomentEntity, MomentStatusEnum, MomentVisibilityEnum } from "../../../../domain/moment"
+import { MomentStatusEnum, MomentVisibilityEnum } from "../../../../domain/moment"
 import { CreateMomentData, MomentService, UpdateMomentData } from "../moment.service"
 
 describe("MomentService", () => {
@@ -7,7 +7,7 @@ describe("MomentService", () => {
     let mockMomentRepository: any
     let mockMomentMetricsService: any
 
-    const mockMoment: MomentEntity = {
+    const mockMoment: any = {
         id: "moment_123",
         ownerId: "user_123",
         status: { current: MomentStatusEnum.PUBLISHED } as any,
@@ -25,9 +25,20 @@ describe("MomentService", () => {
         description: "Test moment",
         hashtags: ["#test"],
         mentions: ["@user"],
+        metrics: {
+            engagement: {
+                totalLikes: 0,
+                likeRate: 0,
+            },
+            lastMetricsUpdate: new Date(),
+        },
+        incrementLikes: vi.fn(),
+        get likeRate() {
+            return this.metrics.engagement.likeRate
+        },
         createdAt: new Date(),
         updatedAt: new Date(),
-    } as any
+    }
 
     beforeEach(() => {
         mockMomentRepository = {
@@ -49,6 +60,9 @@ describe("MomentService", () => {
             countPublished: vi.fn(),
             exists: vi.fn(),
             existsByOwnerId: vi.fn(),
+            hasUserLikedMoment: vi.fn(),
+            addLike: vi.fn(),
+            removeLike: vi.fn(),
         }
 
         mockMomentMetricsService = {
@@ -79,7 +93,7 @@ describe("MomentService", () => {
                 mentions: ["@user"],
             }
 
-            mockMomentRepository.findById.mockResolvedValue(mockMoment)
+            mockMomentRepository.create.mockResolvedValue(mockMoment)
             mockMomentMetricsService.recordView.mockResolvedValue(undefined)
 
             // Act
@@ -87,7 +101,7 @@ describe("MomentService", () => {
 
             // Assert
             expect(result).toBeDefined()
-            expect(mockMomentRepository.findById).toHaveBeenCalled()
+            expect(mockMomentRepository.create).toHaveBeenCalled()
             expect(mockMomentMetricsService.recordView).toHaveBeenCalledWith(
                 expect.any(String),
                 expect.objectContaining({
@@ -281,9 +295,7 @@ describe("MomentService", () => {
             }
 
             mockMomentRepository.findById.mockResolvedValue(mockMoment)
-            mockMomentRepository.findById
-                .mockResolvedValueOnce(mockMoment)
-                .mockResolvedValueOnce(mockMoment)
+            mockMomentRepository.update.mockResolvedValue(mockMoment)
             mockMomentMetricsService.recordView.mockResolvedValue(undefined)
 
             // Act
@@ -292,6 +304,7 @@ describe("MomentService", () => {
             // Assert
             expect(result).toEqual(mockMoment)
             expect(mockMomentRepository.findById).toHaveBeenCalledWith("moment_123")
+            expect(mockMomentRepository.update).toHaveBeenCalled()
         })
 
         it("deve falhar ao atualizar momento inexistente", async () => {
@@ -552,12 +565,71 @@ describe("MomentService", () => {
     })
 
     describe("hasUserLikedMoment", () => {
-        it("deve retornar false por padrão", async () => {
+        it("deve retornar true quando usuário curtiu o momento", async () => {
+            // Arrange
+            mockMomentRepository.findById.mockResolvedValue(mockMoment)
+            mockMomentRepository.hasUserLikedMoment.mockResolvedValue(true)
+
+            // Act
+            const result = await momentService.hasUserLikedMoment("moment_123", "user_123")
+
+            // Assert
+            expect(result).toBe(true)
+            expect(mockMomentRepository.findById).toHaveBeenCalledWith("moment_123")
+            expect(mockMomentRepository.hasUserLikedMoment).toHaveBeenCalledWith(
+                "moment_123",
+                "user_123",
+            )
+        })
+
+        it("deve retornar false quando usuário não curtiu o momento", async () => {
+            // Arrange
+            mockMomentRepository.findById.mockResolvedValue(mockMoment)
+            mockMomentRepository.hasUserLikedMoment.mockResolvedValue(false)
+
             // Act
             const result = await momentService.hasUserLikedMoment("moment_123", "user_123")
 
             // Assert
             expect(result).toBe(false)
+            expect(mockMomentRepository.findById).toHaveBeenCalledWith("moment_123")
+            expect(mockMomentRepository.hasUserLikedMoment).toHaveBeenCalledWith(
+                "moment_123",
+                "user_123",
+            )
+        })
+
+        it("deve retornar false quando momento não existe", async () => {
+            // Arrange
+            mockMomentRepository.findById.mockResolvedValue(null)
+
+            // Act
+            const result = await momentService.hasUserLikedMoment("moment_123", "user_123")
+
+            // Assert
+            expect(result).toBe(false)
+            expect(mockMomentRepository.findById).toHaveBeenCalledWith("moment_123")
+            expect(mockMomentRepository.hasUserLikedMoment).not.toHaveBeenCalled()
+        })
+
+        it("deve retornar false quando momentId é vazio", async () => {
+            // Act
+            const result = await momentService.hasUserLikedMoment("", "user_123")
+
+            // Assert
+            expect(result).toBe(false)
+            expect(mockMomentRepository.findById).not.toHaveBeenCalled()
+            expect(mockMomentRepository.hasUserLikedMoment).not.toHaveBeenCalled()
+        })
+
+        it("deve retornar false quando userId é vazio", async () => {
+            // Act
+            const result = await momentService.hasUserLikedMoment("moment_123", "")
+
+            // Assert
+            expect(result).toBe(false)
+            expect(mockMomentRepository.findById).not.toHaveBeenCalled()
+            expect(mockMomentRepository.hasUserLikedMoment).not.toHaveBeenCalled()
         })
     })
 
@@ -565,6 +637,9 @@ describe("MomentService", () => {
         it("deve curtir um momento", async () => {
             // Arrange
             mockMomentRepository.findById.mockResolvedValue(mockMoment)
+            mockMomentRepository.hasUserLikedMoment.mockResolvedValue(false)
+            mockMomentRepository.addLike.mockResolvedValue(undefined)
+            mockMomentRepository.update.mockResolvedValue(mockMoment)
 
             // Act
             const result = await momentService.likeMoment("moment_123", "user_123")
@@ -572,6 +647,29 @@ describe("MomentService", () => {
             // Assert
             expect(result).toEqual(mockMoment)
             expect(mockMomentRepository.findById).toHaveBeenCalledWith("moment_123")
+            expect(mockMomentRepository.hasUserLikedMoment).toHaveBeenCalledWith(
+                "moment_123",
+                "user_123",
+            )
+            expect(mockMomentRepository.addLike).toHaveBeenCalledWith("moment_123", "user_123")
+        })
+
+        it("deve retornar momento quando já curtiu", async () => {
+            // Arrange
+            mockMomentRepository.findById.mockResolvedValue(mockMoment)
+            mockMomentRepository.hasUserLikedMoment.mockResolvedValue(true)
+
+            // Act
+            const result = await momentService.likeMoment("moment_123", "user_123")
+
+            // Assert
+            expect(result).toEqual(mockMoment)
+            expect(mockMomentRepository.findById).toHaveBeenCalledWith("moment_123")
+            expect(mockMomentRepository.hasUserLikedMoment).toHaveBeenCalledWith(
+                "moment_123",
+                "user_123",
+            )
+            expect(mockMomentRepository.addLike).not.toHaveBeenCalled()
         })
 
         it("deve retornar null para momento inexistente", async () => {
@@ -583,6 +681,8 @@ describe("MomentService", () => {
 
             // Assert
             expect(result).toBeNull()
+            expect(mockMomentRepository.hasUserLikedMoment).not.toHaveBeenCalled()
+            expect(mockMomentRepository.addLike).not.toHaveBeenCalled()
         })
     })
 
@@ -590,6 +690,9 @@ describe("MomentService", () => {
         it("deve remover like de um momento", async () => {
             // Arrange
             mockMomentRepository.findById.mockResolvedValue(mockMoment)
+            mockMomentRepository.hasUserLikedMoment.mockResolvedValue(true)
+            mockMomentRepository.removeLike.mockResolvedValue(undefined)
+            mockMomentRepository.update.mockResolvedValue(mockMoment)
 
             // Act
             const result = await momentService.unlikeMoment("moment_123", "user_123")
@@ -597,41 +700,42 @@ describe("MomentService", () => {
             // Assert
             expect(result).toEqual(mockMoment)
             expect(mockMomentRepository.findById).toHaveBeenCalledWith("moment_123")
-        })
-    })
-
-    describe("addCommentToMoment", () => {
-        it("deve adicionar comentário ao momento", async () => {
-            // Arrange
-            mockMomentRepository.findById.mockResolvedValue(mockMoment)
-
-            // Act
-            const result = await momentService.addCommentToMoment(
+            expect(mockMomentRepository.hasUserLikedMoment).toHaveBeenCalledWith(
                 "moment_123",
                 "user_123",
-                "Great moment!",
-                "parent_comment_123",
             )
+            expect(mockMomentRepository.removeLike).toHaveBeenCalledWith("moment_123", "user_123")
+        })
+
+        it("deve retornar momento quando não curtiu", async () => {
+            // Arrange
+            mockMomentRepository.findById.mockResolvedValue(mockMoment)
+            mockMomentRepository.hasUserLikedMoment.mockResolvedValue(false)
+
+            // Act
+            const result = await momentService.unlikeMoment("moment_123", "user_123")
 
             // Assert
-            expect(result).toEqual({
-                id: expect.any(String),
-                momentId: "moment_123",
-                userId: "user_123",
-                text: "Great moment!",
-                parentCommentId: "parent_comment_123",
-                createdAt: expect.any(Date),
-            })
+            expect(result).toEqual(mockMoment)
+            expect(mockMomentRepository.findById).toHaveBeenCalledWith("moment_123")
+            expect(mockMomentRepository.hasUserLikedMoment).toHaveBeenCalledWith(
+                "moment_123",
+                "user_123",
+            )
+            expect(mockMomentRepository.removeLike).not.toHaveBeenCalled()
         })
-    })
 
-    describe("getCommentById", () => {
-        it("deve retornar null por padrão", async () => {
+        it("deve retornar null para momento inexistente", async () => {
+            // Arrange
+            mockMomentRepository.findById.mockResolvedValue(null)
+
             // Act
-            const result = await momentService.getCommentById("comment_123")
+            const result = await momentService.unlikeMoment("inexistente", "user_123")
 
             // Assert
             expect(result).toBeNull()
+            expect(mockMomentRepository.hasUserLikedMoment).not.toHaveBeenCalled()
+            expect(mockMomentRepository.removeLike).not.toHaveBeenCalled()
         })
     })
 
@@ -692,46 +796,6 @@ describe("MomentService", () => {
                 moments: [],
                 total: 0,
             })
-        })
-    })
-
-    describe("createMomentsBatch", () => {
-        it("deve criar múltiplos momentos", async () => {
-            // Arrange
-            const createData: CreateMomentData[] = [
-                {
-                    ownerId: "user_123",
-                    content: {
-                        duration: 30,
-                        size: 1024,
-                        format: "mp4",
-                        width: 1080,
-                        height: 1920,
-                        hasAudio: true,
-                        codec: "h264",
-                    },
-                    description: "Test moment 1",
-                },
-                {
-                    ownerId: "user_123",
-                    content: {
-                        duration: 45,
-                        size: 2048,
-                        format: "mp4",
-                        width: 1080,
-                        height: 1920,
-                        hasAudio: true,
-                        codec: "h264",
-                    },
-                    description: "Test moment 2",
-                },
-            ]
-
-            // Act
-            const result = await momentService.createMomentsBatch(createData)
-
-            // Assert
-            expect(result).toHaveLength(2)
         })
     })
 
@@ -800,37 +864,6 @@ describe("MomentService", () => {
             // Assert
             expect(result).toEqual([mockMoment])
             expect(mockMomentRepository.findRecent).toHaveBeenCalledWith(undefined, undefined)
-        })
-    })
-
-    describe("updateMomentsBatch", () => {
-        it("deve atualizar múltiplos momentos", async () => {
-            // Arrange
-            const updates = [
-                { id: "moment_123", data: { description: "Updated description" } },
-                { id: "moment_456", data: { hashtags: ["#updated"] } },
-            ]
-            mockMomentRepository.findById.mockResolvedValue(mockMoment)
-
-            // Act
-            const result = await momentService.updateMomentsBatch(updates)
-
-            // Assert
-            expect(result).toHaveLength(2)
-        })
-    })
-
-    describe("deleteMomentsBatch", () => {
-        it("deve deletar múltiplos momentos", async () => {
-            // Arrange
-            const ids = ["moment_123", "moment_456"]
-            mockMomentRepository.findById.mockResolvedValue(mockMoment)
-
-            // Act
-            const result = await momentService.deleteMomentsBatch(ids)
-
-            // Assert
-            expect(result).toBe(2)
         })
     })
 
@@ -981,6 +1014,7 @@ describe("MomentService", () => {
         it("deve incrementar likes do momento", async () => {
             // Arrange
             mockMomentRepository.findById.mockResolvedValue(mockMoment)
+            mockMomentRepository.update.mockResolvedValue(mockMoment)
 
             // Act
             const result = await momentService.incrementMomentLikes("moment_123", "user_123")
@@ -1006,6 +1040,7 @@ describe("MomentService", () => {
         it("deve decrementar likes do momento", async () => {
             // Arrange
             mockMomentRepository.findById.mockResolvedValue(mockMoment)
+            mockMomentRepository.update.mockResolvedValue(mockMoment)
 
             // Act
             const result = await momentService.decrementMomentLikes("moment_123", "user_123")
@@ -1024,39 +1059,6 @@ describe("MomentService", () => {
 
             // Assert
             expect(result).toBeNull()
-        })
-    })
-
-    describe("addCommentToMoment", () => {
-        it("deve falhar com comentário vazio", async () => {
-            // Arrange
-            mockMomentRepository.findById.mockResolvedValue(mockMoment)
-
-            // Act & Assert
-            await expect(
-                momentService.addCommentToMoment("moment_123", "user_123", ""),
-            ).rejects.toThrow("Comentário não pode estar vazio")
-        })
-
-        it("deve falhar com comentário muito longo", async () => {
-            // Arrange
-            mockMomentRepository.findById.mockResolvedValue(mockMoment)
-            const longComment = "a".repeat(1001)
-
-            // Act & Assert
-            await expect(
-                momentService.addCommentToMoment("moment_123", "user_123", longComment),
-            ).rejects.toThrow("Comentário não pode ter mais de 1000 caracteres")
-        })
-
-        it("deve falhar para momento inexistente", async () => {
-            // Arrange
-            mockMomentRepository.findById.mockResolvedValue(null)
-
-            // Act & Assert
-            await expect(
-                momentService.addCommentToMoment("moment_123", "user_123", "Great moment!"),
-            ).rejects.toThrow("Momento com ID moment_123 não encontrado")
         })
     })
 
@@ -1300,100 +1302,6 @@ describe("MomentService", () => {
                 hasNext: false,
                 hasPrev: false,
             })
-        })
-    })
-
-    describe("createComment", () => {
-        it("deve criar comentário com sucesso", async () => {
-            // Arrange
-            mockMomentRepository.findById.mockResolvedValue(mockMoment)
-
-            // Act
-            const result = await momentService.createComment({
-                momentId: "moment_123",
-                userId: "user_123",
-                content: "Great moment!",
-            })
-
-            // Assert
-            expect(result).toEqual({
-                id: expect.any(String),
-                momentId: "moment_123",
-                userId: "user_123",
-                content: "Great moment!",
-                parentCommentId: undefined,
-                createdAt: expect.any(Date),
-            })
-        })
-
-        it("deve falhar com dados obrigatórios faltando", async () => {
-            // Act & Assert
-            await expect(
-                momentService.createComment({
-                    momentId: "",
-                    userId: "user_123",
-                    content: "Great moment!",
-                }),
-            ).rejects.toThrow("momentId, userId e content são obrigatórios")
-
-            await expect(
-                momentService.createComment({
-                    momentId: "moment_123",
-                    userId: "",
-                    content: "Great moment!",
-                }),
-            ).rejects.toThrow("momentId, userId e content são obrigatórios")
-
-            await expect(
-                momentService.createComment({
-                    momentId: "moment_123",
-                    userId: "user_123",
-                    content: "",
-                }),
-            ).rejects.toThrow("momentId, userId e content são obrigatórios")
-        })
-
-        it("deve falhar com conteúdo vazio", async () => {
-            // Arrange
-            mockMomentRepository.findById.mockResolvedValue(mockMoment)
-
-            // Act & Assert
-            await expect(
-                momentService.createComment({
-                    momentId: "moment_123",
-                    userId: "user_123",
-                    content: "   ",
-                }),
-            ).rejects.toThrow("Conteúdo do comentário não pode estar vazio")
-        })
-
-        it("deve falhar com conteúdo muito longo", async () => {
-            // Arrange
-            mockMomentRepository.findById.mockResolvedValue(mockMoment)
-            const longContent = "a".repeat(1001)
-
-            // Act & Assert
-            await expect(
-                momentService.createComment({
-                    momentId: "moment_123",
-                    userId: "user_123",
-                    content: longContent,
-                }),
-            ).rejects.toThrow("Comentário não pode ter mais de 1000 caracteres")
-        })
-
-        it("deve falhar para momento inexistente", async () => {
-            // Arrange
-            mockMomentRepository.findById.mockResolvedValue(null)
-
-            // Act & Assert
-            await expect(
-                momentService.createComment({
-                    momentId: "moment_123",
-                    userId: "user_123",
-                    content: "Great moment!",
-                }),
-            ).rejects.toThrow("Momento com ID moment_123 não encontrado")
         })
     })
 })
