@@ -65,7 +65,7 @@ export class AdminBlockUserUseCase {
             }
 
             // Verificar se já está bloqueado
-            if (user.status === "blocked") {
+            if (user.status === "") {
                 return {
                     success: false,
                     error: "Usuário já está bloqueado",
