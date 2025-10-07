@@ -1,7 +1,7 @@
 import { TextLibrary, Timezone } from "circle-text-library"
 
 import { userRules } from "@/domain/user/user.rules"
-import type { ValidationConfig } from "circle-text-library/dist/src/types"
+import { ValidationConfig } from "circle-text-library/dist/src/types"
 
 // Função para converter regras do user.rules.ts para o formato ValidationConfig
 function createValidationConfig(): ValidationConfig {
@@ -12,307 +12,307 @@ function createValidationConfig(): ValidationConfig {
             minLength: {
                 enabled: false,
                 value: rules.username.minLength,
-                description: "Username deve ter pelo menos 4 caracteres",
+                description: "Username must have at least 4 characters",
             },
             maxLength: {
                 enabled: false,
                 value: rules.username.maxLength,
-                description: "Username deve ter no máximo 20 caracteres",
+                description: "Username must have at most 20 characters",
             },
             allowedCharacters: {
                 enabled: false,
                 value: rules.username.allowedCharacters,
-                description: "Username deve conter apenas letras, números e ._-",
+                description: "Username must contain only letters, numbers and ._-",
             },
             cannotStartWith: {
                 enabled: false,
                 value: rules.username.cannotStartWith,
-                description: "Username não pode começar com .",
+                description: "Username cannot start with .",
             },
             cannotEndWith: {
                 enabled: false,
                 value: rules.username.cannotEndWith,
-                description: "Username não pode terminar com .",
+                description: "Username cannot end with .",
             },
             cannotContainConsecutive: {
                 enabled: false,
                 value: rules.username.cannotContainConsecutive,
-                description: "Username não pode conter caracteres consecutivos",
+                description: "Username cannot contain consecutive characters",
             },
             allowAtPrefix: {
                 enabled: false,
                 value: rules.username.allowAtPrefix,
-                description: "Username deve começar com @",
+                description: "Username must start with @",
             },
             allowedSpecialCharacters: {
                 enabled: false,
                 value: rules.username.allowedSpecialCharacters,
-                description: "Username deve conter apenas caracteres especiais permitidos",
+                description: "Username must contain only allowed special characters",
             },
             forbiddenSpecialCharacters: {
                 enabled: false,
                 value: rules.username.forbiddenSpecialCharacters,
-                description: "Username não deve conter caracteres especiais proibidos",
+                description: "Username must not contain forbidden special characters",
             },
             onlyAlphaNumeric: {
                 enabled: false,
                 value: rules.username.onlyAlphaNumeric,
-                description: "Username deve conter apenas letras e números",
+                description: "Username must contain only letters and numbers",
             },
             requireSpecialCharacters: {
                 enabled: false,
                 value: rules.username.requireSpecialCharacters,
-                description: "Username deve conter pelo menos um caractere especial",
+                description: "Username must contain at least one special character",
             },
         },
         name: {
             minLength: {
                 enabled: false,
                 value: rules.name.minLength,
-                description: "Nome deve ter pelo menos 2 caracteres",
+                description: "Name must have at least 2 characters",
             },
             maxLength: {
                 enabled: false,
                 value: rules.name.maxLength,
-                description: "Nome deve ter no máximo 100 caracteres",
+                description: "Name must have at most 100 characters",
             },
             allowedCharacters: {
                 enabled: false,
                 value: rules.name.allowedCharacters,
-                description: "Nome deve conter apenas letras e espaços",
+                description: "Name must contain only letters and spaces",
             },
             requireOnlyLetters: {
                 enabled: false,
                 value: rules.name.requireOnlyLetters,
-                description: "Nome deve conter apenas letras",
+                description: "Name must contain only letters",
             },
             requireFullName: {
                 enabled: false,
                 value: rules.name.requireFullName,
-                description: "Nome deve ser completo",
+                description: "Name must be complete",
             },
             forbiddenNames: {
                 enabled: false,
                 value: rules.name.forbiddenNames,
-                description: "Nome não pode ser uma palavra proibida",
+                description: "Name cannot be a forbidden word",
             },
             cannotContainNumbers: {
                 enabled: false,
                 value: rules.name.cannotContainNumbers,
-                description: "Nome não pode conter números",
+                description: "Name cannot contain numbers",
             },
             cannotContainSpecialChars: {
                 enabled: false,
                 value: rules.name.cannotContainSpecialChars,
-                description: "Nome não pode conter caracteres especiais",
+                description: "Name cannot contain special characters",
             },
             requireCapitalization: {
                 enabled: false,
                 value: rules.name.requireCapitalization,
-                description: "Nome deve ter capitalização adequada",
+                description: "Name must have proper capitalization",
             },
             cannotStartWith: {
                 enabled: false,
                 value: rules.name.cannotStartWith,
-                description: "Nome não pode começar com espaço",
+                description: "Name cannot start with space",
             },
             cannotEndWith: {
                 enabled: false,
                 value: rules.name.cannotEndWith,
-                description: "Nome não pode terminar com espaço",
+                description: "Name cannot end with space",
             },
         },
         description: {
             minLength: {
                 enabled: false,
                 value: rules.description.minLength,
-                description: "Descrição deve ter pelo menos 10 caracteres",
+                description: "Description must have at least 10 characters",
             },
             maxLength: {
                 enabled: false,
                 value: rules.description.maxLength,
-                description: "Descrição deve ter no máximo 300 caracteres",
+                description: "Description must have at most 300 characters",
             },
             allowedCharacters: {
                 enabled: false,
                 value: rules.description.allowedCharacters,
-                description: "Descrição deve conter apenas caracteres permitidos",
+                description: "Description must contain only allowed characters",
             },
             forbiddenWords: {
                 enabled: false,
                 value: rules.description.forbiddenWords,
-                description: "Descrição não pode conter palavras proibidas",
+                description: "Description cannot contain forbidden words",
             },
             requireAlphanumeric: {
                 enabled: false,
                 value: rules.description.requireAlphanumeric,
-                description: "Descrição deve conter caracteres alfanuméricos",
+                description: "Description must contain alphanumeric characters",
             },
             cannotStartWith: {
                 enabled: false,
                 value: rules.description.cannotStartWith,
-                description: "Descrição não pode começar com espaço",
+                description: "Description cannot start with space",
             },
             cannotEndWith: {
                 enabled: false,
                 value: rules.description.cannotEndWith,
-                description: "Descrição não pode terminar com espaço",
+                description: "Description cannot end with space",
             },
             allowUrls: {
                 enabled: false,
                 value: rules.description.allowUrls,
-                description: "Descrição pode conter URLs",
+                description: "Description can contain URLs",
             },
             allowMentions: {
                 enabled: false,
                 value: rules.description.allowMentions,
-                description: "Descrição pode conter menções",
+                description: "Description can contain mentions",
             },
             allowHashtags: {
                 enabled: false,
                 value: rules.description.allowHashtags,
-                description: "Descrição pode conter hashtags",
+                description: "Description can contain hashtags",
             },
         },
         password: {
             minLength: {
                 enabled: false,
                 value: rules.password.minLength,
-                description: `Senha deve ter pelo menos ${rules.password.minLength} caracteres`,
+                description: `Password must have at least ${rules.password.minLength} characters`,
             },
             maxLength: {
                 enabled: false,
                 value: rules.password.maxLength,
-                description: "Senha deve ter no máximo 128 caracteres",
+                description: "Password must have at most 128 characters",
             },
             requireUppercase: {
                 enabled: false,
                 value: rules.password.requireUppercase,
-                description: "Senha deve conter pelo menos uma letra maiúscula",
+                description: "Password must contain at least one uppercase letter",
             },
             requireLowercase: {
                 enabled: false,
                 value: rules.password.requireLowercase,
-                description: "Senha deve conter pelo menos uma letra minúscula",
+                description: "Password must contain at least one lowercase letter",
             },
             requireNumbers: {
                 enabled: false,
                 value: rules.password.requireNumbers,
-                description: "Senha deve conter pelo menos um número",
+                description: "Password must contain at least one number",
             },
             requireSpecialChars: {
                 enabled: false,
                 value: rules.password.requireSpecialChars,
-                description: "Senha deve conter pelo menos um caractere especial",
+                description: "Password must contain at least one special character",
             },
             allowedSpecialChars: {
                 enabled: false,
                 value: rules.password.allowedSpecialChars,
-                description: "Senha deve conter apenas caracteres especiais permitidos",
+                description: "Password must contain only allowed special characters",
             },
             forbiddenSpecialChars: {
                 enabled: false,
                 value: rules.password.forbiddenSpecialChars,
-                description: "Senha não deve conter caracteres especiais proibidos",
+                description: "Password must not contain forbidden special characters",
             },
             requireCommonPasswords: {
                 enabled: false,
                 value: rules.password.requireCommonPasswords,
-                description: "Senha deve ser comum",
+                description: "Password must be common",
             },
             forbiddenWords: {
                 enabled: false,
                 value: rules.password.forbiddenWords,
-                description: "Senha não pode conter palavras proibidas",
+                description: "Password cannot contain forbidden words",
             },
             cannotContainUsername: {
                 enabled: false,
                 value: rules.password.cannotContainUsername,
-                description: "Senha não pode conter o username",
+                description: "Password cannot contain the username",
             },
             cannotContainEmail: {
                 enabled: false,
                 value: rules.password.cannotContainEmail,
-                description: "Senha não pode conter o email",
+                description: "Password cannot contain the email",
             },
             cannotStartWith: {
                 enabled: false,
                 value: rules.password.cannotStartWith,
-                description: "Senha não pode começar com espaço",
+                description: "Password cannot start with space",
             },
             cannotEndWith: {
                 enabled: false,
                 value: rules.password.cannotEndWith,
-                description: "Senha não pode terminar com espaço",
+                description: "Password cannot end with space",
             },
             cannotBeRepeatedChars: {
                 enabled: false,
                 value: rules.password.cannotBeRepeatedChars,
-                description: "Senha não pode conter caracteres repetidos",
+                description: "Password cannot contain repeated characters",
             },
             cannotBeSequentialChars: {
                 enabled: false,
                 value: rules.password.cannotBeSequentialChars,
-                description: "Senha não pode conter caracteres sequenciais",
+                description: "Password cannot contain sequential characters",
             },
             requireDigitAtPosition: {
                 enabled: false,
                 value: rules.password.requireDigitAtPosition,
-                description: "Senha deve conter dígito em posição específica",
+                description: "Password must contain digit at specific position",
             },
         },
         hashtag: {
             requiredPrefix: {
                 enabled: false,
                 value: rules.hashtag.requiredPrefix,
-                description: "Hashtag deve começar com #",
+                description: "Hashtag must start with #",
             },
             minLength: {
                 enabled: false,
                 value: rules.hashtag.minLength,
-                description: "Hashtag deve ter pelo menos 2 caracteres",
+                description: "Hashtag must have at least 2 characters",
             },
             maxLength: {
                 enabled: false,
                 value: rules.hashtag.maxLength,
-                description: "Hashtag deve ter no máximo 50 caracteres",
+                description: "Hashtag must have at most 50 characters",
             },
             allowedCharacters: {
                 enabled: false,
                 value: rules.hashtag.allowedCharacters,
-                description: "Hashtag deve conter apenas letras, números e underscore",
+                description: "Hashtag must contain only letters, numbers and underscore",
             },
             cannotStartWith: {
                 enabled: false,
                 value: rules.hashtag.cannotStartWith,
-                description: "Hashtag não pode começar com espaço",
+                description: "Hashtag cannot start with space",
             },
             cannotEndWith: {
                 enabled: false,
                 value: rules.hashtag.cannotEndWith,
-                description: "Hashtag não pode terminar com espaço",
+                description: "Hashtag cannot end with space",
             },
         },
         url: {
             requireProtocol: {
                 enabled: false,
                 value: rules.url.requireProtocol,
-                description: "URL deve conter protocolo",
+                description: "URL must contain protocol",
             },
             allowedProtocols: {
                 enabled: false,
                 value: rules.url.allowedProtocols,
-                description: "URL deve usar protocolos permitidos",
+                description: "URL must use allowed protocols",
             },
             minLength: {
                 enabled: false,
                 value: rules.url.minLength,
-                description: "URL deve ter pelo menos 10 caracteres",
+                description: "URL must have at least 10 characters",
             },
             maxLength: {
                 enabled: false,
                 value: rules.url.maxLength,
-                description: "URL deve ter no máximo 2048 caracteres",
+                description: "URL must have at most 2048 characters",
             },
         },
     }
