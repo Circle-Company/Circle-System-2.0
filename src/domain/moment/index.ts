@@ -1,5 +1,6 @@
 export * from "./entities/comment.entity"
 export * from "./entities/moment.entity"
+export type { IMomentEmbeddingRepository } from "./moment.embedding.repository"
 export * from "./moment.mapper"
 export * from "./repositories/comment.repository"
 export * from "./repositories/moment.metrics.repository"
