@@ -1,5 +1,18 @@
-import { AdapterType, HttpAdapter } from "./http.type"
 import { FastifyAdapter, MockAdapter } from "./http.adapters"
+import { AdapterType, HttpAdapter } from "./http.type"
+
+/**
+ * Configuração HTTP genérica
+ */
+export interface HttpConfig {
+    port: number
+    host: string
+    environment: string
+    logging: boolean
+    requestIdHeader?: string
+    requestIdLogLabel?: string
+    genReqId?: () => string
+}
 
 /**
  * Factory para criar adapters de API
@@ -8,7 +21,37 @@ export class HttpFactory {
     /**
      * Cria um adapter Fastify
      */
-    static createFastifyAdapter(fastifyInstance: any): HttpAdapter {
+    static createFastifyAdapter(config: HttpConfig | any): HttpAdapter {
+        // Se for uma instância do Fastify, usar diretamente
+        if (config && typeof config.listen === "function") {
+            return new FastifyAdapter(config)
+        }
+
+        // Se for configuração, criar instância do Fastify internamente
+        const Fastify = require("fastify")
+        const fastifyInstance = Fastify({
+            logger: config.logging ? { level: "info" } : false,
+            disableRequestLogging: !config.logging,
+            requestIdHeader: config.requestIdHeader || "x-request-id",
+            requestIdLogLabel: config.requestIdLogLabel || "reqId",
+            genReqId:
+                config.genReqId ||
+                (() => `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`),
+            schemaErrorFormatter: (errors: any[], dataVar: string) => {
+                return new Error(
+                    `Validation failed for ${dataVar}: ${errors.map((e) => e.message).join(", ")}`,
+                )
+            },
+            ajv: {
+                customOptions: {
+                    strict: false,
+                    removeAdditional: false,
+                    useDefaults: true,
+                    coerceTypes: false,
+                },
+            },
+        })
+
         return new FastifyAdapter(fastifyInstance)
     }
 
@@ -22,13 +65,10 @@ export class HttpFactory {
     /**
      * Cria adapter baseado no tipo especificado
      */
-    static create(type: AdapterType, fastifyInstance?: any): HttpAdapter {
+    static create(type: AdapterType, config?: HttpConfig | any): HttpAdapter {
         switch (type) {
             case "fastify":
-                if (!fastifyInstance) {
-                    throw new Error("Fastify instance is required for fastify adapter")
-                }
-                return this.createFastifyAdapter(fastifyInstance)
+                return this.createFastifyAdapter(config || {})
             case "mock":
                 return this.createMockAdapter()
             default:
@@ -39,10 +79,10 @@ export class HttpFactory {
     /**
      * Cria adapter baseado no ambiente
      */
-    static createForEnvironment(environment: string, fastifyInstance?: any): HttpAdapter {
+    static createForEnvironment(environment: string, config?: HttpConfig | any): HttpAdapter {
         return environment === "test"
             ? this.createMockAdapter()
-            : this.createFastifyAdapter(fastifyInstance)
+            : this.createFastifyAdapter(config || {})
     }
 }
 
@@ -53,7 +93,7 @@ export const createHttp = {
     /**
      * Cria Http para produção (Fastify)
      */
-    production: (fastifyInstance: any) => HttpFactory.create("fastify", fastifyInstance),
+    production: (config: HttpConfig | any) => HttpFactory.create("fastify", config),
 
     /**
      * Cria Http para testes (Mock)
@@ -63,9 +103,7 @@ export const createHttp = {
     /**
      * Cria Http baseada no ambiente
      */
-    forEnvironment: (env: string, fastifyInstance?: any) => {
-        return env === "test"
-            ? HttpFactory.create("mock")
-            : HttpFactory.create("fastify", fastifyInstance)
+    forEnvironment: (env: string, config?: HttpConfig | any) => {
+        return env === "test" ? HttpFactory.create("mock") : HttpFactory.create("fastify", config)
     },
 }
