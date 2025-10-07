@@ -4,7 +4,7 @@
  * Custom error classes for user domain operations
  */
 
-import { ErrorCode, SystemError } from "../../../shared/errors"
+import { ErrorCode, SystemError } from "../../shared/errors"
 
 export class UserNotFoundError extends SystemError {
     constructor(userId: string) {

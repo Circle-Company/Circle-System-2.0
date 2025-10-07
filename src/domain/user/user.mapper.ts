@@ -1,7 +1,7 @@
-import { Level } from "../../authorization/authorization.type"
-import { User as DomainUser } from "../entities/user.entity"
-import { UserMetrics } from "../entities/user.metrics.entity"
-import { UserProps } from "../types/user.type"
+import { Level } from "../authorization/authorization.type"
+import { User as DomainUser } from "./entities/user.entity"
+import { UserMetrics } from "./entities/user.metrics.entity"
+import { TimezoneCode, UserProps } from "./types/user.type"
 
 // Interfaces para os modelos Sequelize
 interface UserModelAttributes {
@@ -86,7 +86,7 @@ interface UserStatisticsModelAttributes {
     updated_at: Date
 }
 
-interface UserTermsModelAttributes {
+interface UserTermModelAttributes {
     user_id: bigint
     terms_and_conditions_agreed: boolean
     terms_and_conditions_agreed_version: string
@@ -128,7 +128,7 @@ interface CompleteUserModel {
     status?: UserStatusModelAttributes
     preferences?: UserPreferencesModelAttributes
     statistics?: UserStatisticsModelAttributes
-    user_terms?: UserTermsModelAttributes
+    user_terms?: UserTermModelAttributes
     user_embedding?: UserEmbeddingModelAttributes
     user_interaction_summary?: UserInteractionSummaryModelAttributes
 }
@@ -147,8 +147,8 @@ export class UserMapper {
             oldPassword: sequelizeUser.old_encrypted_password,
             description: sequelizeUser.description,
             lastPasswordUpdatedAt: sequelizeUser.last_password_updated_at,
-            created_at: sequelizeUser.created_at,
-            updated_at: sequelizeUser.updated_at,
+            createdAt: sequelizeUser.created_at,
+            updatedAt: sequelizeUser.updated_at,
         }
 
         // Mapear dados relacionados se existirem
@@ -159,8 +159,8 @@ export class UserMapper {
                 deleted: sequelizeUser.status.deleted,
                 blocked: sequelizeUser.status.blocked,
                 muted: sequelizeUser.status.muted,
-                created_at: sequelizeUser.status.created_at,
-                updated_at: sequelizeUser.status.updated_at,
+                createdAt: sequelizeUser.status.created_at,
+                updatedAt: sequelizeUser.status.updated_at,
             }
         }
 
@@ -168,6 +168,7 @@ export class UserMapper {
             userData.preferences = {
                 appLanguage: sequelizeUser.preferences.app_language,
                 appTimezone: sequelizeUser.preferences.app_timezone,
+                timezoneCode: sequelizeUser.preferences.app_timezone as unknown as TimezoneCode,
                 disableAutoplay: sequelizeUser.preferences.disable_autoplay,
                 disableHaptics: sequelizeUser.preferences.disable_haptics,
                 disableTranslation: sequelizeUser.preferences.disable_translation,
@@ -192,8 +193,8 @@ export class UserMapper {
                     | "public"
                     | "followers_only"
                     | "private",
-                created_at: sequelizeUser.preferences.created_at,
-                updated_at: sequelizeUser.preferences.updated_at,
+                createdAt: sequelizeUser.preferences.created_at,
+                updatedAt: sequelizeUser.preferences.updated_at,
             }
         }
 
@@ -228,8 +229,8 @@ export class UserMapper {
                 reportsReceived: sequelizeUser.statistics.reports_received,
                 violationsCount: sequelizeUser.statistics.violations_count,
                 lastMetricsUpdate: sequelizeUser.statistics.last_metrics_update,
-                created_at: sequelizeUser.statistics.created_at,
-                updated_at: sequelizeUser.statistics.updated_at,
+                createdAt: sequelizeUser.statistics.created_at,
+                updatedAt: sequelizeUser.statistics.updated_at,
             })
         }
 
@@ -239,8 +240,8 @@ export class UserMapper {
                 termsAndConditionsAgreedVersion:
                     sequelizeUser.user_terms.terms_and_conditions_agreed_version,
                 termsAndConditionsAgreedAt: sequelizeUser.user_terms.terms_and_conditions_agreed_at,
-                created_at: sequelizeUser.user_terms.created_at,
-                updated_at: sequelizeUser.user_terms.updated_at,
+                createdAt: sequelizeUser.user_terms.created_at,
+                updatedAt: sequelizeUser.user_terms.updated_at,
             }
         }
 
@@ -249,8 +250,8 @@ export class UserMapper {
                 vector: sequelizeUser.user_embedding.vector,
                 dimension: sequelizeUser.user_embedding.dimension,
                 metadata: sequelizeUser.user_embedding.metadata,
-                created_at: sequelizeUser.user_embedding.created_at,
-                updated_at: sequelizeUser.user_embedding.updated_at,
+                createdAt: sequelizeUser.user_embedding.created_at,
+                updatedAt: sequelizeUser.user_embedding.updated_at,
             }
         }
 
@@ -259,8 +260,8 @@ export class UserMapper {
                 totalInteractions: sequelizeUser.user_interaction_summary.totalInteractions,
                 lastInteractionDate: sequelizeUser.user_interaction_summary.lastInteractionDate,
                 interactionCounts: sequelizeUser.user_interaction_summary.interactionCounts,
-                created_at: sequelizeUser.user_interaction_summary.created_at,
-                updated_at: sequelizeUser.user_interaction_summary.updated_at,
+                createdAt: sequelizeUser.user_interaction_summary.created_at,
+                updatedAt: sequelizeUser.user_interaction_summary.updated_at,
             }
         }
 
@@ -282,8 +283,8 @@ export class UserMapper {
             old_encrypted_password: userData.oldPassword || null,
             description: userData.description || null,
             last_password_updated_at: userData.lastPasswordUpdatedAt || null,
-            created_at: userData.created_at || new Date(),
-            updated_at: userData.updated_at || new Date(),
+            created_at: userData.createdAt || new Date(),
+            updated_at: userData.updatedAt || new Date(),
         }
     }
 
@@ -302,8 +303,8 @@ export class UserMapper {
             deleted: userData.status.deleted,
             blocked: userData.status.blocked,
             muted: userData.status.muted,
-            created_at: userData.status.created_at,
-            updated_at: userData.status.updated_at,
+            created_at: userData.status.createdAt,
+            updated_at: userData.status.updatedAt,
         }
     }
 
@@ -341,6 +342,8 @@ export class UserMapper {
             disable_around_you_push_notification:
                 userData.preferences.disableAroundYouPushNotification,
             default_moment_visibility: userData.preferences.defaultMomentVisibility,
+            created_at: userData.preferences.createdAt,
+            updated_at: userData.preferences.updatedAt,
         }
     }
 
@@ -391,11 +394,11 @@ export class UserMapper {
     }
 
     /**
-     * Converte entidade de domínio para atributos do modelo UserTerms
+     * Converte entidade de domínio para atributos do modelo UserTerm
      */
-    static toUserTermsAttributes(
+    static toUserTermAttributes(
         domainUser: DomainUser,
-    ): Omit<UserTermsModelAttributes, "created_at" | "updated_at"> | null {
+    ): Omit<UserTermModelAttributes, "created_at" | "updated_at"> | null {
         const userData = domainUser.toJSON()
 
         if (!userData.terms) return null

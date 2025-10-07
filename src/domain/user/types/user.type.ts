@@ -14,7 +14,7 @@ export interface UserEntity {
     status: UserStatus
     metrics: UserMetrics
     preferences: UserPreferences
-    terms: UserTerms
+    terms: UserTerm
     embedding: UserEmbedding
     interctionsSummary: UserInterctionsSummary
     createdAt: Date
@@ -34,7 +34,7 @@ export interface UserProps {
     status?: UserStatus
     metrics?: UserMetrics
     preferences?: UserPreferences
-    terms?: UserTerms
+    terms?: UserTerm
     embedding?: UserEmbedding
     interctionsSummary?: UserInterctionsSummary
     createdAt?: Date
@@ -52,6 +52,23 @@ export enum UserStatusEnum {
     INACTIVE = "inactive",
     SUSPENDED = "suspended",
     DELETED = "deleted",
+}
+
+export enum TimezoneCode {
+    UTC = "UTC",
+    BRT = "BRT",
+    BRST = "BRST",
+    EST = "EST",
+    EDT = "EDT",
+    CST = "CST",
+    CDT = "CDT",
+    MST = "MST",
+    MDT = "MDT",
+    PST = "PST",
+    PDT = "PDT",
+    AKST = "AKST",
+    AKDT = "AKDT",
+    HST = "HST",
 }
 
 export interface UserProfilePicture {
@@ -74,6 +91,7 @@ export interface UserStatus {
 export interface UserPreferences {
     appLanguage: string
     appTimezone: number
+    timezoneCode: TimezoneCode
     disableAutoplay: boolean
     disableHaptics: boolean
     disableTranslation: boolean
@@ -91,7 +109,7 @@ export interface UserPreferences {
     updatedAt: Date
 }
 
-export interface UserTerms {
+export interface UserTerm {
     termsAndConditionsAgreed: boolean
     termsAndConditionsAgreedVersion: string
     termsAndConditionsAgreedAt: Date
