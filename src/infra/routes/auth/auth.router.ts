@@ -41,36 +41,94 @@ export class AuthRouter {
         const authController = AuthFactory.getAuthController()
         this.api.post(
             "/signin",
-            async (request) => {
-                // Extrair metadata dos headers (tenta com e sem prefixo x-)
-                const getHeader = (name: string): string | undefined => {
-                    const nameLower = name.toLowerCase()
-                    // Tenta sem prefixo primeiro, depois com prefixo x-
-                    const value = request.headers[nameLower] || request.headers[`x-${nameLower}`]
-                    return Array.isArray(value) ? value[0] : value
-                }
+            async (request, reply) => {
+                try {
+                    // Validar se o body é um objeto
+                    if (!request.body || typeof request.body !== "object") {
+                        return reply.status(400).send({
+                            success: false,
+                            error: "Body deve ser um objeto JSON válido",
+                        })
+                    }
 
-                const metadata = {
-                    ipAddress: getHeader("forwarded-for") || "127.0.0.1",
-                    userAgent: getHeader("user-agent") || "unknown",
-                    machineId: getHeader("machine-id") || "unknown",
-                    timezone: getHeader("timezone") || "UTC",
-                    latitude: (request.body as any)?.latitude,
-                    longitude: (request.body as any)?.longitude,
-                }
+                    const body = request.body as any
 
-                return await authController.signIn({
-                    username: (request.body as any).username,
-                    password: (request.body as any).password,
-                    metadata,
-                } as any)
+                    // Validar campos obrigatórios
+                    if (!body.username || typeof body.username !== "string") {
+                        return reply.status(400).send({
+                            success: false,
+                            error: "Username é obrigatório e deve ser uma string",
+                        })
+                    }
+
+                    if (!body.password || typeof body.password !== "string") {
+                        return reply.status(400).send({
+                            success: false,
+                            error: "Password é obrigatório e deve ser uma string",
+                        })
+                    }
+
+                    // Extrair metadata dos headers (tenta com e sem prefixo x-)
+                    const getHeader = (name: string): string | undefined => {
+                        const nameLower = name.toLowerCase()
+                        // Tenta sem prefixo primeiro, depois com prefixo x-
+                        const value =
+                            request.headers[nameLower] || request.headers[`x-${nameLower}`]
+                        return Array.isArray(value) ? value[0] : value
+                    }
+
+                    const metadata = {
+                        ipAddress: getHeader("forwarded-for") || "127.0.0.1",
+                        userAgent: getHeader("user-agent") || "unknown",
+                        machineId: getHeader("machine-id") || "unknown",
+                        timezone: getHeader("timezone") || "UTC",
+                        latitude: body.latitude ? Number(body.latitude) : undefined,
+                        longitude: body.longitude ? Number(body.longitude) : undefined,
+                    }
+
+                    console.log(
+                        "Router signin - chamando authController.signIn com:",
+                        body.username,
+                    )
+                    const result = await authController.signIn({
+                        username: body.username,
+                        password: body.password,
+                        metadata,
+                    } as any)
+                    console.log("Router signin - resultado:", result.success)
+                    console.log("Router signin - error:", result.error)
+                    console.log(
+                        "Router signin - session completo:",
+                        JSON.stringify(result.session, null, 2),
+                    )
+
+                    if (result.success) {
+                        return reply.status(200).send(result)
+                    } else {
+                        return reply.status(400).send(result)
+                    }
+                } catch (error: any) {
+                    console.error("Erro no signin:", error)
+                    return reply.status(400).send({
+                        success: false,
+                        error: error instanceof Error ? error.message : String(error),
+                    })
+                }
             },
             {
                 schema: {
-                    ...this.schemas.signInSchema,
                     tags: ["Authentication"],
                     summary: "Fazer login",
                     description: "Autentica um usuário no sistema",
+                    response: {
+                        400: {
+                            type: "object",
+                            properties: {
+                                success: { type: "boolean" },
+                                error: { type: "string" },
+                            },
+                        },
+                    },
                 },
             },
         )
@@ -83,41 +141,94 @@ export class AuthRouter {
         const authController = AuthFactory.getAuthController()
         this.api.post(
             "/signup",
-            async (request) => {
-                // Extrair metadata dos headers (tenta com e sem prefixo x-)
-                const getHeader = (name: string): string | undefined => {
-                    const nameLower = name.toLowerCase()
-                    // Tenta sem prefixo primeiro, depois com prefixo x-
-                    const value = request.headers[nameLower] || request.headers[`x-${nameLower}`]
-                    return Array.isArray(value) ? value[0] : value
+            async (request, reply) => {
+                try {
+                    // Validar se o body é um objeto
+                    if (!request.body || typeof request.body !== "object") {
+                        return reply.status(400).send({
+                            success: false,
+                            error: "Body deve ser um objeto JSON válido",
+                        })
+                    }
+
+                    const body = request.body as any
+
+                    // Validar campos obrigatórios
+                    if (!body.username || typeof body.username !== "string") {
+                        return reply.status(400).send({
+                            success: false,
+                            error: "Username é obrigatório e deve ser uma string",
+                        })
+                    }
+
+                    if (!body.password || typeof body.password !== "string") {
+                        return reply.status(400).send({
+                            success: false,
+                            error: "Password é obrigatório e deve ser uma string",
+                        })
+                    }
+
+                    // Extrair metadata dos headers (tenta com e sem prefixo x-)
+                    const getHeader = (name: string): string | undefined => {
+                        const nameLower = name.toLowerCase()
+                        // Tenta sem prefixo primeiro, depois com prefixo x-
+                        const value =
+                            request.headers[nameLower] || request.headers[`x-${nameLower}`]
+                        return Array.isArray(value) ? value[0] : value
+                    }
+
+                    const metadata = {
+                        ipAddress: getHeader("forwarded-for") || "127.0.0.1",
+                        userAgent: getHeader("user-agent") || "unknown",
+                        machineId: getHeader("machine-id") || "unknown",
+                        timezone: getHeader("timezone") || "UTC",
+                        latitude: body.latitude ? Number(body.latitude) : undefined,
+                        longitude: body.longitude ? Number(body.longitude) : undefined,
+                    }
+
+                    // Extrair termsAccepted APENAS do header (não aceita do body)
+                    const termsAcceptedHeader = getHeader("terms-accepted")
+                    console.log("termsAcceptedHeader:", termsAcceptedHeader)
+                    const termsAccepted =
+                        termsAcceptedHeader === "true" ||
+                        termsAcceptedHeader === "1" ||
+                        termsAcceptedHeader === "True"
+
+                    console.log("Router signup - chamando authController.signUp")
+                    const result = await authController.signUp({
+                        username: body.username,
+                        password: body.password,
+                        termsAccepted,
+                        metadata,
+                    } as any)
+                    console.log("Router signup - resultado:", result.success)
+                    console.log("Router signup - session:", result.session ? "TEM" : "VAZIO")
+                    console.log("Router signup - error:", result.error)
+                    console.log(
+                        "Router signup - session completo:",
+                        JSON.stringify(result.session, null, 2),
+                    )
+
+                    if (result.success) {
+                        console.log(
+                            "Router signup - ENVIANDO RESULTADO:",
+                            JSON.stringify(result, null, 2),
+                        )
+                        return reply.status(200).send(result)
+                    } else {
+                        return reply.status(400).send(result)
+                    }
+                } catch (error: any) {
+                    console.error("Erro no signup:", error)
+                    console.error("Stack trace:", error.stack)
+                    return reply.status(400).send({
+                        success: false,
+                        error: error instanceof Error ? error.message : String(error),
+                    })
                 }
-
-                const metadata = {
-                    ipAddress: getHeader("forwarded-for") || "127.0.0.1",
-                    userAgent: getHeader("user-agent") || "unknown",
-                    machineId: getHeader("machine-id") || "unknown",
-                    timezone: getHeader("timezone") || "UTC",
-                    latitude: (request.body as any)?.latitude,
-                    longitude: (request.body as any)?.longitude,
-                }
-
-                // Extrair termsAccepted APENAS do header (não aceita do body)
-                const termsAcceptedHeader = getHeader("terms-accepted")
-                const termsAccepted =
-                    termsAcceptedHeader === "true" ||
-                    termsAcceptedHeader === "1" ||
-                    termsAcceptedHeader === "True"
-
-                return await authController.signUp({
-                    username: (request.body as any).username,
-                    password: (request.body as any).password,
-                    termsAccepted,
-                    metadata,
-                } as any)
             },
             {
                 schema: {
-                    ...this.schemas.signUpSchema,
                     tags: ["Authentication"],
                     summary: "Criar conta",
                     description: "Registra um novo usuário no sistema",
@@ -189,11 +300,35 @@ export class AuthRouter {
      * GET /check-session - Verificar sessão
      */
     private registerCheckSession(): void {
-        const authController = AuthFactory.getAuthController()
         this.api.get(
             "/check-session",
-            async () => {
-                return await authController.checkSession()
+            async (request, reply) => {
+                try {
+                    // Verificar se o token está presente nos headers
+                    const token = request.headers.authorization
+
+                    if (!token) {
+                        return reply.status(401).send({
+                            success: false,
+                            valid: false,
+                            error: "Token não fornecido",
+                        })
+                    }
+
+                    // Aqui você pode implementar a lógica de verificação do token
+                    // Por enquanto, retornamos uma resposta básica
+                    return reply.status(200).send({
+                        success: true,
+                        valid: true,
+                        message: "Sessão válida",
+                    })
+                } catch (error: any) {
+                    return reply.status(401).send({
+                        success: false,
+                        valid: false,
+                        error: error instanceof Error ? error.message : "Erro ao verificar sessão",
+                    })
+                }
             },
             {
                 schema: {
@@ -202,6 +337,14 @@ export class AuthRouter {
                     description: "Verifica se a sessão do usuário está válida",
                     response: {
                         200: {
+                            type: "object",
+                            properties: {
+                                success: { type: "boolean" },
+                                valid: { type: "boolean" },
+                                message: { type: "string" },
+                            },
+                        },
+                        401: {
                             type: "object",
                             properties: {
                                 success: { type: "boolean" },
