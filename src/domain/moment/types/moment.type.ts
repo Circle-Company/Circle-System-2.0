@@ -211,5 +211,5 @@ export interface MomentEmbedding {
 
 // ===== IMPORT METRICS =====
 // Importar métricas robustas do arquivo separado
-import { MomentMetrics } from "../entities/moment.metrics.entity"
+import { MomentMetrics } from "./moment.metrics.type"
 export { MomentMetrics }

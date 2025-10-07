@@ -108,27 +108,6 @@ describe("MomentMetricsEntity", () => {
                 mentionEffectiveness: 70,
                 descriptionEngagement: 85,
             },
-            monetization: {
-                totalRevenue: 1500,
-                adRevenue: 800,
-                subscriptionRevenue: 500,
-                tipRevenue: 150,
-                merchandiseRevenue: 50,
-                revenuePerView: 1.5,
-                revenuePerUser: 2.5,
-                averageOrderValue: 25,
-                adClickRate: 3.5,
-                subscriptionConversionRate: 5,
-                tipConversionRate: 2,
-                merchandiseConversionRate: 1,
-                productionCost: 500,
-                distributionCost: 200,
-                marketingCost: 300,
-                totalCost: 1000,
-                returnOnInvestment: 50,
-                profitMargin: 33.33,
-                breakEvenPoint: new Date("2024-01-15T00:00:00Z"),
-            },
             lastMetricsUpdate: new Date("2024-01-01T12:00:00Z"),
             metricsVersion: "1.0.0",
             dataQuality: 95,
@@ -150,7 +129,6 @@ describe("MomentMetricsEntity", () => {
             expect(metrics.viral.viralScore).toBe(75)
             expect(metrics.audience.premiumUsers).toBe(200)
             expect(metrics.content.contentQualityScore).toBe(85)
-            expect(metrics.monetization.totalRevenue).toBe(1500)
             expect(metrics.dataQuality).toBe(95)
             expect(metrics.confidenceLevel).toBe(90)
         })
@@ -202,7 +180,6 @@ describe("MomentMetricsEntity", () => {
             expect(metrics.viral).toBeDefined()
             expect(metrics.audience).toBeDefined()
             expect(metrics.content).toBeDefined()
-            expect(metrics.monetization).toBeDefined()
             expect(metrics.lastMetricsUpdate).toBeInstanceOf(Date)
             expect(metrics.metricsVersion).toBe("1.0.0")
             expect(metrics.dataQuality).toBe(95)
@@ -480,94 +457,6 @@ describe("MomentMetricsEntity", () => {
         })
     })
 
-    describe("Métricas de Monetização", () => {
-        let metrics: MomentMetricsEntity
-
-        beforeEach(() => {
-            metrics = new MomentMetricsEntity(validMetricsProps)
-        })
-
-        it("deve adicionar receita de anúncios", () => {
-            const initialRevenue = metrics.monetization.totalRevenue
-            const initialAdRevenue = metrics.monetization.adRevenue
-            metrics.addRevenue(100, "ad")
-
-            expect(metrics.monetization.totalRevenue).toBe(initialRevenue + 100)
-            expect(metrics.monetization.adRevenue).toBe(initialAdRevenue + 100)
-            expect(metrics.lastMetricsUpdate.getTime()).toBeGreaterThan(
-                validMetricsProps.lastMetricsUpdate.getTime(),
-            )
-        })
-
-        it("deve adicionar receita de assinatura", () => {
-            const initialRevenue = metrics.monetization.totalRevenue
-            const initialSubscriptionRevenue = metrics.monetization.subscriptionRevenue
-            metrics.addRevenue(50, "subscription")
-
-            expect(metrics.monetization.totalRevenue).toBe(initialRevenue + 50)
-            expect(metrics.monetization.subscriptionRevenue).toBe(initialSubscriptionRevenue + 50)
-        })
-
-        it("deve adicionar receita de gorjeta", () => {
-            const initialRevenue = metrics.monetization.totalRevenue
-            const initialTipRevenue = metrics.monetization.tipRevenue
-            metrics.addRevenue(25, "tip")
-
-            expect(metrics.monetization.totalRevenue).toBe(initialRevenue + 25)
-            expect(metrics.monetization.tipRevenue).toBe(initialTipRevenue + 25)
-        })
-
-        it("deve adicionar receita de mercadoria", () => {
-            const initialRevenue = metrics.monetization.totalRevenue
-            const initialMerchandiseRevenue = metrics.monetization.merchandiseRevenue
-            metrics.addRevenue(10, "merchandise")
-
-            expect(metrics.monetization.totalRevenue).toBe(initialRevenue + 10)
-            expect(metrics.monetization.merchandiseRevenue).toBe(initialMerchandiseRevenue + 10)
-        })
-
-        it("deve adicionar custo de produção", () => {
-            const initialCost = metrics.monetization.totalCost
-            const initialProductionCost = metrics.monetization.productionCost
-            metrics.addCost(200, "production")
-
-            expect(metrics.monetization.totalCost).toBe(initialCost + 200)
-            expect(metrics.monetization.productionCost).toBe(initialProductionCost + 200)
-        })
-
-        it("deve adicionar custo de distribuição", () => {
-            const initialCost = metrics.monetization.totalCost
-            const initialDistributionCost = metrics.monetization.distributionCost
-            metrics.addCost(100, "distribution")
-
-            expect(metrics.monetization.totalCost).toBe(initialCost + 100)
-            expect(metrics.monetization.distributionCost).toBe(initialDistributionCost + 100)
-        })
-
-        it("deve adicionar custo de marketing", () => {
-            const initialCost = metrics.monetization.totalCost
-            const initialMarketingCost = metrics.monetization.marketingCost
-            metrics.addCost(150, "marketing")
-
-            expect(metrics.monetization.totalCost).toBe(initialCost + 150)
-            expect(metrics.monetization.marketingCost).toBe(initialMarketingCost + 150)
-        })
-
-        it("deve recalcular métricas de monetização", () => {
-            // Adicionar receita e custo
-            metrics.addRevenue(500, "ad")
-            metrics.addCost(200, "production")
-
-            // Com 2000 de receita total e 1200 de custo total:
-            // revenuePerView = 2000/1000 = 2.0
-            // ROI = (2000-1200)/1200 * 100 = 66.67%
-            // profitMargin = (2000-1200)/2000 * 100 = 40%
-            expect(metrics.monetization.revenuePerView).toBe(2.0)
-            expect(metrics.monetization.returnOnInvestment).toBeCloseTo(66.67, 2)
-            expect(metrics.monetization.profitMargin).toBeCloseTo(40.0, 2)
-        })
-    })
-
     describe("Cálculos", () => {
         let metrics: MomentMetricsEntity
 
@@ -602,21 +491,6 @@ describe("MomentMetricsEntity", () => {
             expect(contentQualityScore).toBeGreaterThanOrEqual(0)
             // O cálculo pode retornar valores > 100 devido à fórmula
             expect(typeof contentQualityScore).toBe("number")
-        })
-
-        it("deve calcular ROI", () => {
-            const roi = metrics.calculateROI()
-            // (1500 - 1000) / 1000 * 100 = 50%
-            expect(roi).toBe(50)
-        })
-
-        it("deve calcular ROI zero quando não há custos", () => {
-            const metricsWithoutCosts = new MomentMetricsEntity({
-                ...validMetricsProps,
-                monetization: { ...validMetricsProps.monetization, totalCost: 0 },
-            })
-
-            expect(metricsWithoutCosts.calculateROI()).toBe(0)
         })
 
         it("deve calcular score de engajamento", () => {
@@ -698,7 +572,6 @@ describe("MomentMetricsEntity", () => {
             expect(momentMetrics.viral.viralScore).toBe(75)
             expect(momentMetrics.audience.premiumUsers).toBe(200)
             expect(momentMetrics.content.contentQualityScore).toBe(85)
-            expect(momentMetrics.monetization.totalRevenue).toBe(1500)
             expect(momentMetrics.lastMetricsUpdate).toBeInstanceOf(Date)
             expect(momentMetrics.metricsVersion).toBe("1.0.0")
             expect(momentMetrics.dataQuality).toBe(95)
@@ -718,7 +591,6 @@ describe("MomentMetricsEntity", () => {
             expect(entity.viral.viralScore).toBe(75)
             expect(entity.audience.premiumUsers).toBe(200)
             expect(entity.content.contentQualityScore).toBe(85)
-            expect(entity.monetization.totalRevenue).toBe(1500)
             expect(entity.lastMetricsUpdate).toBeInstanceOf(Date)
             expect(entity.metricsVersion).toBe("1.0.0")
             expect(entity.dataQuality).toBe(95)
@@ -759,8 +631,6 @@ describe("MomentMetricsEntity", () => {
             metrics.incrementLikes(5)
             metrics.incrementComments(3)
             metrics.updateViralScore(80)
-            metrics.addRevenue(100, "ad")
-            metrics.addCost(50, "production")
 
             const endTime = Date.now()
 
@@ -768,8 +638,6 @@ describe("MomentMetricsEntity", () => {
             expect(metrics.engagement.totalLikes).toBe(155)
             expect(metrics.engagement.totalComments).toBe(78)
             expect(metrics.viral.viralScore).toBe(80)
-            expect(metrics.monetization.totalRevenue).toBe(1600)
-            expect(metrics.monetization.totalCost).toBe(1050)
             expect(endTime - startTime).toBeLessThan(50) // Deve ser rápido
         })
     })

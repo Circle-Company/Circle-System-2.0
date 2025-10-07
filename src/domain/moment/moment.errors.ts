@@ -216,3 +216,117 @@ export class CommentNotOwnedError extends SystemError {
         })
     }
 }
+
+export class MomentInteractionBlockedError extends SystemError {
+    constructor(momentId: string, userId: string, reason: string) {
+        super({
+            message: `User ${userId} cannot interact with moment ${momentId}: ${reason}`,
+            code: ErrorCode.INSUFFICIENT_PERMISSIONS,
+            action: "User interaction is blocked due to user status or relationship restrictions",
+            context: {
+                additionalData: {
+                    momentId,
+                    userId,
+                    reason,
+                },
+            },
+            metadata: {
+                severity: "medium",
+                retryable: false,
+                logLevel: "warn",
+                notifyAdmin: false,
+            },
+        })
+    }
+}
+
+export class MomentOwnerInactiveError extends SystemError {
+    constructor(momentId: string, ownerId: string) {
+        super({
+            message: `Owner ${ownerId} of moment ${momentId} is inactive (blocked/deleted)`,
+            code: ErrorCode.INSUFFICIENT_PERMISSIONS,
+            action: "Cannot interact with moments from inactive users",
+            context: {
+                additionalData: {
+                    momentId,
+                    ownerId,
+                },
+            },
+            metadata: {
+                severity: "medium",
+                retryable: false,
+                logLevel: "warn",
+                notifyAdmin: false,
+            },
+        })
+    }
+}
+
+export class MomentUserBlockedError extends SystemError {
+    constructor(momentId: string, userId: string, ownerId: string) {
+        super({
+            message: `User ${userId} is blocked by moment owner ${ownerId} (moment ${momentId})`,
+            code: ErrorCode.INSUFFICIENT_PERMISSIONS,
+            action: "User cannot interact with moments from users who have blocked them",
+            context: {
+                additionalData: {
+                    momentId,
+                    userId,
+                    ownerId,
+                },
+            },
+            metadata: {
+                severity: "medium",
+                retryable: false,
+                logLevel: "warn",
+                notifyAdmin: false,
+            },
+        })
+    }
+}
+
+export class MomentVisibilityRestrictedError extends SystemError {
+    constructor(momentId: string, userId: string, visibilityLevel: string) {
+        super({
+            message: `User ${userId} cannot access moment ${momentId} due to visibility restriction (${visibilityLevel})`,
+            code: ErrorCode.INSUFFICIENT_PERMISSIONS,
+            action: "User does not have permission to view this moment due to its visibility settings",
+            context: {
+                additionalData: {
+                    momentId,
+                    userId,
+                    visibilityLevel,
+                },
+            },
+            metadata: {
+                severity: "low",
+                retryable: false,
+                logLevel: "info",
+                notifyAdmin: false,
+            },
+        })
+    }
+}
+
+export class MomentUserNotFollowingError extends SystemError {
+    constructor(momentId: string, userId: string, ownerId: string) {
+        super({
+            message: `User ${userId} is not following moment owner ${ownerId} (moment ${momentId})`,
+            code: ErrorCode.INSUFFICIENT_PERMISSIONS,
+            action: "User must follow the moment owner to interact with followers-only moments",
+            context: {
+                additionalData: {
+                    momentId,
+                    userId,
+                    ownerId,
+                },
+            },
+            metadata: {
+                severity: "low",
+                retryable: false,
+                logLevel: "info",
+                notifyAdmin: false,
+            },
+        })
+    }
+}

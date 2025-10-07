@@ -112,10 +112,6 @@ export interface MomentValidationRules {
         requirePayment: boolean
         allowFreeContent: boolean
         requireSubscription: boolean
-        allowMonetization: boolean
-        requireRevenueShare: boolean
-        maxRevenueShare: number // %
-        minRevenueShare: number // %
     }
 }
 
@@ -252,10 +248,6 @@ export const DEFAULT_MOMENT_VALIDATION_RULES: MomentValidationRules = {
         requirePayment: false,
         allowFreeContent: true,
         requireSubscription: false,
-        allowMonetization: false,
-        requireRevenueShare: false,
-        maxRevenueShare: 50, // 50%
-        minRevenueShare: 10, // 10%
     },
 }
 
@@ -392,10 +384,6 @@ export const PREMIUM_MOMENT_VALIDATION_RULES: MomentValidationRules = {
         requirePayment: false,
         allowFreeContent: true,
         requireSubscription: false,
-        allowMonetization: true,
-        requireRevenueShare: false,
-        maxRevenueShare: 50, // 50%
-        minRevenueShare: 10, // 10%
     },
 }
 
