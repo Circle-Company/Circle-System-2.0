@@ -16,8 +16,7 @@ export enum ContentTypeEnum {
 }
 
 export enum ModerationFlagEnum {
-    NO_FACE_DETECTED = "no_face_detected",
-    AI_CONTENT = "ai_content",
+    LOW_QUALITY_CONTENT = "low_quality_content",
     BOT_CONTENT = "bot_content",
     LOW_QUALITY_VIDEO = "low_quality_video",
     LOW_QUALITY_AUDIO = "low_quality_audio",
@@ -25,8 +24,27 @@ export enum ModerationFlagEnum {
     STATIC_CONTENT = "static_content",
     SPAM_CONTENT = "spam_content",
     EXCESSIVE_HASHTAGS = "excessive_hashtags",
-    MEME_CONTENT = "meme_content",
+    EXCESSIVE_MENTIONS = "excessive_mentions",
+    EXCESSIVE_URLS = "excessive_urls",
     TEXT_ONLY = "text_only",
+    REPETITIVE_CONTENT = "repetitive_content",
+    SUSPICIOUS_PATTERNS = "suspicious_patterns",
+
+    // Novas flags para análise de texto
+    EXCESSIVE_TEXT = "excessive_text",
+    REPETITIVE_TEXT = "repetitive_text",
+    EXCESSIVE_SPECIAL_CHARS = "excessive_special_chars",
+
+    // Novas flags para análise de hashtags
+    LONG_HASHTAGS = "long_hashtags",
+    DUPLICATE_HASHTAGS = "duplicate_hashtags",
+    SPAM_HASHTAGS = "spam_hashtags",
+    IRRELEVANT_HASHTAGS = "irrelevant_hashtags",
+
+    // Flags para detecção de IA e conteúdo
+    AI_CONTENT = "ai_content",
+    MEME_CONTENT = "meme_content",
+    NO_FACE_DETECTED = "no_face_detected",
 }
 
 export enum ModerationSeverityEnum {
@@ -56,8 +74,6 @@ export interface ModerationEntity {
     severity: ModerationSeverityEnum
 
     // Metadados de detecção
-    detectionModel: string
-    detectionVersion: string
     processingTime: number
 
     // Timestamps
@@ -78,8 +94,6 @@ export interface ModerationProps {
     isHidden?: boolean
     flags?: ModerationFlag[]
     severity?: ModerationSeverityEnum
-    detectionModel?: string
-    detectionVersion?: string
     processingTime?: number
     createdAt?: Date
     updatedAt?: Date
