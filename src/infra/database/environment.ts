@@ -72,18 +72,15 @@ if (process.env.NODE_ENV === "production") {
 // Configurações base para todos os ambientes
 const baseConfig = {
     define: {
-        timestamps: true,
-        underscored: true, // Usar snake_case para timestamps (created_at, updated_at)
+        timestamps: false, // Desabilitar timestamps automáticos
+        underscored: false, // Não usar snake_case para evitar conflitos
         paranoid: false,
         freezeTableName: true,
     },
     dialectOptions: {
         charset: "utf8mb4",
-        collate: "utf8mb4_unicode_ci",
         connectTimeout: 60000,
-        acquireTimeout: 60000,
         timeout: process.env.DB_TIMEOUT!,
-        timezone: process.env.TIMEZONE!,
     },
 }
 

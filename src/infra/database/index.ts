@@ -33,7 +33,7 @@ import UserPreferences from "../models/user/user.preferences.model"
 import UserProfilePicture from "../models/user/user.profile.picture.model"
 import UserStatistics from "../models/user/user.statistics.model"
 import UserStatus from "../models/user/user.status.model"
-import UserTerms from "../models/user/user.terms.model"
+import UserTerm from "../models/user/user.terms.model"
 // Moment models
 import { logger } from "@/shared"
 
@@ -59,7 +59,7 @@ export class DatabaseManager {
         // User models
         User,
         UserStatus,
-        UserTerms,
+        UserTerm,
         UserMetadata,
         UserPreferences,
         UserProfilePicture,
