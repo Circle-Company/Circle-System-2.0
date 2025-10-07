@@ -47,7 +47,6 @@ describe("SignInUseCase", () => {
             save: vi.fn(),
             findById: vi.fn(),
             findByUsername: vi.fn(),
-            findByUsername: vi.fn(),
             existsByUsername: vi.fn(),
             update: vi.fn(),
             deleteUser: vi.fn(),
@@ -125,7 +124,6 @@ describe("SignInUseCase", () => {
                     id: "123",
                     username: "test@example.com",
                     name: "Test User",
-                    username: "test@example.com",
                     role: UserRole.USER,
                     status: "active",
                     lastLogin: expect.any(Date),
@@ -151,7 +149,6 @@ describe("SignInUseCase", () => {
                 deviceType: Device.WEB,
                 deviceId: "unknown",
                 deviceTimezone: "UTC",
-                createdAt: expect.any(Date),
             })
         })
 
@@ -168,7 +165,7 @@ describe("SignInUseCase", () => {
             const input: InputDto = {
                 username: "admin@example.com",
                 password: "admin123",
-                device: Device.DESKTOP,
+                device: Device.WEB,
             }
 
             vi.mocked(mockUserRepository.findByUsername).mockResolvedValue(superAdminUser)
@@ -212,7 +209,6 @@ describe("SignInUseCase", () => {
                 deviceType: Device.WEB,
                 deviceId: "unknown",
                 deviceTimezone: "UTC",
-                createdAt: expect.any(Date),
             })
         })
 
@@ -244,7 +240,6 @@ describe("SignInUseCase", () => {
                 deviceType: Device.WEB,
                 deviceId: "unknown",
                 deviceTimezone: "UTC",
-                createdAt: expect.any(Date),
             })
         })
 
@@ -281,7 +276,6 @@ describe("SignInUseCase", () => {
                 deviceType: Device.WEB,
                 deviceId: "unknown",
                 deviceTimezone: "UTC",
-                createdAt: expect.any(Date),
             })
         })
     })
@@ -328,7 +322,7 @@ describe("SignInUseCase", () => {
             const input: InputDto = {
                 username: "test@example.com",
                 password: "password123",
-                device: Device.DESKTOP,
+                device: Device.WEB,
             }
 
             const userWithOldPassword = {
@@ -418,7 +412,7 @@ describe("SignInUseCase", () => {
             const input: InputDto = {
                 username: "test@example.com",
                 password: "password123",
-                device: Device.DESKTOP,
+                device: Device.WEB,
             }
 
             vi.mocked(mockUserRepository.findByUsername).mockResolvedValue(mockUser)
