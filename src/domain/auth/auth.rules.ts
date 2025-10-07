@@ -1,87 +1,10 @@
-import { SecurityRisk, SignStatus } from "@/infra/models/auth/sign.logs.model"
-
-/**
- * Auth Rules - Regras de Autenticação e Segurança
- *
- * Define as regras para bloqueio de requisições baseadas em security risk
- * e outros critérios de segurança para signin/signup
- */
-
-export interface AuthSecurityRules {
-    // Configurações de risco
-    riskThresholds: {
-        maxLowRiskWeight: number
-        maxMediumRiskWeight: number
-        maxHighRiskWeight: number
-        criticalRiskThreshold: number
-    }
-
-    // Configurações de bloqueio por IP
-    ipBlocking: {
-        maxFailedAttempts: number
-        blockDurationMinutes: number
-        suspiciousIPs: string[]
-        allowedIPs: string[]
-    }
-
-    // Configurações de localização
-    locationBlocking: {
-        blockedCountries: string[]
-        blockedRegions: string[]
-        highRiskCountries: string[]
-        allowedCountries: string[]
-    }
-
-    // Configurações de user agent
-    userAgentBlocking: {
-        blockedPatterns: string[]
-        suspiciousPatterns: string[]
-        botPatterns: string[]
-        allowedPatterns: string[]
-    }
-
-    // Configurações de username
-    usernameValidation: {
-        blockedUsernames: string[]
-        suspiciousPatterns: string[]
-        minLength: number
-        maxLength: number
-        allowedCharacters: string
-    }
-
-    // Configurações de rate limiting
-    rateLimiting: {
-        maxAttemptsPerMinute: number
-        maxAttemptsPerHour: number
-        maxAttemptsPerDay: number
-        cooldownMinutes: number
-    }
-
-    // Configurações de termos
-    termsValidation: {
-        requireTermsAcceptance: boolean
-        minTermsVersion: string
-        blockedTermsVersions: string[]
-    }
-}
-
-export interface SecurityCheckResult {
-    risk: SecurityRisk
-    reason: string
-    weight: number
-    blocked: boolean
-    metadata?: any
-}
-
-export interface AuthDecision {
-    allowed: boolean
-    status: SignStatus
-    securityRisk: SecurityRisk
-    reason?: string
-    additionalChecks?: string[]
-    blockDuration?: number
-    requiresVerification?: boolean
-}
+import {
+    AuthDecision,
+    AuthSecurityRules,
+    SecurityCheckResult,
+    SecurityRisk,
+    SignStatus,
+} from "@/domain/auth/auth.type"
 
 /**
  * Classe principal para aplicar regras de autenticação

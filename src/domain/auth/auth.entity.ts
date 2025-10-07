@@ -1,4 +1,4 @@
-import { AuthDecision, AuthSecurityRules } from "./auth.rules"
+import { AuthDecision, AuthSecurityRules } from "./auth.type"
 
 import { UserProps } from "../user"
 

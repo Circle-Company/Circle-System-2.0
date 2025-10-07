@@ -1,4 +1,4 @@
-import { UserProfilePicture, UserStatus, UserTerms } from "@/domain/user/types/user.type"
+import { UserProfilePicture, UserStatus, UserTerm } from "@/domain/user/types/user.type"
 export interface SignUpInputDto {
     username: string
     password: string
@@ -33,7 +33,7 @@ export interface SignUpOutputDto {
                 totalFollowing: number
                 lastMetricsUpdate: Date
             }
-            terms: Omit<UserTerms, "createdAt" | "updatedAt">
+            terms: Omit<UserTerm, "createdAt" | "updatedAt">
             lastLogin: Date
             lastPasswordUpdate: Date
         }
