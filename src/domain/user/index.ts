@@ -15,6 +15,12 @@ export type {
     UserMetricsStats,
 } from "./repositories/user.metrics.repository"
 export { IUserRepository, UserRepository } from "./repositories/user.repository"
+export type { IUserEmbeddingRepository } from "./user.embedding.repository"
+export type {
+    UserInteraction as DomainUserInteraction,
+    IInteractionRepository,
+    InteractionType as UserInteractionType,
+} from "./user.interaction.repository"
 
 export type {
     UserEmbedding,
