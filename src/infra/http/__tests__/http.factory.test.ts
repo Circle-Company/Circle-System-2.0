@@ -1,6 +1,6 @@
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { FastifyAdapter, MockAdapter } from "../http.adapters"
 import { HttpFactory, createHttp } from "../http.factory"
-import { beforeEach, describe, expect, it, vi } from "vitest"
 
 // Mock do Fastify
 const mockFastifyInstance = {
@@ -51,10 +51,10 @@ describe("HTTP Factory", () => {
             }).toThrow("Unknown adapter type: unknown")
         })
 
-        it("should throw error when fastify instance is not provided", () => {
-            expect(() => {
-                HttpFactory.create("fastify")
-            }).toThrow("Fastify instance is required for fastify adapter")
+        it("should create fastify adapter with default config when not provided", () => {
+            const adapter = HttpFactory.create("fastify")
+
+            expect(adapter).toBeInstanceOf(FastifyAdapter)
         })
 
         it("should create adapter for test environment", () => {
@@ -262,16 +262,16 @@ describe("HTTP Factory", () => {
             expect(devAdapter).toBeInstanceOf(FastifyAdapter)
         })
 
-        it("should handle createHttp production without fastify instance", () => {
-            expect(() => {
-                createHttp.production(undefined as any)
-            }).toThrow("Fastify instance is required for fastify adapter")
+        it("should handle createHttp production without config", () => {
+            const adapter = createHttp.production({})
+
+            expect(adapter).toBeInstanceOf(FastifyAdapter)
         })
 
-        it("should handle createHttp forEnvironment without fastify instance for non-test", () => {
-            expect(() => {
-                createHttp.forEnvironment("production")
-            }).toThrow("Fastify instance is required for fastify adapter")
+        it("should handle createHttp forEnvironment without config for non-test", () => {
+            const adapter = createHttp.forEnvironment("production")
+
+            expect(adapter).toBeInstanceOf(FastifyAdapter)
         })
     })
 })
