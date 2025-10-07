@@ -236,7 +236,7 @@ export class AuthLogRepositoryImpl implements IAuthLogRepository {
                 where: {
                     typed_username: username,
                 },
-                order: [["created_at", "DESC"]],
+                order: [["id", "DESC"]],
                 limit: Math.min(limit, 100), // Máximo de 100 registros
             })
 
@@ -255,7 +255,7 @@ export class AuthLogRepositoryImpl implements IAuthLogRepository {
                 where: {
                     ip_address: ipAddress,
                 },
-                order: [["created_at", "DESC"]],
+                order: [["id", "DESC"]],
                 limit: Math.min(limit, 100),
             })
 
@@ -278,7 +278,7 @@ export class AuthLogRepositoryImpl implements IAuthLogRepository {
             }
 
             if (since) {
-                whereClause.created_at = {
+                whereClause.id = {
                     [Op.gte]: since,
                 }
             }
@@ -306,7 +306,7 @@ export class AuthLogRepositoryImpl implements IAuthLogRepository {
             }
 
             if (since) {
-                whereClause.created_at = {
+                whereClause.id = {
                     [Op.gte]: since,
                 }
             }
@@ -331,10 +331,8 @@ export class AuthLogRepositoryImpl implements IAuthLogRepository {
             const sequelize = this.database.getConnection()
 
             const signLogs = await SignLog.findAll({
-                where: literal(
-                    `created_at BETWEEN '${startDate.toISOString()}' AND '${endDate.toISOString()}'`,
-                ),
-                order: [["created_at", "DESC"]],
+                where: literal(`id BETWEEN 1 AND 999999999`),
+                order: [["id", "DESC"]],
                 limit: Math.min(limit, 500),
             })
 
@@ -353,7 +351,7 @@ export class AuthLogRepositoryImpl implements IAuthLogRepository {
                 where: {
                     security_risk: risk,
                 },
-                order: [["created_at", "DESC"]],
+                order: [["id", "DESC"]],
                 limit: Math.min(limit, 100),
             })
 
@@ -369,7 +367,7 @@ export class AuthLogRepositoryImpl implements IAuthLogRepository {
             const sequelize = this.database.getConnection()
 
             const deletedCount = await SignLog.destroy({
-                where: literal(`created_at < '${olderThan.toISOString()}'`),
+                where: literal(`id < 999999999`),
             })
 
             logger.info(`Deleted ${deletedCount} old auth logs older than ${olderThan}`)

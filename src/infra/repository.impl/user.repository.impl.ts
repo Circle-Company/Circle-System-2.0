@@ -12,7 +12,7 @@ import { Op, WhereOptions } from "sequelize"
 
 import { Level } from "@/domain/authorization"
 import { User } from "@/domain/user/entities/user.entity"
-import { UserMapper } from "@/domain/user/mappers/user.mapper"
+import { UserMapper } from "@/domain/user/user.mapper"
 import { DatabaseAdapter } from "@/infra/database/adapter"
 import UserEmbeddingModel from "@/infra/models/swipe.engine/user.embedding.model"
 import UserInteractionSummaryModel from "@/infra/models/swipe.engine/user.interaction.summary.model"
@@ -20,7 +20,7 @@ import UserModel from "@/infra/models/user/user.model"
 import UserPreferencesModel from "@/infra/models/user/user.preferences.model"
 import UserStatisticsModel from "@/infra/models/user/user.statistics.model"
 import UserStatusModel from "@/infra/models/user/user.status.model"
-import UserTermsModel from "@/infra/models/user/user.terms.model"
+import UserTermModel from "@/infra/models/user/user.terms.model"
 
 /**
  * User Repository Implementation
@@ -64,9 +64,9 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
                 await UserStatisticsModel.create(statisticsAttributes, { transaction })
             }
 
-            const termsAttributes = UserMapper.toUserTermsAttributes(user)
+            const termsAttributes = UserMapper.toUserTermAttributes(user)
             if (termsAttributes) {
-                await UserTermsModel.create(termsAttributes, { transaction })
+                await UserTermModel.create(termsAttributes, { transaction })
             }
 
             const embeddingAttributes = UserMapper.toUserEmbeddingAttributes(user)
@@ -158,9 +158,9 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
                 await UserStatisticsModel.upsert(statisticsAttributes, { transaction })
             }
 
-            const termsAttributes = UserMapper.toUserTermsAttributes(user)
+            const termsAttributes = UserMapper.toUserTermAttributes(user)
             if (termsAttributes) {
-                await UserTermsModel.upsert(termsAttributes, { transaction })
+                await UserTermModel.upsert(termsAttributes, { transaction })
             }
 
             const embeddingAttributes = UserMapper.toUserEmbeddingAttributes(user)
@@ -378,6 +378,212 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
         return domainUsers.filter((user) => {
             const activityStats = user.getActivityStats()
             return activityStats.activityLevel === level
+        })
+    }
+
+    // ===== OPERAÇÕES DE PERMISSÃO E STATUS =====
+
+    async findUsersWhoCanCreateMoments(options?: UserSearchOptions): Promise<User[]> {
+        const queryOptions = this.buildQueryOptions(options)
+
+        const users = await UserModel.findAll({
+            ...queryOptions,
+            include: this.getIncludeOptions(),
+        })
+
+        // Filtrar usuários que podem criar momentos usando a lógica da entidade
+        const domainUsers = UserMapper.toDomainArray(users as any)
+        return domainUsers.filter((user) => user.canCreateMoments())
+    }
+
+    async findUsersWhoCanInteractWithMoments(options?: UserSearchOptions): Promise<User[]> {
+        const queryOptions = this.buildQueryOptions(options)
+
+        const users = await UserModel.findAll({
+            ...queryOptions,
+            include: this.getIncludeOptions(),
+        })
+
+        // Filtrar usuários que podem interagir com momentos usando a lógica da entidade
+        const domainUsers = UserMapper.toDomainArray(users as any)
+        return domainUsers.filter((user) => user.canInteractWithMoments())
+    }
+
+    async findUsersWhoCanViewMoments(options?: UserSearchOptions): Promise<User[]> {
+        const queryOptions = this.buildQueryOptions(options)
+
+        const users = await UserModel.findAll({
+            ...queryOptions,
+            include: this.getIncludeOptions(),
+        })
+
+        // Filtrar usuários que podem ver momentos usando a lógica da entidade
+        const domainUsers = UserMapper.toDomainArray(users as any)
+        return domainUsers.filter((user) => user.canViewMoments())
+    }
+
+    async findUsersWithAdminAccess(options?: UserSearchOptions): Promise<User[]> {
+        const queryOptions = this.buildQueryOptions(options)
+
+        const users = await UserModel.findAll({
+            ...queryOptions,
+            include: [
+                ...this.getIncludeOptions(),
+                {
+                    model: UserStatusModel,
+                    as: "status",
+                    where: {
+                        access_level: {
+                            [Op.in]: [Level.ADMIN, Level.SUDO],
+                        },
+                    },
+                    required: true,
+                },
+            ],
+        })
+
+        return UserMapper.toDomainArray(users as any)
+    }
+
+    async findUsersWhoCanMentionUsers(options?: UserSearchOptions): Promise<User[]> {
+        const queryOptions = this.buildQueryOptions(options)
+
+        const users = await UserModel.findAll({
+            ...queryOptions,
+            include: this.getIncludeOptions(),
+        })
+
+        // Filtrar usuários que podem mencionar outros usando a lógica da entidade
+        const domainUsers = UserMapper.toDomainArray(users as any)
+        return domainUsers.filter((user) => user.canMentionUsers())
+    }
+
+    async findUsersWhoCanBeMentioned(options?: UserSearchOptions): Promise<User[]> {
+        const queryOptions = this.buildQueryOptions(options)
+
+        const users = await UserModel.findAll({
+            ...queryOptions,
+            include: this.getIncludeOptions(),
+        })
+
+        // Filtrar usuários que podem ser mencionados usando a lógica da entidade
+        const domainUsers = UserMapper.toDomainArray(users as any)
+        return domainUsers.filter((user) => user.canBeMentioned())
+    }
+
+    async findUsersByReputationLevel(
+        level: "novice" | "rising" | "established" | "influencer" | "celebrity",
+        options?: UserSearchOptions,
+    ): Promise<User[]> {
+        const queryOptions = this.buildQueryOptions(options)
+
+        const users = await UserModel.findAll({
+            ...queryOptions,
+            include: this.getIncludeOptions(),
+        })
+
+        // Filtrar usuários por nível de reputação usando a lógica da entidade
+        const domainUsers = UserMapper.toDomainArray(users as any)
+        return domainUsers.filter((user) => {
+            const reputationDetails = user.getReputationDetails()
+            return reputationDetails.level === level
+        })
+    }
+
+    // ===== OPERAÇÕES DE MÉTRICAS AVANÇADAS =====
+
+    async findUsersByEngagementMetrics(
+        criteria: {
+            minLikesReceived?: number
+            minViewsReceived?: number
+            minCommentsReceived?: number
+            minSharesReceived?: number
+            minEngagementRate?: number
+            minReachRate?: number
+        },
+        options?: UserSearchOptions,
+    ): Promise<User[]> {
+        const queryOptions = this.buildQueryOptions(options)
+
+        const users = await UserModel.findAll({
+            ...queryOptions,
+            include: this.getIncludeOptions(),
+        })
+
+        // Filtrar usuários por métricas de engajamento usando a lógica da entidade
+        const domainUsers = UserMapper.toDomainArray(users as any)
+        return domainUsers.filter((user) => {
+            const engagementMetrics = user.getEngagementMetrics()
+
+            if (
+                criteria.minLikesReceived &&
+                engagementMetrics.totalLikesReceived < criteria.minLikesReceived
+            ) {
+                return false
+            }
+            if (
+                criteria.minViewsReceived &&
+                engagementMetrics.totalViewsReceived < criteria.minViewsReceived
+            ) {
+                return false
+            }
+            if (
+                criteria.minCommentsReceived &&
+                engagementMetrics.totalCommentsReceived < criteria.minCommentsReceived
+            ) {
+                return false
+            }
+            if (
+                criteria.minSharesReceived &&
+                engagementMetrics.totalSharesReceived < criteria.minSharesReceived
+            ) {
+                return false
+            }
+            if (
+                criteria.minEngagementRate &&
+                engagementMetrics.engagementRate < criteria.minEngagementRate
+            ) {
+                return false
+            }
+            if (criteria.minReachRate && engagementMetrics.reachRate < criteria.minReachRate) {
+                return false
+            }
+
+            return true
+        })
+    }
+
+    async findInfluencersByCriteria(
+        criteria: {
+            minFollowers?: number
+            minEngagementRate?: number
+            minReputationScore?: number
+        },
+        options?: UserSearchOptions,
+    ): Promise<User[]> {
+        const queryOptions = this.buildQueryOptions(options)
+
+        const users = await UserModel.findAll({
+            ...queryOptions,
+            include: this.getIncludeOptions(),
+        })
+
+        // Filtrar influenciadores usando a lógica da entidade
+        const domainUsers = UserMapper.toDomainArray(users as any)
+        return domainUsers.filter((user) => {
+            const isInfluencer = user.isInfluencer(
+                criteria.minFollowers || 1000,
+                criteria.minEngagementRate || 0.05,
+            )
+
+            if (!isInfluencer) return false
+
+            if (criteria.minReputationScore) {
+                const reputationScore = user.getReputationScore()
+                return reputationScore >= criteria.minReputationScore
+            }
+
+            return true
         })
     }
 
@@ -917,9 +1123,9 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
                     await UserStatisticsModel.create(statisticsAttributes, { transaction })
                 }
 
-                const termsAttributes = UserMapper.toUserTermsAttributes(user)
+                const termsAttributes = UserMapper.toUserTermAttributes(user)
                 if (termsAttributes) {
-                    await UserTermsModel.create(termsAttributes, { transaction })
+                    await UserTermModel.create(termsAttributes, { transaction })
                 }
 
                 const embeddingAttributes = UserMapper.toUserEmbeddingAttributes(user)
@@ -983,9 +1189,9 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
                     await UserStatisticsModel.upsert(statisticsAttributes, { transaction })
                 }
 
-                const termsAttributes = UserMapper.toUserTermsAttributes(user)
+                const termsAttributes = UserMapper.toUserTermAttributes(user)
                 if (termsAttributes) {
-                    await UserTermsModel.upsert(termsAttributes, { transaction })
+                    await UserTermModel.upsert(termsAttributes, { transaction })
                 }
 
                 const embeddingAttributes = UserMapper.toUserEmbeddingAttributes(user)
@@ -1079,7 +1285,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
                 required: false,
             },
             {
-                model: UserTermsModel,
+                model: UserTermModel,
                 as: "user_terms",
                 required: false,
             },

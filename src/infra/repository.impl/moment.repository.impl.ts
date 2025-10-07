@@ -1,4 +1,3 @@
-import { Op, WhereOptions } from "sequelize"
 import {
     IMomentAnalytics,
     IMomentFilters,
@@ -6,19 +5,21 @@ import {
     IMomentRepositoryStats,
     Moment,
 } from "../../domain/moment"
+// Importar as interfaces corretas das métricas
+import { Op, WhereOptions } from "sequelize"
 
 export class MomentRepositoryImpl implements IMomentRepository {
-    constructor(private models: any) {}
+    constructor(private database: any) {}
 
     // ===== OPERAÇÕES BÁSICAS CRUD =====
 
     async create(moment: Moment): Promise<Moment> {
-        const transaction = await this.models.sequelize.transaction()
+        const transaction = await this.database.getConnection().models.sequelize.transaction()
 
         try {
             // Criar momento principal
             const momentData = moment.toEntity()
-            await this.models.Moment.create(
+            await this.database.getConnection().models.Moment.create(
                 {
                     id: momentData.id,
                     ownerId: momentData.ownerId,
@@ -34,7 +35,7 @@ export class MomentRepositoryImpl implements IMomentRepository {
 
             // Criar conteúdo
             if (momentData.content) {
-                await this.models.MomentContent.create(
+                await this.database.getConnection().models.MomentContent.create(
                     {
                         id: `content_${momentData.id}`,
                         momentId: momentData.id,
@@ -49,7 +50,7 @@ export class MomentRepositoryImpl implements IMomentRepository {
 
                 // Criar resolução
                 if (momentData.content.resolution) {
-                    await this.models.MomentResolution.create(
+                    await this.database.getConnection().models.MomentResolution.create(
                         {
                             id: `resolution_${momentData.id}`,
                             contentId: `content_${momentData.id}`,
@@ -64,7 +65,7 @@ export class MomentRepositoryImpl implements IMomentRepository {
 
             // Criar status
             if (momentData.status) {
-                await this.models.MomentStatus.create(
+                await this.database.getConnection().models.MomentStatus.create(
                     {
                         id: `status_${momentData.id}`,
                         momentId: momentData.id,
@@ -80,7 +81,7 @@ export class MomentRepositoryImpl implements IMomentRepository {
 
             // Criar visibilidade
             if (momentData.visibility) {
-                await this.models.MomentVisibility.create(
+                await this.database.getConnection().models.MomentVisibility.create(
                     {
                         id: `visibility_${momentData.id}`,
                         momentId: momentData.id,
@@ -96,17 +97,17 @@ export class MomentRepositoryImpl implements IMomentRepository {
 
             // Criar métricas
             if (momentData.metrics) {
-                await this.models.MomentMetrics.create(
+                await this.database.getConnection().models.MomentMetrics.create(
                     {
                         id: `metrics_${momentData.id}`,
                         momentId: momentData.id,
                         totalViews: momentData.metrics.views.totalViews,
                         uniqueViews: momentData.metrics.views.uniqueViews,
-                        repeatViews: momentData.metrics.views.repeatViews,
+                        repeatViews: (momentData.metrics.views as any).repeatViews || 0,
                         completionViews: momentData.metrics.views.completionViews,
                         averageWatchTime: momentData.metrics.views.averageWatchTime,
                         averageCompletionRate: momentData.metrics.views.averageCompletionRate,
-                        bounceRate: momentData.metrics.views.bounceRate,
+                        bounceRate: (momentData.metrics.views as any).bounceRate || 0,
                         totalLikes: momentData.metrics.engagement.totalLikes,
                         totalComments: momentData.metrics.engagement.totalComments,
                         totalReports: momentData.metrics.engagement.totalReports,
@@ -116,17 +117,22 @@ export class MomentRepositoryImpl implements IMomentRepository {
                         loadTime: momentData.metrics.performance.loadTime,
                         bufferTime: momentData.metrics.performance.bufferTime,
                         errorRate: momentData.metrics.performance.errorRate,
-                        qualitySwitches: momentData.metrics.performance.qualitySwitches,
+                        qualitySwitches:
+                            (momentData.metrics.performance as any).qualitySwitches || 0,
                         viralScore: momentData.metrics.viral.viralScore,
-                        trendingScore: momentData.metrics.viral.trendingScore,
-                        reachScore: momentData.metrics.viral.reachScore,
-                        influenceScore: momentData.metrics.viral.influenceScore,
-                        growthRate: momentData.metrics.viral.growthRate,
-                        totalReach: momentData.metrics.viral.totalReach,
-                        contentQualityScore: momentData.metrics.content.contentQualityScore,
-                        audioQualityScore: momentData.metrics.content.audioQualityScore,
-                        videoQualityScore: momentData.metrics.content.videoQualityScore,
-                        faceDetectionRate: momentData.metrics.content.faceDetectionRate,
+                        trendingScore: (momentData.metrics.viral as any).trendingScore || 0,
+                        reachScore: (momentData.metrics.viral as any).reachScore || 0,
+                        influenceScore: (momentData.metrics.viral as any).influenceScore || 0,
+                        growthRate: (momentData.metrics.viral as any).growthRate || 0,
+                        totalReach: (momentData.metrics.viral as any).totalReach || 0,
+                        contentQualityScore:
+                            (momentData.metrics.content as any).contentQualityScore || 0,
+                        audioQualityScore:
+                            (momentData.metrics.content as any).audioQualityScore || 0,
+                        videoQualityScore:
+                            (momentData.metrics.content as any).videoQualityScore || 0,
+                        faceDetectionRate:
+                            (momentData.metrics.content as any).faceDetectionRate || 0,
                         lastMetricsUpdate: momentData.metrics.lastMetricsUpdate,
                         metricsVersion: momentData.metrics.metricsVersion,
                         dataQuality: momentData.metrics.dataQuality,
@@ -138,7 +144,7 @@ export class MomentRepositoryImpl implements IMomentRepository {
 
             // Criar contexto
             if (momentData.context) {
-                const context = await this.models.MomentContext.create(
+                const context = await this.database.getConnection().models.MomentContext.create(
                     {
                         id: `context_${momentData.id}`,
                         momentId: momentData.id,
@@ -148,7 +154,7 @@ export class MomentRepositoryImpl implements IMomentRepository {
 
                 // Criar dispositivo
                 if (momentData.context.device) {
-                    await this.models.MomentDevice.create(
+                    await this.database.getConnection().models.MomentDevice.create(
                         {
                             id: `device_${momentData.id}`,
                             contextId: context.id,
@@ -166,23 +172,25 @@ export class MomentRepositoryImpl implements IMomentRepository {
 
             // Criar processamento
             if (momentData.processing) {
-                const processing = await this.models.MomentProcessing.create(
-                    {
-                        id: `processing_${momentData.id}`,
-                        momentId: momentData.id,
-                        status: momentData.processing.status,
-                        progress: momentData.processing.progress,
-                        error: momentData.processing.error,
-                        startedAt: momentData.processing.startedAt,
-                        completedAt: momentData.processing.completedAt,
-                        estimatedCompletion: momentData.processing.estimatedCompletion,
-                    },
-                    { transaction },
-                )
+                const processing = await this.database
+                    .getConnection()
+                    .models.MomentProcessing.create(
+                        {
+                            id: `processing_${momentData.id}`,
+                            momentId: momentData.id,
+                            status: momentData.processing.status,
+                            progress: momentData.processing.progress,
+                            error: momentData.processing.error,
+                            startedAt: momentData.processing.startedAt,
+                            completedAt: momentData.processing.completedAt,
+                            estimatedCompletion: momentData.processing.estimatedCompletion,
+                        },
+                        { transaction },
+                    )
 
                 // Criar passos de processamento
                 for (const step of momentData.processing.steps) {
-                    await this.models.MomentProcessingStep.create(
+                    await this.database.getConnection().models.MomentProcessingStep.create(
                         {
                             id: `step_${momentData.id}_${step.name}`,
                             processingId: processing.id,
@@ -200,7 +208,7 @@ export class MomentRepositoryImpl implements IMomentRepository {
 
             // Criar embedding
             if (momentData.embedding) {
-                await this.models.MomentEmbedding.create(
+                await this.database.getConnection().models.MomentEmbedding.create(
                     {
                         id: `embedding_${momentData.id}`,
                         momentId: momentData.id,
@@ -214,7 +222,7 @@ export class MomentRepositoryImpl implements IMomentRepository {
 
             // Criar mídia
             if (momentData.media) {
-                await this.models.MomentMedia.create(
+                await this.database.getConnection().models.MomentMedia.create(
                     {
                         id: `media_${momentData.id}`,
                         momentId: momentData.id,
@@ -232,7 +240,7 @@ export class MomentRepositoryImpl implements IMomentRepository {
 
             // Criar thumbnail
             if (momentData.thumbnail) {
-                await this.models.MomentThumbnail.create(
+                await this.database.getConnection().models.MomentThumbnail.create(
                     {
                         id: `thumbnail_${momentData.id}`,
                         momentId: momentData.id,
@@ -250,7 +258,7 @@ export class MomentRepositoryImpl implements IMomentRepository {
 
             // Criar localização
             if (momentData.context.location) {
-                await this.models.MomentLocation.create(
+                await this.database.getConnection().models.MomentLocation.create(
                     {
                         id: `location_${momentData.id}`,
                         momentId: momentData.id,
@@ -270,21 +278,21 @@ export class MomentRepositoryImpl implements IMomentRepository {
     }
 
     async findById(id: string): Promise<Moment | null> {
-        const moment = await this.models.Moment.findByPk(id, {
+        const moment = await this.database.getConnection().models.Moment.findByPk(id, {
             include: [
-                { model: this.models.MomentContent, as: "content" },
-                { model: this.models.MomentResolution, as: "resolution" },
-                { model: this.models.MomentStatus, as: "status" },
-                { model: this.models.MomentVisibility, as: "visibility" },
-                { model: this.models.MomentMetrics, as: "metrics" },
-                { model: this.models.MomentContext, as: "context" },
-                { model: this.models.MomentDevice, as: "device" },
-                { model: this.models.MomentProcessing, as: "processing" },
-                { model: this.models.MomentProcessingStep, as: "steps" },
-                { model: this.models.MomentEmbedding, as: "embedding" },
-                { model: this.models.MomentMedia, as: "media" },
-                { model: this.models.MomentThumbnail, as: "thumbnail" },
-                { model: this.models.MomentLocation, as: "location" },
+                { model: this.database.getConnection().models.MomentContent, as: "content" },
+                { model: this.database.getConnection().models.MomentResolution, as: "resolution" },
+                { model: this.database.getConnection().models.MomentStatus, as: "status" },
+                { model: this.database.getConnection().models.MomentVisibility, as: "visibility" },
+                { model: this.database.getConnection().models.MomentMetrics, as: "metrics" },
+                { model: this.database.getConnection().models.MomentContext, as: "context" },
+                { model: this.database.getConnection().models.MomentDevice, as: "device" },
+                { model: this.database.getConnection().models.MomentProcessing, as: "processing" },
+                { model: this.database.getConnection().models.MomentProcessingStep, as: "steps" },
+                { model: this.database.getConnection().models.MomentEmbedding, as: "embedding" },
+                { model: this.database.getConnection().models.MomentMedia, as: "media" },
+                { model: this.database.getConnection().models.MomentThumbnail, as: "thumbnail" },
+                { model: this.database.getConnection().models.MomentLocation, as: "location" },
             ],
         })
 
@@ -296,7 +304,7 @@ export class MomentRepositoryImpl implements IMomentRepository {
     async update(moment: Moment): Promise<Moment> {
         const momentData = moment.toEntity()
 
-        await this.models.Moment.update(
+        await this.database.getConnection().models.Moment.update(
             {
                 description: momentData.description,
                 hashtags: momentData.hashtags,
@@ -310,15 +318,15 @@ export class MomentRepositoryImpl implements IMomentRepository {
 
         // Atualizar métricas se existirem
         if (momentData.metrics) {
-            await this.models.MomentMetrics.update(
+            await this.database.getConnection().models.MomentMetrics.update(
                 {
                     totalViews: momentData.metrics.views.totalViews,
                     uniqueViews: momentData.metrics.views.uniqueViews,
-                    repeatViews: momentData.metrics.views.repeatViews,
+                    repeatViews: (momentData.metrics.views as any).repeatViews || 0,
                     completionViews: momentData.metrics.views.completionViews,
                     averageWatchTime: momentData.metrics.views.averageWatchTime,
                     averageCompletionRate: momentData.metrics.views.averageCompletionRate,
-                    bounceRate: momentData.metrics.views.bounceRate,
+                    bounceRate: (momentData.metrics.views as any).bounceRate || 0,
                     totalLikes: momentData.metrics.engagement.totalLikes,
                     totalComments: momentData.metrics.engagement.totalComments,
                     totalReports: momentData.metrics.engagement.totalReports,
@@ -326,15 +334,16 @@ export class MomentRepositoryImpl implements IMomentRepository {
                     commentRate: momentData.metrics.engagement.commentRate,
                     reportRate: momentData.metrics.engagement.reportRate,
                     viralScore: momentData.metrics.viral.viralScore,
-                    trendingScore: momentData.metrics.viral.trendingScore,
-                    reachScore: momentData.metrics.viral.reachScore,
-                    influenceScore: momentData.metrics.viral.influenceScore,
-                    growthRate: momentData.metrics.viral.growthRate,
-                    totalReach: momentData.metrics.viral.totalReach,
-                    contentQualityScore: momentData.metrics.content.contentQualityScore,
-                    audioQualityScore: momentData.metrics.content.audioQualityScore,
-                    videoQualityScore: momentData.metrics.content.videoQualityScore,
-                    faceDetectionRate: momentData.metrics.content.faceDetectionRate,
+                    trendingScore: (momentData.metrics.viral as any).trendingScore || 0,
+                    reachScore: (momentData.metrics.viral as any).reachScore || 0,
+                    influenceScore: (momentData.metrics.viral as any).influenceScore || 0,
+                    growthRate: (momentData.metrics.viral as any).growthRate || 0,
+                    totalReach: (momentData.metrics.viral as any).totalReach || 0,
+                    contentQualityScore:
+                        (momentData.metrics.content as any).contentQualityScore || 0,
+                    audioQualityScore: (momentData.metrics.content as any).audioQualityScore || 0,
+                    videoQualityScore: (momentData.metrics.content as any).videoQualityScore || 0,
+                    faceDetectionRate: (momentData.metrics.content as any).faceDetectionRate || 0,
                     lastMetricsUpdate: momentData.metrics.lastMetricsUpdate,
                     dataQuality: momentData.metrics.dataQuality,
                     confidenceLevel: momentData.metrics.confidenceLevel,
@@ -347,22 +356,22 @@ export class MomentRepositoryImpl implements IMomentRepository {
     }
 
     async delete(id: string): Promise<void> {
-        await this.models.Moment.destroy({ where: { id } })
+        await this.database.getConnection().models.Moment.destroy({ where: { id } })
     }
 
     // ===== OPERAÇÕES DE BUSCA =====
 
     async findByOwnerId(ownerId: string, limit = 20, offset = 0): Promise<Moment[]> {
-        const moments = await this.models.Moment.findAll({
+        const moments = await this.database.getConnection().models.Moment.findAll({
             where: { ownerId },
             limit,
             offset,
             order: [["createdAt", "DESC"]],
             include: [
-                { model: this.models.MomentContent, as: "content" },
-                { model: this.models.MomentStatus, as: "status" },
-                { model: this.models.MomentVisibility, as: "visibility" },
-                { model: this.models.MomentMetrics, as: "metrics" },
+                { model: this.database.getConnection().models.MomentContent, as: "content" },
+                { model: this.database.getConnection().models.MomentStatus, as: "status" },
+                { model: this.database.getConnection().models.MomentVisibility, as: "visibility" },
+                { model: this.database.getConnection().models.MomentMetrics, as: "metrics" },
             ],
         })
 
@@ -370,16 +379,16 @@ export class MomentRepositoryImpl implements IMomentRepository {
     }
 
     async findByStatus(status: string, limit = 20, offset = 0): Promise<Moment[]> {
-        const moments = await this.models.Moment.findAll({
+        const moments = await this.database.getConnection().models.Moment.findAll({
             include: [
                 {
-                    model: this.models.MomentStatus,
+                    model: this.database.getConnection().models.MomentStatus,
                     as: "status",
                     where: { current: status },
                 },
-                { model: this.models.MomentContent, as: "content" },
-                { model: this.models.MomentVisibility, as: "visibility" },
-                { model: this.models.MomentMetrics, as: "metrics" },
+                { model: this.database.getConnection().models.MomentContent, as: "content" },
+                { model: this.database.getConnection().models.MomentVisibility, as: "visibility" },
+                { model: this.database.getConnection().models.MomentMetrics, as: "metrics" },
             ],
             limit,
             offset,
@@ -390,16 +399,16 @@ export class MomentRepositoryImpl implements IMomentRepository {
     }
 
     async findByVisibility(visibility: string, limit = 20, offset = 0): Promise<Moment[]> {
-        const moments = await this.models.Moment.findAll({
+        const moments = await this.database.getConnection().models.Moment.findAll({
             include: [
                 {
-                    model: this.models.MomentVisibility,
+                    model: this.database.getConnection().models.MomentVisibility,
                     as: "visibility",
                     where: { level: visibility },
                 },
-                { model: this.models.MomentContent, as: "content" },
-                { model: this.models.MomentStatus, as: "status" },
-                { model: this.models.MomentMetrics, as: "metrics" },
+                { model: this.database.getConnection().models.MomentContent, as: "content" },
+                { model: this.database.getConnection().models.MomentStatus, as: "status" },
+                { model: this.database.getConnection().models.MomentMetrics, as: "metrics" },
             ],
             limit,
             offset,
@@ -410,7 +419,7 @@ export class MomentRepositoryImpl implements IMomentRepository {
     }
 
     async findByHashtag(hashtag: string, limit = 20, offset = 0): Promise<Moment[]> {
-        const moments = await this.models.Moment.findAll({
+        const moments = await this.database.getConnection().models.Moment.findAll({
             where: {
                 hashtags: {
                     [Op.contains]: [hashtag],
@@ -420,10 +429,10 @@ export class MomentRepositoryImpl implements IMomentRepository {
             offset,
             order: [["createdAt", "DESC"]],
             include: [
-                { model: this.models.MomentContent, as: "content" },
-                { model: this.models.MomentStatus, as: "status" },
-                { model: this.models.MomentVisibility, as: "visibility" },
-                { model: this.models.MomentMetrics, as: "metrics" },
+                { model: this.database.getConnection().models.MomentContent, as: "content" },
+                { model: this.database.getConnection().models.MomentStatus, as: "status" },
+                { model: this.database.getConnection().models.MomentVisibility, as: "visibility" },
+                { model: this.database.getConnection().models.MomentMetrics, as: "metrics" },
             ],
         })
 
@@ -431,7 +440,7 @@ export class MomentRepositoryImpl implements IMomentRepository {
     }
 
     async findByMention(mention: string, limit = 20, offset = 0): Promise<Moment[]> {
-        const moments = await this.models.Moment.findAll({
+        const moments = await this.database.getConnection().models.Moment.findAll({
             where: {
                 mentions: {
                     [Op.contains]: [mention],
@@ -441,10 +450,10 @@ export class MomentRepositoryImpl implements IMomentRepository {
             offset,
             order: [["createdAt", "DESC"]],
             include: [
-                { model: this.models.MomentContent, as: "content" },
-                { model: this.models.MomentStatus, as: "status" },
-                { model: this.models.MomentVisibility, as: "visibility" },
-                { model: this.models.MomentMetrics, as: "metrics" },
+                { model: this.database.getConnection().models.MomentContent, as: "content" },
+                { model: this.database.getConnection().models.MomentStatus, as: "status" },
+                { model: this.database.getConnection().models.MomentVisibility, as: "visibility" },
+                { model: this.database.getConnection().models.MomentMetrics, as: "metrics" },
             ],
         })
 
@@ -454,7 +463,7 @@ export class MomentRepositoryImpl implements IMomentRepository {
     // ===== OPERAÇÕES DE BUSCA AVANÇADA =====
 
     async search(query: string, limit = 20, offset = 0): Promise<Moment[]> {
-        const moments = await this.models.Moment.findAll({
+        const moments = await this.database.getConnection().models.Moment.findAll({
             where: {
                 [Op.or]: [
                     { description: { [Op.iLike]: `%${query}%` } },
@@ -466,10 +475,10 @@ export class MomentRepositoryImpl implements IMomentRepository {
             offset,
             order: [["createdAt", "DESC"]],
             include: [
-                { model: this.models.MomentContent, as: "content" },
-                { model: this.models.MomentStatus, as: "status" },
-                { model: this.models.MomentVisibility, as: "visibility" },
-                { model: this.models.MomentMetrics, as: "metrics" },
+                { model: this.database.getConnection().models.MomentContent, as: "content" },
+                { model: this.database.getConnection().models.MomentStatus, as: "status" },
+                { model: this.database.getConnection().models.MomentVisibility, as: "visibility" },
+                { model: this.database.getConnection().models.MomentMetrics, as: "metrics" },
             ],
         })
 
@@ -477,7 +486,7 @@ export class MomentRepositoryImpl implements IMomentRepository {
     }
 
     async fullTextSearch(query: string, limit = 20, offset = 0): Promise<Moment[]> {
-        const moments = await this.models.Moment.findAll({
+        const moments = await this.database.getConnection().models.Moment.findAll({
             where: {
                 [Op.or]: [
                     {
@@ -501,10 +510,10 @@ export class MomentRepositoryImpl implements IMomentRepository {
             offset,
             order: [["createdAt", "DESC"]],
             include: [
-                { model: this.models.MomentContent, as: "content" },
-                { model: this.models.MomentStatus, as: "status" },
-                { model: this.models.MomentVisibility, as: "visibility" },
-                { model: this.models.MomentMetrics, as: "metrics" },
+                { model: this.database.getConnection().models.MomentContent, as: "content" },
+                { model: this.database.getConnection().models.MomentStatus, as: "status" },
+                { model: this.database.getConnection().models.MomentVisibility, as: "visibility" },
+                { model: this.database.getConnection().models.MomentMetrics, as: "metrics" },
             ],
         })
 
@@ -516,15 +525,21 @@ export class MomentRepositoryImpl implements IMomentRepository {
         limit = 20,
         offset = 0,
     ): Promise<Array<Moment & { relevance: number }>> {
-        const moments = await this.models.Moment.findAll({
+        const moments = await this.database.getConnection().models.Moment.findAll({
             attributes: [
                 "*",
                 [
-                    this.models.sequelize.fn(
-                        "ts_rank",
-                        this.models.sequelize.col("description"),
-                        this.models.sequelize.literal(`plainto_tsquery('portuguese', '${query}')`),
-                    ),
+                    this.database
+                        .getConnection()
+                        .models.sequelize.fn(
+                            "ts_rank",
+                            this.database.getConnection().models.sequelize.col("description"),
+                            this.database
+                                .getConnection()
+                                .models.sequelize.literal(
+                                    `plainto_tsquery('portuguese', '${query}')`,
+                                ),
+                        ),
                     "relevance",
                 ],
             ],
@@ -532,9 +547,11 @@ export class MomentRepositoryImpl implements IMomentRepository {
                 [Op.or]: [
                     {
                         description: {
-                            [Op.match]: this.models.sequelize.literal(
-                                `plainto_tsquery('portuguese', '${query}')`,
-                            ),
+                            [Op.match]: this.database
+                                .getConnection()
+                                .models.sequelize.literal(
+                                    `plainto_tsquery('portuguese', '${query}')`,
+                                ),
                         },
                     },
                     {
@@ -552,14 +569,14 @@ export class MomentRepositoryImpl implements IMomentRepository {
             limit,
             offset,
             order: [
-                [this.models.sequelize.literal("relevance"), "DESC"],
+                [this.database.getConnection().models.sequelize.literal("relevance"), "DESC"],
                 ["createdAt", "DESC"],
             ],
             include: [
-                { model: this.models.MomentContent, as: "content" },
-                { model: this.models.MomentStatus, as: "status" },
-                { model: this.models.MomentVisibility, as: "visibility" },
-                { model: this.models.MomentMetrics, as: "metrics" },
+                { model: this.database.getConnection().models.MomentContent, as: "content" },
+                { model: this.database.getConnection().models.MomentStatus, as: "status" },
+                { model: this.database.getConnection().models.MomentVisibility, as: "visibility" },
+                { model: this.database.getConnection().models.MomentMetrics, as: "metrics" },
             ],
         })
 
@@ -574,16 +591,16 @@ export class MomentRepositoryImpl implements IMomentRepository {
     }
 
     async findRecent(limit = 20, offset = 0): Promise<Moment[]> {
-        const moments = await this.models.Moment.findAll({
+        const moments = await this.database.getConnection().models.Moment.findAll({
             include: [
                 {
-                    model: this.models.MomentStatus,
+                    model: this.database.getConnection().models.MomentStatus,
                     as: "status",
                     where: { current: "published" },
                 },
-                { model: this.models.MomentContent, as: "content" },
-                { model: this.models.MomentVisibility, as: "visibility" },
-                { model: this.models.MomentMetrics, as: "metrics" },
+                { model: this.database.getConnection().models.MomentContent, as: "content" },
+                { model: this.database.getConnection().models.MomentVisibility, as: "visibility" },
+                { model: this.database.getConnection().models.MomentMetrics, as: "metrics" },
             ],
             limit,
             offset,
@@ -602,29 +619,37 @@ export class MomentRepositoryImpl implements IMomentRepository {
         limit = 20,
         offset = 0,
     ): Promise<Moment[]> {
-        const moments = await this.models.Moment.findAll({
+        const moments = await this.database.getConnection().models.Moment.findAll({
             include: [
                 {
-                    model: this.models.MomentLocation,
+                    model: this.database.getConnection().models.MomentLocation,
                     as: "location",
-                    where: this.models.sequelize.where(
-                        this.models.sequelize.fn(
+                    where: this.database.getConnection().models.sequelize.where(
+                        this.database.getConnection().models.sequelize.fn(
                             "ST_DWithin",
-                            this.models.sequelize.fn("ST_Point", longitude, latitude),
-                            this.models.sequelize.fn(
-                                "ST_Point",
-                                this.models.sequelize.col("location.longitude"),
-                                this.models.sequelize.col("location.latitude"),
-                            ),
+                            this.database
+                                .getConnection()
+                                .models.sequelize.fn("ST_Point", longitude, latitude),
+                            this.database
+                                .getConnection()
+                                .models.sequelize.fn(
+                                    "ST_Point",
+                                    this.database
+                                        .getConnection()
+                                        .models.sequelize.col("location.longitude"),
+                                    this.database
+                                        .getConnection()
+                                        .models.sequelize.col("location.latitude"),
+                                ),
                             radiusKm * 1000, // Converter km para metros
                         ),
                         true,
                     ),
                 },
-                { model: this.models.MomentContent, as: "content" },
-                { model: this.models.MomentStatus, as: "status" },
-                { model: this.models.MomentVisibility, as: "visibility" },
-                { model: this.models.MomentMetrics, as: "metrics" },
+                { model: this.database.getConnection().models.MomentContent, as: "content" },
+                { model: this.database.getConnection().models.MomentStatus, as: "status" },
+                { model: this.database.getConnection().models.MomentVisibility, as: "visibility" },
+                { model: this.database.getConnection().models.MomentMetrics, as: "metrics" },
             ],
             limit,
             offset,
@@ -641,49 +666,67 @@ export class MomentRepositoryImpl implements IMomentRepository {
         limit = 20,
         offset = 0,
     ): Promise<Array<Moment & { distance: number }>> {
-        const moments = await this.models.Moment.findAll({
+        const moments = await this.database.getConnection().models.Moment.findAll({
             attributes: [
                 "*",
                 [
-                    this.models.sequelize.fn(
-                        "ST_Distance",
-                        this.models.sequelize.fn("ST_Point", longitude, latitude),
-                        this.models.sequelize.fn(
-                            "ST_Point",
-                            this.models.sequelize.col("location.longitude"),
-                            this.models.sequelize.col("location.latitude"),
+                    this.database
+                        .getConnection()
+                        .models.sequelize.fn(
+                            "ST_Distance",
+                            this.database
+                                .getConnection()
+                                .models.sequelize.fn("ST_Point", longitude, latitude),
+                            this.database
+                                .getConnection()
+                                .models.sequelize.fn(
+                                    "ST_Point",
+                                    this.database
+                                        .getConnection()
+                                        .models.sequelize.col("location.longitude"),
+                                    this.database
+                                        .getConnection()
+                                        .models.sequelize.col("location.latitude"),
+                                ),
                         ),
-                    ),
                     "distance",
                 ],
             ],
             include: [
                 {
-                    model: this.models.MomentLocation,
+                    model: this.database.getConnection().models.MomentLocation,
                     as: "location",
-                    where: this.models.sequelize.where(
-                        this.models.sequelize.fn(
+                    where: this.database.getConnection().models.sequelize.where(
+                        this.database.getConnection().models.sequelize.fn(
                             "ST_DWithin",
-                            this.models.sequelize.fn("ST_Point", longitude, latitude),
-                            this.models.sequelize.fn(
-                                "ST_Point",
-                                this.models.sequelize.col("location.longitude"),
-                                this.models.sequelize.col("location.latitude"),
-                            ),
+                            this.database
+                                .getConnection()
+                                .models.sequelize.fn("ST_Point", longitude, latitude),
+                            this.database
+                                .getConnection()
+                                .models.sequelize.fn(
+                                    "ST_Point",
+                                    this.database
+                                        .getConnection()
+                                        .models.sequelize.col("location.longitude"),
+                                    this.database
+                                        .getConnection()
+                                        .models.sequelize.col("location.latitude"),
+                                ),
                             radiusKm * 1000, // Converter km para metros
                         ),
                         true,
                     ),
                 },
-                { model: this.models.MomentContent, as: "content" },
-                { model: this.models.MomentStatus, as: "status" },
-                { model: this.models.MomentVisibility, as: "visibility" },
-                { model: this.models.MomentMetrics, as: "metrics" },
+                { model: this.database.getConnection().models.MomentContent, as: "content" },
+                { model: this.database.getConnection().models.MomentStatus, as: "status" },
+                { model: this.database.getConnection().models.MomentVisibility, as: "visibility" },
+                { model: this.database.getConnection().models.MomentMetrics, as: "metrics" },
             ],
             limit,
             offset,
             order: [
-                [this.models.sequelize.literal("distance"), "ASC"],
+                [this.database.getConnection().models.sequelize.literal("distance"), "ASC"],
                 ["createdAt", "DESC"],
             ],
         })
@@ -702,10 +745,10 @@ export class MomentRepositoryImpl implements IMomentRepository {
         limit = 20,
         offset = 0,
     ): Promise<Moment[]> {
-        const moments = await this.models.Moment.findAll({
+        const moments = await this.database.getConnection().models.Moment.findAll({
             include: [
                 {
-                    model: this.models.MomentLocation,
+                    model: this.database.getConnection().models.MomentLocation,
                     as: "location",
                     where: {
                         latitude: {
@@ -716,10 +759,10 @@ export class MomentRepositoryImpl implements IMomentRepository {
                         },
                     },
                 },
-                { model: this.models.MomentContent, as: "content" },
-                { model: this.models.MomentStatus, as: "status" },
-                { model: this.models.MomentVisibility, as: "visibility" },
-                { model: this.models.MomentMetrics, as: "metrics" },
+                { model: this.database.getConnection().models.MomentContent, as: "content" },
+                { model: this.database.getConnection().models.MomentStatus, as: "status" },
+                { model: this.database.getConnection().models.MomentVisibility, as: "visibility" },
+                { model: this.database.getConnection().models.MomentMetrics, as: "metrics" },
             ],
             limit,
             offset,
@@ -743,15 +786,15 @@ export class MomentRepositoryImpl implements IMomentRepository {
     // ===== OPERAÇÕES DE PROCESSAMENTO =====
 
     async findPendingProcessing(limit = 20, offset = 0): Promise<Moment[]> {
-        const moments = await this.models.Moment.findAll({
+        const moments = await this.database.getConnection().models.Moment.findAll({
             include: [
                 {
-                    model: this.models.MomentProcessing,
+                    model: this.database.getConnection().models.MomentProcessing,
                     as: "processing",
                     where: { status: "pending" },
                 },
-                { model: this.models.MomentContent, as: "content" },
-                { model: this.models.MomentStatus, as: "status" },
+                { model: this.database.getConnection().models.MomentContent, as: "content" },
+                { model: this.database.getConnection().models.MomentStatus, as: "status" },
             ],
             limit,
             offset,
@@ -762,15 +805,15 @@ export class MomentRepositoryImpl implements IMomentRepository {
     }
 
     async findFailedProcessing(limit = 20, offset = 0): Promise<Moment[]> {
-        const moments = await this.models.Moment.findAll({
+        const moments = await this.database.getConnection().models.Moment.findAll({
             include: [
                 {
-                    model: this.models.MomentProcessing,
+                    model: this.database.getConnection().models.MomentProcessing,
                     as: "processing",
                     where: { status: "failed" },
                 },
-                { model: this.models.MomentContent, as: "content" },
-                { model: this.models.MomentStatus, as: "status" },
+                { model: this.database.getConnection().models.MomentContent, as: "content" },
+                { model: this.database.getConnection().models.MomentStatus, as: "status" },
             ],
             limit,
             offset,
@@ -783,14 +826,14 @@ export class MomentRepositoryImpl implements IMomentRepository {
     // ===== OPERAÇÕES DE CONTAGEM =====
 
     async countByOwnerId(ownerId: string): Promise<number> {
-        return this.models.Moment.count({ where: { ownerId } })
+        return this.database.getConnection().models.Moment.count({ where: { ownerId } })
     }
 
     async countByStatus(status: string): Promise<number> {
-        return this.models.Moment.count({
+        return this.database.getConnection().models.Moment.count({
             include: [
                 {
-                    model: this.models.MomentStatus,
+                    model: this.database.getConnection().models.MomentStatus,
                     as: "status",
                     where: { current: status },
                 },
@@ -799,10 +842,10 @@ export class MomentRepositoryImpl implements IMomentRepository {
     }
 
     async countByVisibility(visibility: string): Promise<number> {
-        return this.models.Moment.count({
+        return this.database.getConnection().models.Moment.count({
             include: [
                 {
-                    model: this.models.MomentVisibility,
+                    model: this.database.getConnection().models.MomentVisibility,
                     as: "visibility",
                     where: { level: visibility },
                 },
@@ -817,7 +860,7 @@ export class MomentRepositoryImpl implements IMomentRepository {
     // ===== OPERAÇÕES DE EXISTÊNCIA =====
 
     async exists(id: string): Promise<boolean> {
-        const count = await this.models.Moment.count({ where: { id } })
+        const count = await this.database.getConnection().models.Moment.count({ where: { id } })
         return count > 0
     }
 
@@ -847,7 +890,9 @@ export class MomentRepositoryImpl implements IMomentRepository {
     }
 
     async deleteMany(ids: string[]): Promise<void> {
-        await this.models.Moment.destroy({ where: { id: { [Op.in]: ids } } })
+        await this.database
+            .getConnection()
+            .models.Moment.destroy({ where: { id: { [Op.in]: ids } } })
     }
 
     // ===== OPERAÇÕES DE PAGINAÇÃO =====
@@ -874,7 +919,7 @@ export class MomentRepositoryImpl implements IMomentRepository {
 
             if (filters.status) {
                 include.push({
-                    model: this.models.MomentStatus,
+                    model: this.database.getConnection().models.MomentStatus,
                     as: "status",
                     where: { current: filters.status },
                 })
@@ -882,7 +927,7 @@ export class MomentRepositoryImpl implements IMomentRepository {
 
             if (filters.visibility) {
                 include.push({
-                    model: this.models.MomentVisibility,
+                    model: this.database.getConnection().models.MomentVisibility,
                     as: "visibility",
                     where: { level: filters.visibility },
                 })
@@ -921,15 +966,15 @@ export class MomentRepositoryImpl implements IMomentRepository {
 
         // Incluir modelos relacionados
         include.push(
-            { model: this.models.MomentContent, as: "content" },
-            { model: this.models.MomentStatus, as: "status" },
-            { model: this.models.MomentVisibility, as: "visibility" },
-            { model: this.models.MomentMetrics, as: "metrics" },
+            { model: this.database.getConnection().models.MomentContent, as: "content" },
+            { model: this.database.getConnection().models.MomentStatus, as: "status" },
+            { model: this.database.getConnection().models.MomentVisibility, as: "visibility" },
+            { model: this.database.getConnection().models.MomentMetrics, as: "metrics" },
         )
 
         const offset = (page - 1) * limit
 
-        const { count, rows } = await this.models.Moment.findAndCountAll({
+        const { count, rows } = await this.database.getConnection().models.Moment.findAndCountAll({
             where,
             include,
             limit,
@@ -952,13 +997,13 @@ export class MomentRepositoryImpl implements IMomentRepository {
     // ===== ANÁLISE E ESTATÍSTICAS =====
 
     async getAnalytics(): Promise<IMomentAnalytics> {
-        const totalMoments = await this.models.Moment.count()
+        const totalMoments = await this.database.getConnection().models.Moment.count()
         const publishedMoments = await this.countByStatus("published")
         const pendingMoments = await this.countByStatus("under_review")
-        const failedMoments = await this.models.Moment.count({
+        const failedMoments = await this.database.getConnection().models.Moment.count({
             include: [
                 {
-                    model: this.models.MomentProcessing,
+                    model: this.database.getConnection().models.MomentProcessing,
                     as: "processing",
                     where: { status: "failed" },
                 },
@@ -966,65 +1011,147 @@ export class MomentRepositoryImpl implements IMomentRepository {
         })
 
         // Buscar top hashtags
-        const hashtagResults = await this.models.Moment.findAll({
+        const hashtagResults = await this.database.getConnection().models.Moment.findAll({
             attributes: [
                 [
-                    this.models.sequelize.fn("unnest", this.models.sequelize.col("hashtags")),
+                    this.database
+                        .getConnection()
+                        .models.sequelize.fn(
+                            "unnest",
+                            this.database.getConnection().models.sequelize.col("hashtags"),
+                        ),
                     "hashtag",
                 ],
-                [this.models.sequelize.fn("count", this.models.sequelize.col("id")), "count"],
+                [
+                    this.database
+                        .getConnection()
+                        .models.sequelize.fn(
+                            "count",
+                            this.database.getConnection().models.sequelize.col("id"),
+                        ),
+                    "count",
+                ],
             ],
             group: ["hashtag"],
-            order: [[this.models.sequelize.fn("count", this.models.sequelize.col("id")), "DESC"]],
+            order: [
+                [
+                    this.database
+                        .getConnection()
+                        .models.sequelize.fn(
+                            "count",
+                            this.database.getConnection().models.sequelize.col("id"),
+                        ),
+                    "DESC",
+                ],
+            ],
             limit: 10,
             raw: true,
         })
 
         // Buscar top menções
-        const mentionResults = await this.models.Moment.findAll({
+        const mentionResults = await this.database.getConnection().models.Moment.findAll({
             attributes: [
                 [
-                    this.models.sequelize.fn("unnest", this.models.sequelize.col("mentions")),
+                    this.database
+                        .getConnection()
+                        .models.sequelize.fn(
+                            "unnest",
+                            this.database.getConnection().models.sequelize.col("mentions"),
+                        ),
                     "mention",
                 ],
-                [this.models.sequelize.fn("count", this.models.sequelize.col("id")), "count"],
+                [
+                    this.database
+                        .getConnection()
+                        .models.sequelize.fn(
+                            "count",
+                            this.database.getConnection().models.sequelize.col("id"),
+                        ),
+                    "count",
+                ],
             ],
             group: ["mention"],
-            order: [[this.models.sequelize.fn("count", this.models.sequelize.col("id")), "DESC"]],
+            order: [
+                [
+                    this.database
+                        .getConnection()
+                        .models.sequelize.fn(
+                            "count",
+                            this.database.getConnection().models.sequelize.col("id"),
+                        ),
+                    "DESC",
+                ],
+            ],
             limit: 10,
             raw: true,
         })
 
         // Buscar momentos por dia (últimos 30 dias)
-        const momentsByDay = await this.models.Moment.findAll({
+        const momentsByDay = await this.database.getConnection().models.Moment.findAll({
             attributes: [
-                [this.models.sequelize.fn("date", this.models.sequelize.col("createdAt")), "date"],
-                [this.models.sequelize.fn("count", this.models.sequelize.col("id")), "count"],
+                [
+                    this.database
+                        .getConnection()
+                        .models.sequelize.fn(
+                            "date",
+                            this.database.getConnection().models.sequelize.col("createdAt"),
+                        ),
+                    "date",
+                ],
+                [
+                    this.database
+                        .getConnection()
+                        .models.sequelize.fn(
+                            "count",
+                            this.database.getConnection().models.sequelize.col("id"),
+                        ),
+                    "count",
+                ],
             ],
             where: {
                 createdAt: {
                     [Op.gte]: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
                 },
             },
-            group: [this.models.sequelize.fn("date", this.models.sequelize.col("createdAt"))],
+            group: [
+                this.database
+                    .getConnection()
+                    .models.sequelize.fn(
+                        "date",
+                        this.database.getConnection().models.sequelize.col("createdAt"),
+                    ),
+            ],
             order: [
-                [this.models.sequelize.fn("date", this.models.sequelize.col("createdAt")), "ASC"],
+                [
+                    this.database
+                        .getConnection()
+                        .models.sequelize.fn(
+                            "date",
+                            this.database.getConnection().models.sequelize.col("createdAt"),
+                        ),
+                    "ASC",
+                ],
             ],
             raw: true,
         })
 
         // Buscar momentos por status
-        const momentsByStatus = await this.models.Moment.findAll({
+        const momentsByStatus = await this.database.getConnection().models.Moment.findAll({
             attributes: [
-                [this.models.sequelize.col("status.current"), "status"],
+                [this.database.getConnection().models.sequelize.col("status.current"), "status"],
                 [
-                    this.models.sequelize.fn("count", this.models.sequelize.col("Moment.id")),
+                    this.database
+                        .getConnection()
+                        .models.sequelize.fn(
+                            "count",
+                            this.database.getConnection().models.sequelize.col("Moment.id"),
+                        ),
                     "count",
                 ],
             ],
             include: [
                 {
-                    model: this.models.MomentStatus,
+                    model: this.database.getConnection().models.MomentStatus,
                     as: "status",
                     attributes: [],
                 },
@@ -1058,13 +1185,13 @@ export class MomentRepositoryImpl implements IMomentRepository {
     }
 
     async getStats(): Promise<IMomentRepositoryStats> {
-        const totalMoments = await this.models.Moment.count()
+        const totalMoments = await this.database.getConnection().models.Moment.count()
         const publishedMoments = await this.countByStatus("published")
         const pendingMoments = await this.countByStatus("under_review")
-        const failedMoments = await this.models.Moment.count({
+        const failedMoments = await this.database.getConnection().models.Moment.count({
             include: [
                 {
-                    model: this.models.MomentProcessing,
+                    model: this.database.getConnection().models.MomentProcessing,
                     as: "processing",
                     where: { status: "failed" },
                 },
@@ -1073,14 +1200,30 @@ export class MomentRepositoryImpl implements IMomentRepository {
 
         // Contar total de hashtags e menções
         const hashtagCount =
-            (await this.models.Moment.sum(
-                this.models.sequelize.fn("array_length", this.models.sequelize.col("hashtags"), 1),
-            )) || 0
+            (await this.database
+                .getConnection()
+                .models.Moment.sum(
+                    this.database
+                        .getConnection()
+                        .models.sequelize.fn(
+                            "array_length",
+                            this.database.getConnection().models.sequelize.col("hashtags"),
+                            1,
+                        ),
+                )) || 0
 
         const mentionCount =
-            (await this.models.Moment.sum(
-                this.models.sequelize.fn("array_length", this.models.sequelize.col("mentions"), 1),
-            )) || 0
+            (await this.database
+                .getConnection()
+                .models.Moment.sum(
+                    this.database
+                        .getConnection()
+                        .models.sequelize.fn(
+                            "array_length",
+                            this.database.getConnection().models.sequelize.col("mentions"),
+                            1,
+                        ),
+                )) || 0
 
         return {
             totalMoments,
@@ -1091,6 +1234,99 @@ export class MomentRepositoryImpl implements IMomentRepository {
             totalMentions: mentionCount,
             averageHashtagsPerMoment: totalMoments > 0 ? hashtagCount / totalMoments : 0,
             averageMentionsPerMoment: totalMoments > 0 ? mentionCount / totalMoments : 0,
+        }
+    }
+
+    // ===== OPERAÇÕES DE PROPRIEDADE =====
+
+    async isOwner(momentId: string, userId: string): Promise<boolean> {
+        try {
+            const moment = await this.database.getConnection().models.Moment.findByPk(momentId, {
+                attributes: ["id", "ownerId"],
+            })
+
+            if (!moment) {
+                return false
+            }
+
+            return moment.ownerId === userId
+        } catch (error) {
+            console.error(`Erro ao verificar propriedade do moment ${momentId}:`, error)
+            return false
+        }
+    }
+
+    // ===== OPERAÇÕES DE LIKES =====
+
+    async hasUserLikedMoment(momentId: string, userId: string): Promise<boolean> {
+        try {
+            const like = await this.database.getConnection().models.Like.findOne({
+                where: {
+                    momentId,
+                    userId,
+                },
+            })
+            return !!like
+        } catch (error) {
+            console.error(
+                `Erro ao verificar like do usuário ${userId} no momento ${momentId}:`,
+                error,
+            )
+            return false
+        }
+    }
+
+    async addLike(momentId: string, userId: string): Promise<void> {
+        try {
+            await this.database.getConnection().models.Like.create({
+                momentId,
+                userId,
+            })
+        } catch (error) {
+            console.error(
+                `Erro ao adicionar like do usuário ${userId} no momento ${momentId}:`,
+                error,
+            )
+            throw error
+        }
+    }
+
+    async removeLike(momentId: string, userId: string): Promise<void> {
+        try {
+            await this.database.getConnection().models.Like.destroy({
+                where: {
+                    momentId,
+                    userId,
+                },
+            })
+        } catch (error) {
+            console.error(
+                `Erro ao remover like do usuário ${userId} no momento ${momentId}:`,
+                error,
+            )
+            throw error
+        }
+    }
+
+    // ===== OPERAÇÕES DE VALIDAÇÃO DE INTERATIVIDADE =====
+
+    async isInteractable(
+        momentId: string,
+        userWhoWantsToInteract: string,
+        userRepository: import("@/domain/user").IUserRepository,
+    ): Promise<boolean> {
+        try {
+            // Buscar o moment
+            const moment = await this.findById(momentId)
+            if (!moment) {
+                return false
+            }
+
+            // Usar o método isInteractable da entidade Moment
+            return await moment.isInteractable(userWhoWantsToInteract, userRepository)
+        } catch (error) {
+            console.error("Erro ao verificar interatividade:", error)
+            return false
         }
     }
 
