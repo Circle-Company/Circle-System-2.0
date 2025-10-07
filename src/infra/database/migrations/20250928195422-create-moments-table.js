@@ -56,11 +56,32 @@ module.exports = {
             },
         })
 
-        // Índices
-        await queryInterface.addIndex("moments", ["owner_id"])
-        await queryInterface.addIndex("moments", ["published_at"])
-        await queryInterface.addIndex("moments", ["created_at"])
-        await queryInterface.addIndex("moments", ["deleted_at"])
+        // Índices - verificar se já existem antes de criar
+        try {
+            await queryInterface.addIndex("moments", ["owner_id"], { name: "moments_owner_id" })
+        } catch (error) {
+            // Índice já existe, ignorar erro
+        }
+
+        try {
+            await queryInterface.addIndex("moments", ["published_at"], {
+                name: "moments_published_at",
+            })
+        } catch (error) {
+            // Índice já existe, ignorar erro
+        }
+
+        try {
+            await queryInterface.addIndex("moments", ["created_at"], { name: "moments_created_at" })
+        } catch (error) {
+            // Índice já existe, ignorar erro
+        }
+
+        try {
+            await queryInterface.addIndex("moments", ["deleted_at"], { name: "moments_deleted_at" })
+        } catch (error) {
+            // Índice já existe, ignorar erro
+        }
     },
 
     async down(queryInterface, Sequelize) {
