@@ -250,6 +250,7 @@ export class ApplicationBootstrapper {
             // Etapas do boot
             await this.executeBootStep("Environment Validation", () => this.validateEnvironment())
             await this.executeBootStep("Database Connection", () => this.connectDatabase())
+            await this.executeBootStep("Multipart Configuration", () => this.configureMultipart())
             await this.executeBootStep("Routes Setup", () => this.setupRoutes())
             await this.executeBootStep("Swagger Setup", () => this.setupSwagger())
             await this.executeBootStep("Server Startup", () => this.startServer())
@@ -297,6 +298,24 @@ export class ApplicationBootstrapper {
     }
 
     /**
+     * Configura suporte a multipart/form-data
+     */
+    private async configureMultipart(): Promise<void> {
+        const { api } = await import("@/infra/api")
+
+        if (api.configureMultipart) {
+            this.log("info", "Configurando multipart/form-data...")
+            await api.configureMultipart({
+                fileSize: 10 * 1024 * 1024, // 10MB
+                files: 5, // máximo 5 arquivos
+            })
+            this.log("info", "Multipart/form-data configurado com sucesso")
+        } else {
+            this.log("warn", "Adapter não suporta configureMultipart")
+        }
+    }
+
+    /**
      * Conecta ao banco de dados com retry
      */
     private async connectDatabase(): Promise<void> {
@@ -338,8 +357,14 @@ export class ApplicationBootstrapper {
      * Configura as rotas da aplicação
      */
     private async setupRoutes(): Promise<void> {
-        await initializeRoutes(api)
-        this.log("info", "Routes configured successfully")
+        this.log("info", "🚀 Iniciando configuração de rotas...")
+        try {
+            await initializeRoutes(api)
+            this.log("info", "✅ Routes configured successfully")
+        } catch (error) {
+            this.log("error", "❌ Erro ao configurar rotas", { error: (error as Error).message })
+            throw error
+        }
     }
 
     /**
