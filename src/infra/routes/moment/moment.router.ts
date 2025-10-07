@@ -36,37 +36,140 @@ class MomentRouteHandlers {
      */
     async createMoment(request: HttpRequest, response: HttpResponse): Promise<void> {
         try {
-            // Extrair dados do multipart/form-data
-            // Assumindo que o framework HTTP já processou o upload
-            const videoData = request.body.videoData || request.body.video || Buffer.from([])
-            const videoMetadata = {
-                filename: request.body.filename || "video.mp4",
-                mimeType: request.body.mimeType || "video/mp4",
-                size: videoData.length || 0,
+            console.log("=== CREATE MOMENT DEBUG ===")
+            console.log("Request body:", request.body)
+            console.log("Request headers:", request.headers)
+            console.log("User:", request.user)
+            console.log("User ID:", request.user?.id)
+
+            // Verificar se já foi enviada uma resposta
+            if (response.statusCode && response.statusCode !== 200) {
+                console.log("Response already sent with status:", response.statusCode)
+                return
             }
 
-            // Extrair outros campos
-            const description = request.body.description
-            const hashtags = request.body.hashtags
-                ? Array.isArray(request.body.hashtags)
-                    ? request.body.hashtags
-                    : JSON.parse(request.body.hashtags)
-                : undefined
-            const mentions = request.body.mentions
-                ? Array.isArray(request.body.mentions)
-                    ? request.body.mentions
-                    : JSON.parse(request.body.mentions)
-                : undefined
-            const location = request.body.location
-                ? typeof request.body.location === "string"
-                    ? JSON.parse(request.body.location)
-                    : request.body.location
-                : undefined
-            const device = request.body.device
-                ? typeof request.body.device === "string"
-                    ? JSON.parse(request.body.device)
-                    : request.body.device
-                : undefined
+            // Extrair dados do body (JSON ou multipart)
+            const body = request.body as any
+            console.log("Body type:", typeof body)
+            console.log("Body content:", body)
+
+            // Processar campos básicos
+            const description = body.description
+            const visibility = body.visibility || "public"
+            const ageRestriction = body.ageRestriction === true || body.ageRestriction === "true"
+            const contentWarning = body.contentWarning === true || body.contentWarning === "true"
+
+            // Processar arrays (JSON ou string separada por vírgula)
+            let hashtags: string[] = []
+            if (body.hashtags) {
+                if (Array.isArray(body.hashtags)) {
+                    hashtags = body.hashtags
+                } else if (typeof body.hashtags === "string") {
+                    try {
+                        hashtags = JSON.parse(body.hashtags)
+                    } catch (e) {
+                        hashtags = body.hashtags.split(",").map((tag: string) => tag.trim())
+                    }
+                }
+            }
+
+            let mentions: string[] = []
+            if (body.mentions) {
+                if (Array.isArray(body.mentions)) {
+                    mentions = body.mentions
+                } else if (typeof body.mentions === "string") {
+                    try {
+                        mentions = JSON.parse(body.mentions)
+                    } catch (e) {
+                        mentions = body.mentions.split(",").map((mention: string) => mention.trim())
+                    }
+                }
+            }
+
+            // Processar objetos JSON
+            let location: { latitude: number; longitude: number } | undefined
+            if (body.location) {
+                try {
+                    location =
+                        typeof body.location === "string"
+                            ? JSON.parse(body.location)
+                            : body.location
+                } catch (e) {
+                    console.warn("Erro ao processar location:", e)
+                }
+            }
+
+            let device: any | undefined
+            if (body.device) {
+                try {
+                    device = typeof body.device === "string" ? JSON.parse(body.device) : body.device
+                } catch (e) {
+                    console.warn("Erro ao processar device:", e)
+                }
+            }
+
+            // Processar metadados do vídeo
+            let videoMetadata: any
+            if (body.videoMetadata) {
+                try {
+                    videoMetadata =
+                        typeof body.videoMetadata === "string"
+                            ? JSON.parse(body.videoMetadata)
+                            : body.videoMetadata
+                } catch (e) {
+                    console.warn("Erro ao processar videoMetadata:", e)
+                    videoMetadata = {
+                        filename: "video.mp4",
+                        mimeType: "video/mp4",
+                        size: 0,
+                    }
+                }
+            } else {
+                videoMetadata = {
+                    filename: "video.mp4",
+                    mimeType: "video/mp4",
+                    size: 0,
+                }
+            }
+
+            // Processar dados do vídeo (base64 ou buffer)
+            let videoData: Buffer
+            if (body.videoData) {
+                if (typeof body.videoData === "string") {
+                    // Se for string base64, converter para Buffer
+                    if (body.videoData.startsWith("data:")) {
+                        // Remover prefixo data:video/mp4;base64,
+                        const base64Data = body.videoData.split(",")[1]
+                        videoData = Buffer.from(base64Data, "base64")
+                    } else {
+                        // Assumir que é base64 puro
+                        videoData = Buffer.from(body.videoData, "base64")
+                    }
+                } else if (Buffer.isBuffer(body.videoData)) {
+                    videoData = body.videoData
+                } else {
+                    videoData = Buffer.from([])
+                }
+            } else {
+                videoData = Buffer.from([])
+            }
+
+            // Validar dados obrigatórios
+            if (!videoData || videoData.length === 0) {
+                return response.status(400).send({
+                    success: false,
+                    error: "Dados do vídeo são obrigatórios",
+                    timestamp: new Date().toISOString(),
+                })
+            }
+
+            if (!videoMetadata.filename || !videoMetadata.mimeType) {
+                return response.status(400).send({
+                    success: false,
+                    error: "Metadados do vídeo são obrigatórios",
+                    timestamp: new Date().toISOString(),
+                })
+            }
 
             const result = await this.momentController.createMoment(
                 {
@@ -75,22 +178,41 @@ class MomentRouteHandlers {
                     description,
                     hashtags,
                     mentions,
+                    visibility,
+                    ageRestriction,
+                    contentWarning,
                     location,
                     device,
                 },
                 request.user?.id || "",
             )
 
-            response.status(201).send({
+            return response.status(201).send({
                 success: true,
                 moment: result,
                 message: "Momento criado com sucesso",
                 timestamp: new Date().toISOString(),
             })
         } catch (error: any) {
-            response.status(400).send({
+            // Verificar se já foi enviada uma resposta
+            if (response.statusCode && response.statusCode !== 200) {
+                return
+            }
+
+            console.error("Erro ao criar momento:", error)
+
+            let errorMessage = "Erro ao criar momento"
+            if (error instanceof Error) {
+                errorMessage = error.message
+            } else if (typeof error === "string") {
+                errorMessage = error
+            } else if (error && error.message) {
+                errorMessage = error.message
+            }
+
+            return response.status(400).send({
                 success: false,
-                error: error.message || "Erro ao criar momento",
+                error: errorMessage,
                 timestamp: new Date().toISOString(),
             })
         }
@@ -283,6 +405,7 @@ export class MomentRouter {
      */
     private registerCRUDRoutes(): void {
         // Criar momento
+        console.log("📝 Registrando POST /moments...")
         this.api.post("/moments", this.handlers.createMoment.bind(this.handlers), {
             preHandler: [
                 this.authMiddleware.execute.bind(this.authMiddleware),
@@ -292,7 +415,6 @@ export class MomentRouter {
                 tags: ["Moments"],
                 summary: "Criar momento",
                 description: "Cria um novo momento (vlog) com validação completa",
-                body: MomentRequestSchemas.create,
                 response: {
                     201: MomentResponseSchemas.momentCreated,
                     400: MomentErrorSchemas.default,
@@ -445,10 +567,18 @@ export class MomentRouter {
  * Função de compatibilidade para inicialização das rotas
  */
 export async function Router(api: HttpAdapter): Promise<void> {
-    const { DatabaseAdapterFactory } = await import("@/infra/database/adapter")
-    const databaseAdapter = DatabaseAdapterFactory.createForEnvironment(
-        process.env.NODE_ENV || "development",
-    )
-    const routes = new MomentRouter(api, databaseAdapter)
-    routes.register()
+    try {
+        console.log("🚀 Inicializando MomentRouter...")
+        const { DatabaseAdapterFactory } = await import("@/infra/database/adapter")
+        const databaseAdapter = DatabaseAdapterFactory.createForEnvironment(
+            process.env.NODE_ENV || "development",
+        )
+        const routes = new MomentRouter(api, databaseAdapter)
+        console.log("📝 Registrando rotas de momento...")
+        routes.register()
+        console.log("✅ MomentRouter inicializado com sucesso")
+    } catch (error) {
+        console.error("❌ Erro ao inicializar MomentRouter:", error)
+        throw error
+    }
 }
