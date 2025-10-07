@@ -18,6 +18,7 @@ export class AuthFactory {
 
     static getAuthController(): AuthController {
         if (!this.authController) {
+            console.log("Criando AuthController...")
             const database = DatabaseAdapterFactory.createForEnvironment(
                 process.env.NODE_ENV || "development",
             )
@@ -27,6 +28,9 @@ export class AuthFactory {
             const signUpUseCase = new SignUpUseCase(userRepository, authLogRepository)
             const authHandlers = new AuthHandlers(signInUseCase, signUpUseCase)
             this.authController = new AuthController(authHandlers)
+            console.log("AuthController criado com sucesso")
+        } else {
+            console.log("AuthController já existe, reutilizando")
         }
         return this.authController
     }

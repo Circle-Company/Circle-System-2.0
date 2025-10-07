@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { MomentFactory, MomentFactoryConfig, createMoment } from "../moment.factory"
 
-import { DatabaseAdapter } from "@/infra/database/adapter"
+import { DatabaseAdapter } from "../../../infra/database/adapter"
 
 // Mock do DatabaseAdapter
 const mockDatabaseAdapter = {
@@ -24,12 +24,72 @@ describe("MomentFactory", () => {
             expect(repository).toBeDefined()
             expect(typeof repository).toBe("object")
         })
+
+        it("deve criar um MomentRepository com método isOwner", () => {
+            // Act
+            const repository = MomentFactory.createMomentRepository(mockDatabaseAdapter)
+
+            // Assert
+            expect(repository).toHaveProperty("isOwner")
+            expect(typeof repository.isOwner).toBe("function")
+        })
+    })
+
+    describe("createMomentRepository - Métodos específicos", () => {
+        it("deve criar um MomentRepository com todos os métodos necessários", () => {
+            // Act
+            const repository = MomentFactory.createMomentRepository(mockDatabaseAdapter)
+
+            // Assert - Verificar se o repository tem os métodos esperados
+            expect(repository).toHaveProperty("create")
+            expect(repository).toHaveProperty("findById")
+            expect(repository).toHaveProperty("update")
+            expect(repository).toHaveProperty("delete")
+            expect(repository).toHaveProperty("findByOwnerId")
+            expect(repository).toHaveProperty("findByStatus")
+            expect(repository).toHaveProperty("findByVisibility")
+            expect(repository).toHaveProperty("findByHashtag")
+            expect(repository).toHaveProperty("findByMention")
+            expect(repository).toHaveProperty("findPublished")
+            expect(repository).toHaveProperty("findRecent")
+            expect(repository).toHaveProperty("findByLocation")
+            expect(repository).toHaveProperty("findByLocationWithDistance")
+            expect(repository).toHaveProperty("findByBoundingBox")
+            expect(repository).toHaveProperty("findNearbyMoments")
+            expect(repository).toHaveProperty("findPendingProcessing")
+            expect(repository).toHaveProperty("findFailedProcessing")
+            expect(repository).toHaveProperty("countByOwnerId")
+            expect(repository).toHaveProperty("countByStatus")
+            expect(repository).toHaveProperty("countByVisibility")
+            expect(repository).toHaveProperty("countPublished")
+            expect(repository).toHaveProperty("exists")
+            expect(repository).toHaveProperty("existsByOwnerId")
+            expect(repository).toHaveProperty("createMany")
+            expect(repository).toHaveProperty("updateMany")
+            expect(repository).toHaveProperty("deleteMany")
+            expect(repository).toHaveProperty("findPaginated")
+            expect(repository).toHaveProperty("getAnalytics")
+            expect(repository).toHaveProperty("getStats")
+            expect(repository).toHaveProperty("isInteractable")
+            expect(repository).toHaveProperty("isOwner")
+        })
     })
 
     describe("createMomentMetricsRepository", () => {
         it("deve criar um MomentMetricsRepository com DatabaseAdapter", () => {
             // Act
             const repository = MomentFactory.createMomentMetricsRepository(mockDatabaseAdapter)
+
+            // Assert
+            expect(repository).toBeDefined()
+            expect(typeof repository).toBe("object")
+        })
+    })
+
+    describe("createUserRepository", () => {
+        it("deve criar um UserRepository com DatabaseAdapter", () => {
+            // Act
+            const repository = MomentFactory.createUserRepository(mockDatabaseAdapter)
 
             // Assert
             expect(repository).toBeDefined()
@@ -91,26 +151,129 @@ describe("MomentFactory", () => {
             expect(typeof useCases).toBe("object")
 
             // Verificar se todos os use cases foram criados
+            // CRUD Operations
             expect(useCases.createMoment).toBeDefined()
             expect(useCases.getMoment).toBeDefined()
+            expect(useCases.deleteMoment).toBeDefined()
             expect(useCases.publishMoment).toBeDefined()
+
+            // Listing and Search
             expect(useCases.listMoments).toBeDefined()
             expect(useCases.getUserMoments).toBeDefined()
-            expect(useCases.searchMoments).toBeDefined()
+
+            // User Actions
             expect(useCases.likeMoment).toBeDefined()
             expect(useCases.unlikeMoment).toBeDefined()
             expect(useCases.getLikedMoments).toBeDefined()
+
+            // Comments
             expect(useCases.commentMoment).toBeDefined()
             expect(useCases.getMomentComments).toBeDefined()
             expect(useCases.editMomentComment).toBeDefined()
             expect(useCases.deleteMomentComment).toBeDefined()
             expect(useCases.getCommentedMoments).toBeDefined()
+
+            // Reports
             expect(useCases.reportMoment).toBeDefined()
             expect(useCases.getMomentReports).toBeDefined()
             expect(useCases.getUserMomentReports).toBeDefined()
             expect(useCases.getUserReportedMoments).toBeDefined()
+
+            // Metrics
             expect(useCases.getMomentMetrics).toBeDefined()
             expect(useCases.getMomentsAnalytics).toBeDefined()
+
+            // Admin Operations
+            expect(useCases.adminBlockMoment).toBeDefined()
+            expect(useCases.adminUnblockMoment).toBeDefined()
+            expect(useCases.adminChangeMomentStatus).toBeDefined()
+            expect(useCases.adminDeleteMoment).toBeDefined()
+            expect(useCases.adminListAllMoments).toBeDefined()
+        })
+    })
+
+    describe("createMomentUseCases - Métricas", () => {
+        it("deve criar use cases de métricas corretamente", () => {
+            // Act
+            const useCases = MomentFactory.createMomentUseCases(mockDatabaseAdapter)
+
+            // Assert
+            expect(useCases.getMomentMetrics).toBeDefined()
+            expect(useCases.getMomentsAnalytics).toBeDefined()
+            expect(typeof useCases.getMomentMetrics).toBe("object")
+            expect(typeof useCases.getMomentsAnalytics).toBe("object")
+        })
+    })
+
+    describe("createMomentUseCases - Admin", () => {
+        it("deve criar use cases admin corretamente", () => {
+            // Act
+            const useCases = MomentFactory.createMomentUseCases(mockDatabaseAdapter)
+
+            // Assert
+            expect(useCases.adminBlockMoment).toBeDefined()
+            expect(useCases.adminUnblockMoment).toBeDefined()
+            expect(useCases.adminChangeMomentStatus).toBeDefined()
+            expect(useCases.adminDeleteMoment).toBeDefined()
+            expect(useCases.adminListAllMoments).toBeDefined()
+            expect(typeof useCases.adminBlockMoment).toBe("object")
+            expect(typeof useCases.adminUnblockMoment).toBe("object")
+            expect(typeof useCases.adminChangeMomentStatus).toBe("object")
+            expect(typeof useCases.adminDeleteMoment).toBe("object")
+            expect(typeof useCases.adminListAllMoments).toBe("object")
+        })
+    })
+
+    describe("createMomentUseCases - Comments", () => {
+        it("deve criar use cases de comentários com dependências corretas", () => {
+            // Act
+            const useCases = MomentFactory.createMomentUseCases(mockDatabaseAdapter)
+
+            // Assert
+            expect(useCases.commentMoment).toBeDefined()
+            expect(useCases.getMomentComments).toBeDefined()
+            expect(useCases.editMomentComment).toBeDefined()
+            expect(useCases.deleteMomentComment).toBeDefined()
+            expect(useCases.getCommentedMoments).toBeDefined()
+            expect(typeof useCases.commentMoment).toBe("object")
+            expect(typeof useCases.getMomentComments).toBe("object")
+            expect(typeof useCases.editMomentComment).toBe("object")
+            expect(typeof useCases.deleteMomentComment).toBe("object")
+            expect(typeof useCases.getCommentedMoments).toBe("object")
+        })
+    })
+
+    describe("createMomentUseCases - Dependências", () => {
+        it("deve criar use cases com as dependências corretas", () => {
+            // Act
+            const useCases = MomentFactory.createMomentUseCases(mockDatabaseAdapter)
+
+            // Assert - Verificar se os use cases têm as propriedades esperadas
+            expect(useCases.createMoment).toHaveProperty("execute")
+            expect(useCases.getMoment).toHaveProperty("execute")
+            expect(useCases.deleteMoment).toHaveProperty("execute")
+            expect(useCases.publishMoment).toHaveProperty("execute")
+            expect(useCases.listMoments).toHaveProperty("execute")
+            expect(useCases.getUserMoments).toHaveProperty("execute")
+            expect(useCases.likeMoment).toHaveProperty("execute")
+            expect(useCases.unlikeMoment).toHaveProperty("execute")
+            expect(useCases.getLikedMoments).toHaveProperty("execute")
+            expect(useCases.commentMoment).toHaveProperty("execute")
+            expect(useCases.getMomentComments).toHaveProperty("execute")
+            expect(useCases.editMomentComment).toHaveProperty("execute")
+            expect(useCases.deleteMomentComment).toHaveProperty("execute")
+            expect(useCases.getCommentedMoments).toHaveProperty("execute")
+            expect(useCases.reportMoment).toHaveProperty("execute")
+            expect(useCases.getMomentReports).toHaveProperty("execute")
+            expect(useCases.getUserMomentReports).toHaveProperty("execute")
+            expect(useCases.getUserReportedMoments).toHaveProperty("execute")
+            expect(useCases.getMomentMetrics).toHaveProperty("execute")
+            expect(useCases.getMomentsAnalytics).toHaveProperty("execute")
+            expect(useCases.adminBlockMoment).toHaveProperty("execute")
+            expect(useCases.adminUnblockMoment).toHaveProperty("execute")
+            expect(useCases.adminChangeMomentStatus).toHaveProperty("execute")
+            expect(useCases.adminDeleteMoment).toHaveProperty("execute")
+            expect(useCases.adminListAllMoments).toHaveProperty("execute")
         })
     })
 
@@ -123,6 +286,26 @@ describe("MomentFactory", () => {
             expect(controller).toBeDefined()
             expect(typeof controller).toBe("object")
         })
+
+        it("deve criar um MomentController com métodos corretos", () => {
+            // Act
+            const controller = MomentFactory.createMomentController(mockDatabaseAdapter)
+
+            // Assert - Verificar se o controller tem os métodos esperados
+            expect(controller).toHaveProperty("createMoment")
+            expect(controller).toHaveProperty("getMoment")
+            expect(controller).toHaveProperty("deleteMoment")
+            expect(controller).toHaveProperty("publishMoment")
+            expect(controller).toHaveProperty("listMoments")
+            expect(controller).toHaveProperty("getUserMoments")
+            expect(controller).toHaveProperty("likeMoment")
+            expect(controller).toHaveProperty("unlikeMoment")
+            expect(controller).toHaveProperty("getLikedMoments")
+            expect(controller).toHaveProperty("reportMoment")
+            expect(controller).toHaveProperty("getMomentReports")
+            expect(controller).toHaveProperty("getUserMomentReports")
+            expect(controller).toHaveProperty("getUserReportedMoments")
+        })
     })
 
     describe("createMomentMetricsController", () => {
@@ -133,6 +316,15 @@ describe("MomentFactory", () => {
             // Assert
             expect(controller).toBeDefined()
             expect(typeof controller).toBe("object")
+        })
+
+        it("deve criar um MomentMetricsController com métodos corretos", () => {
+            // Act
+            const controller = MomentFactory.createMomentMetricsController(mockDatabaseAdapter)
+
+            // Assert - Verificar se o controller tem os métodos esperados
+            expect(controller).toHaveProperty("getMomentMetrics")
+            expect(controller).toHaveProperty("getMomentsAnalytics")
         })
     })
 
@@ -395,6 +587,40 @@ describe("Factory Integration Tests", () => {
             expect(components.useCases.createMoment).toBeDefined()
             expect(components.useCases.getMomentMetrics).toBeDefined()
             expect(components.useCases.getMomentsAnalytics).toBeDefined()
+            expect(components.useCases.adminBlockMoment).toBeDefined()
+            expect(components.useCases.adminUnblockMoment).toBeDefined()
+        })
+
+        it("deve criar componentes com todas as funcionalidades implementadas", () => {
+            // Act
+            const components = MomentFactory.createForProduction(mockDatabaseAdapter)
+
+            // Assert - Verificar se todos os componentes têm as funcionalidades esperadas
+            expect(components.useCases).toHaveProperty("createMoment")
+            expect(components.useCases).toHaveProperty("getMoment")
+            expect(components.useCases).toHaveProperty("deleteMoment")
+            expect(components.useCases).toHaveProperty("publishMoment")
+            expect(components.useCases).toHaveProperty("listMoments")
+            expect(components.useCases).toHaveProperty("getUserMoments")
+            expect(components.useCases).toHaveProperty("likeMoment")
+            expect(components.useCases).toHaveProperty("unlikeMoment")
+            expect(components.useCases).toHaveProperty("getLikedMoments")
+            expect(components.useCases).toHaveProperty("commentMoment")
+            expect(components.useCases).toHaveProperty("getMomentComments")
+            expect(components.useCases).toHaveProperty("editMomentComment")
+            expect(components.useCases).toHaveProperty("deleteMomentComment")
+            expect(components.useCases).toHaveProperty("getCommentedMoments")
+            expect(components.useCases).toHaveProperty("reportMoment")
+            expect(components.useCases).toHaveProperty("getMomentReports")
+            expect(components.useCases).toHaveProperty("getUserMomentReports")
+            expect(components.useCases).toHaveProperty("getUserReportedMoments")
+            expect(components.useCases).toHaveProperty("getMomentMetrics")
+            expect(components.useCases).toHaveProperty("getMomentsAnalytics")
+            expect(components.useCases).toHaveProperty("adminBlockMoment")
+            expect(components.useCases).toHaveProperty("adminUnblockMoment")
+            expect(components.useCases).toHaveProperty("adminChangeMomentStatus")
+            expect(components.useCases).toHaveProperty("adminDeleteMoment")
+            expect(components.useCases).toHaveProperty("adminListAllMoments")
         })
     })
 
@@ -409,6 +635,16 @@ describe("Factory Integration Tests", () => {
             expect(components1.momentRepository).not.toBe(components2.momentRepository)
             expect(components1.momentService).not.toBe(components2.momentService)
             expect(components1.momentController).not.toBe(components2.momentController)
+        })
+
+        it("deve manter consistência entre instâncias", () => {
+            // Act
+            const components1 = MomentFactory.createForProduction(mockDatabaseAdapter)
+            const components2 = MomentFactory.createForProduction(mockDatabaseAdapter)
+
+            // Assert - Verificar se as estruturas são consistentes
+            expect(Object.keys(components1)).toEqual(Object.keys(components2))
+            expect(Object.keys(components1.useCases)).toEqual(Object.keys(components2.useCases))
         })
     })
 
@@ -435,6 +671,54 @@ describe("Factory Integration Tests", () => {
 
             // Estrutura deve ser a mesma entre ambientes
             expect(Object.keys(prodComponents1)).toEqual(Object.keys(testComponents1))
+        })
+
+        it("deve criar componentes com configurações específicas por ambiente", () => {
+            // Act
+            const prodComponents = MomentFactory.createForEnvironment(
+                "production",
+                mockDatabaseAdapter,
+            )
+            const testComponents = MomentFactory.createForEnvironment("test", mockDatabaseAdapter)
+            const devComponents = MomentFactory.createForEnvironment(
+                "development",
+                mockDatabaseAdapter,
+            )
+
+            // Assert - Verificar se todos os ambientes criam componentes válidos
+            expect(prodComponents).toBeDefined()
+            expect(testComponents).toBeDefined()
+            expect(devComponents).toBeDefined()
+
+            // Verificar se todos têm a mesma estrutura
+            expect(Object.keys(prodComponents)).toEqual(Object.keys(testComponents))
+            expect(Object.keys(testComponents)).toEqual(Object.keys(devComponents))
+        })
+    })
+
+    describe("Error Handling", () => {
+        it("deve criar componentes mesmo com DatabaseAdapter mockado", () => {
+            // Act
+            const components = MomentFactory.createForProduction(mockDatabaseAdapter)
+
+            // Assert - Verificar se todos os componentes foram criados
+            expect(components.momentRepository).toBeDefined()
+            expect(components.momentService).toBeDefined()
+            expect(components.momentController).toBeDefined()
+            expect(components.momentMetricsController).toBeDefined()
+            expect(components.useCases).toBeDefined()
+        })
+
+        it("deve criar componentes com DatabaseAdapter válido", () => {
+            // Act
+            const repository = MomentFactory.createMomentRepository(mockDatabaseAdapter)
+            const service = MomentFactory.createMomentService(mockDatabaseAdapter)
+            const controller = MomentFactory.createMomentController(mockDatabaseAdapter)
+
+            // Assert - Verificar se todos os componentes foram criados
+            expect(repository).toBeDefined()
+            expect(service).toBeDefined()
+            expect(controller).toBeDefined()
         })
     })
 })
