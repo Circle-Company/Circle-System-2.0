@@ -44,8 +44,94 @@ export const CreateMomentSchema = {
             default: false,
             description: "Se o conteúdo tem aviso de conteúdo sensível",
         },
+        videoData: {
+            type: "string",
+            format: "binary",
+            description: "Dados do vídeo em formato binário (multipart/form-data)",
+        },
+        videoMetadata: {
+            type: "object",
+            properties: {
+                filename: {
+                    type: "string",
+                    description: "Nome do arquivo de vídeo",
+                    example: "meu_video.mp4",
+                },
+                mimeType: {
+                    type: "string",
+                    description: "Tipo MIME do vídeo",
+                    example: "video/mp4",
+                },
+                size: {
+                    type: "integer",
+                    minimum: 1,
+                    description: "Tamanho do arquivo em bytes",
+                    example: 15728640,
+                },
+            },
+            required: ["filename", "mimeType", "size"],
+            description: "Metadados do vídeo",
+        },
+        location: {
+            type: "object",
+            properties: {
+                latitude: {
+                    type: "number",
+                    minimum: -90,
+                    maximum: 90,
+                    description: "Latitude da localização",
+                    example: -23.5505,
+                },
+                longitude: {
+                    type: "number",
+                    minimum: -180,
+                    maximum: 180,
+                    description: "Longitude da localização",
+                    example: -46.6333,
+                },
+            },
+            description: "Localização onde o momento foi criado",
+        },
+        device: {
+            type: "object",
+            properties: {
+                type: {
+                    type: "string",
+                    enum: ["mobile", "tablet", "desktop", "web"],
+                    description: "Tipo do dispositivo",
+                    example: "mobile",
+                },
+                os: {
+                    type: "string",
+                    description: "Sistema operacional",
+                    example: "iOS",
+                },
+                osVersion: {
+                    type: "string",
+                    description: "Versão do sistema operacional",
+                    example: "17.0",
+                },
+                model: {
+                    type: "string",
+                    description: "Modelo do dispositivo",
+                    example: "iPhone 15 Pro",
+                },
+                screenResolution: {
+                    type: "string",
+                    description: "Resolução da tela",
+                    example: "1179x2556",
+                },
+                orientation: {
+                    type: "string",
+                    enum: ["portrait", "landscape"],
+                    description: "Orientação da tela",
+                    example: "portrait",
+                },
+            },
+            description: "Informações do dispositivo usado para criar o momento",
+        },
     },
-    required: [],
+    required: ["videoData", "videoMetadata"],
 }
 
 export const UpdateMomentSchema = {
@@ -519,6 +605,198 @@ export const MomentResponseSchema = {
             nullable: true,
             description: "Data de exclusão",
         },
+        content: {
+            type: "object",
+            properties: {
+                videoUrls: {
+                    type: "object",
+                    properties: {
+                        low: {
+                            type: "string",
+                            description: "URL do vídeo em baixa qualidade",
+                            example: "https://storage.example.com/videos/low/123456789.mp4",
+                        },
+                        medium: {
+                            type: "string",
+                            description: "URL do vídeo em qualidade média",
+                            example: "https://storage.example.com/videos/medium/123456789.mp4",
+                        },
+                        high: {
+                            type: "string",
+                            description: "URL do vídeo em alta qualidade",
+                            example: "https://storage.example.com/videos/high/123456789.mp4",
+                        },
+                    },
+                    required: ["low", "medium", "high"],
+                },
+                thumbnailUrl: {
+                    type: "string",
+                    description: "URL do thumbnail do vídeo",
+                    example: "https://storage.example.com/thumbnails/123456789.jpg",
+                },
+                videoMetadata: {
+                    type: "object",
+                    properties: {
+                        duration: {
+                            type: "number",
+                            description: "Duração do vídeo em segundos",
+                            example: 30.5,
+                        },
+                        width: {
+                            type: "integer",
+                            description: "Largura do vídeo em pixels",
+                            example: 1920,
+                        },
+                        height: {
+                            type: "integer",
+                            description: "Altura do vídeo em pixels",
+                            example: 1080,
+                        },
+                        format: {
+                            type: "string",
+                            description: "Formato do vídeo",
+                            example: "mp4",
+                        },
+                        codec: {
+                            type: "string",
+                            description: "Codec do vídeo",
+                            example: "h264",
+                        },
+                        hasAudio: {
+                            type: "boolean",
+                            description: "Se o vídeo tem áudio",
+                            example: true,
+                        },
+                        size: {
+                            type: "integer",
+                            description: "Tamanho do arquivo em bytes",
+                            example: 15728640,
+                        },
+                        bitrate: {
+                            type: "number",
+                            description: "Taxa de bits do vídeo",
+                            example: 2000000,
+                        },
+                        fps: {
+                            type: "number",
+                            description: "Frames por segundo",
+                            example: 30,
+                        },
+                    },
+                    required: [
+                        "duration",
+                        "width",
+                        "height",
+                        "format",
+                        "codec",
+                        "hasAudio",
+                        "size",
+                    ],
+                },
+                storage: {
+                    type: "object",
+                    properties: {
+                        videoKey: {
+                            type: "string",
+                            description: "Chave do vídeo no storage",
+                            example: "videos/user123/123456789.mp4",
+                        },
+                        thumbnailKey: {
+                            type: "string",
+                            description: "Chave do thumbnail no storage",
+                            example: "thumbnails/user123/123456789.jpg",
+                        },
+                        bucket: {
+                            type: "string",
+                            description: "Bucket do storage",
+                            example: "circle-videos",
+                        },
+                        region: {
+                            type: "string",
+                            description: "Região do storage",
+                            example: "us-east-1",
+                        },
+                        provider: {
+                            type: "string",
+                            enum: ["s3", "gcs", "azure", "local"],
+                            description: "Provedor do storage",
+                            example: "s3",
+                        },
+                    },
+                    required: ["videoKey", "thumbnailKey", "provider"],
+                },
+                processingTime: {
+                    type: "number",
+                    description: "Tempo de processamento em milissegundos",
+                    example: 5000,
+                },
+            },
+            required: ["videoUrls", "thumbnailUrl", "videoMetadata", "storage"],
+        },
+        moderation: {
+            type: "object",
+            properties: {
+                moderationId: {
+                    type: "string",
+                    description: "ID da moderação",
+                    example: "mod_123456789",
+                },
+                approved: {
+                    type: "boolean",
+                    description: "Se o conteúdo foi aprovado",
+                    example: true,
+                },
+                requiresReview: {
+                    type: "boolean",
+                    description: "Se requer revisão manual",
+                    example: false,
+                },
+                flags: {
+                    type: "array",
+                    items: {
+                        type: "string",
+                    },
+                    description: "Flags de moderação detectadas",
+                    example: [],
+                },
+                confidence: {
+                    type: "number",
+                    minimum: 0,
+                    maximum: 100,
+                    description: "Nível de confiança da moderação",
+                    example: 95,
+                },
+                status: {
+                    type: "string",
+                    enum: ["pending", "approved", "rejected", "flagged"],
+                    description: "Status da moderação",
+                    example: "approved",
+                },
+                severity: {
+                    type: "string",
+                    enum: ["low", "medium", "high"],
+                    description: "Severidade da moderação",
+                    example: "low",
+                },
+                isBlocked: {
+                    type: "boolean",
+                    description: "Se o conteúdo está bloqueado",
+                    example: false,
+                },
+                isHidden: {
+                    type: "boolean",
+                    description: "Se o conteúdo está oculto",
+                    example: false,
+                },
+                moderatedAt: {
+                    type: "string",
+                    format: "date-time",
+                    nullable: true,
+                    description: "Data da moderação",
+                },
+            },
+            required: ["moderationId", "approved", "requiresReview", "flags", "confidence"],
+        },
     },
     required: [
         "id",
@@ -529,6 +807,8 @@ export const MomentResponseSchema = {
         "status",
         "visibility",
         "metrics",
+        "content",
+        "moderation",
         "createdAt",
         "updatedAt",
     ],
@@ -560,6 +840,204 @@ export const MomentErrorSchema = {
         },
     },
     required: ["error"],
+}
+
+// ===== CONTENT PROCESSING SCHEMAS =====
+
+export const ContentProcessingRequestSchema = {
+    type: "object",
+    properties: {
+        ownerId: {
+            type: "string",
+            description: "ID do proprietário do conteúdo",
+            example: "user_123456789",
+        },
+        videoData: {
+            type: "string",
+            format: "binary",
+            description: "Dados do vídeo em formato binário",
+        },
+        description: {
+            type: "string",
+            minLength: 1,
+            maxLength: 500,
+            description: "Descrição do conteúdo",
+            example: "Meu primeiro vlog sobre tecnologia!",
+        },
+        metadata: {
+            type: "object",
+            properties: {
+                filename: {
+                    type: "string",
+                    description: "Nome do arquivo",
+                    example: "meu_video.mp4",
+                },
+                mimeType: {
+                    type: "string",
+                    description: "Tipo MIME",
+                    example: "video/mp4",
+                },
+                size: {
+                    type: "integer",
+                    minimum: 1,
+                    description: "Tamanho em bytes",
+                    example: 15728640,
+                },
+            },
+            required: ["filename", "mimeType", "size"],
+        },
+    },
+    required: ["ownerId", "videoData", "description", "metadata"],
+}
+
+export const ContentProcessingResponseSchema = {
+    type: "object",
+    properties: {
+        success: {
+            type: "boolean",
+            description: "Se o processamento foi bem-sucedido",
+            example: true,
+        },
+        contentId: {
+            type: "string",
+            description: "ID único do conteúdo",
+            example: "content_123456789",
+        },
+        enrichedDescription: {
+            type: "string",
+            description: "Descrição enriquecida com formatação",
+            example: "Meu primeiro <strong>vlog</strong> sobre <em>tecnologia</em>!",
+        },
+        videoUrls: {
+            type: "object",
+            properties: {
+                low: {
+                    type: "string",
+                    description: "URL do vídeo em baixa qualidade",
+                },
+                medium: {
+                    type: "string",
+                    description: "URL do vídeo em qualidade média",
+                },
+                high: {
+                    type: "string",
+                    description: "URL do vídeo em alta qualidade",
+                },
+            },
+            required: ["low", "medium", "high"],
+        },
+        thumbnailUrl: {
+            type: "string",
+            description: "URL do thumbnail",
+        },
+        storage: {
+            type: "object",
+            properties: {
+                videoKey: {
+                    type: "string",
+                    description: "Chave do vídeo no storage",
+                },
+                thumbnailKey: {
+                    type: "string",
+                    description: "Chave do thumbnail no storage",
+                },
+                bucket: {
+                    type: "string",
+                    description: "Bucket do storage",
+                },
+                region: {
+                    type: "string",
+                    description: "Região do storage",
+                },
+                provider: {
+                    type: "string",
+                    enum: ["s3", "gcs", "azure", "local"],
+                    description: "Provedor do storage",
+                },
+            },
+            required: ["videoKey", "thumbnailKey", "provider"],
+        },
+        videoMetadata: {
+            type: "object",
+            properties: {
+                duration: {
+                    type: "number",
+                    description: "Duração em segundos",
+                },
+                width: {
+                    type: "integer",
+                    description: "Largura em pixels",
+                },
+                height: {
+                    type: "integer",
+                    description: "Altura em pixels",
+                },
+                format: {
+                    type: "string",
+                    description: "Formato do vídeo",
+                },
+                codec: {
+                    type: "string",
+                    description: "Codec do vídeo",
+                },
+                hasAudio: {
+                    type: "boolean",
+                    description: "Se tem áudio",
+                },
+                size: {
+                    type: "integer",
+                    description: "Tamanho em bytes",
+                },
+                bitrate: {
+                    type: "number",
+                    description: "Taxa de bits",
+                },
+                fps: {
+                    type: "number",
+                    description: "Frames por segundo",
+                },
+            },
+            required: ["duration", "width", "height", "format", "codec", "hasAudio", "size"],
+        },
+        moderation: {
+            type: "object",
+            properties: {
+                moderationId: {
+                    type: "string",
+                    description: "ID da moderação",
+                },
+                approved: {
+                    type: "boolean",
+                    description: "Se foi aprovado",
+                },
+                requiresReview: {
+                    type: "boolean",
+                    description: "Se requer revisão",
+                },
+                flags: {
+                    type: "array",
+                    items: {
+                        type: "string",
+                    },
+                    description: "Flags de moderação",
+                },
+                confidence: {
+                    type: "number",
+                    description: "Nível de confiança",
+                },
+            },
+            required: ["moderationId", "approved", "requiresReview", "flags", "confidence"],
+        },
+        processingTime: {
+            type: "number",
+            description: "Tempo de processamento em ms",
+        },
+        error: {
+            type: "string",
+            description: "Mensagem de erro (se houver)",
+        },
+    },
+    required: ["success", "contentId", "processingTime"],
 }
 
 // ===== MOMENT METRICS SCHEMAS =====
