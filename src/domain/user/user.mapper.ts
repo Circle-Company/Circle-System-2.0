@@ -414,9 +414,7 @@ export class UserMapper {
     /**
      * Converte entidade de domínio para atributos do modelo UserEmbedding
      */
-    static toUserEmbeddingAttributes(
-        domainUser: DomainUser,
-    ): Omit<UserEmbeddingModelAttributes, "created_at" | "updated_at"> | null {
+    static toUserEmbeddingAttributes(domainUser: DomainUser): UserEmbeddingModelAttributes | null {
         const userData = domainUser.toJSON()
 
         if (!userData.embedding) return null
@@ -426,6 +424,8 @@ export class UserMapper {
             vector: userData.embedding.vector,
             dimension: userData.embedding.dimension,
             metadata: userData.embedding.metadata,
+            created_at: userData.embedding.createdAt || new Date(),
+            updated_at: userData.embedding.updatedAt || new Date(),
         }
     }
 
