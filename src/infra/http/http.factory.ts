@@ -50,6 +50,19 @@ export class HttpFactory {
                     coerceTypes: false,
                 },
             },
+            bodyLimit: 500 * 1024 * 1024, // 500MB para body size (vídeos grandes)
+        })
+
+        // Registrar plugin multipart para processar form-data
+        fastifyInstance.register(require("@fastify/multipart"), {
+            limits: {
+                fileSize: 500 * 1024 * 1024, // 500MB para arquivos de vídeo
+                files: 10,
+                fieldSize: 10 * 1024 * 1024, // 10MB para campos de texto
+                headerPairs: 2000, // Mais headers para multipart
+            },
+            attachFieldsToBody: true,
+            sharedSchemaId: "MultipartFileType",
         })
 
         return new FastifyAdapter(fastifyInstance)
