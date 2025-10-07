@@ -129,7 +129,7 @@ describe("GetMomentReportsUseCase", () => {
             const result = await getMomentReportsUseCase.execute(request)
 
             expect(result.success).toBe(false)
-            expect(result.error).toBe("Momento não encontrado")
+            expect(result.error).toBe("Moment not found")
             expect(result.reports).toBeUndefined()
             expect(mockMomentService.getMomentById).toHaveBeenCalledWith("moment_inexistente")
             expect(mockMomentService.getMomentReports).not.toHaveBeenCalled()
@@ -161,7 +161,7 @@ describe("GetMomentReportsUseCase", () => {
             const result = await getMomentReportsUseCase.execute(request)
 
             expect(result.success).toBe(false)
-            expect(result.error).toBe("ID do momento é obrigatório")
+            expect(result.error).toBe("Moment ID is required")
             expect(mockMomentService.getMomentById).not.toHaveBeenCalled()
         })
 

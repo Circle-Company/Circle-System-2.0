@@ -82,7 +82,7 @@ describe("DeleteMomentUseCase", () => {
             const result = await deleteMomentUseCase.execute(request)
 
             expect(result.success).toBe(false)
-            expect(result.error).toBe("Momento não encontrado")
+            expect(result.error).toBe("Moment not found")
             expect(result.deleted).toBeUndefined()
             expect(mockMomentService.getMomentById).toHaveBeenCalledWith("moment_inexistente")
             expect(mockMomentService.deleteMoment).not.toHaveBeenCalled()
@@ -116,7 +116,7 @@ describe("DeleteMomentUseCase", () => {
             const result = await deleteMomentUseCase.execute(request)
 
             expect(result.success).toBe(false)
-            expect(result.error).toBe("Momento já foi deletado")
+            expect(result.error).toBe("Moment already deleted")
             expect(result.deleted).toBeUndefined()
             expect(mockMomentService.getMomentById).toHaveBeenCalledWith("moment_123")
             expect(mockMomentService.deleteMoment).not.toHaveBeenCalled()
@@ -137,7 +137,7 @@ describe("DeleteMomentUseCase", () => {
             const result = await deleteMomentUseCase.execute(request)
 
             expect(result.success).toBe(false)
-            expect(result.error).toBe("Momento não pode ser deletado no estado atual")
+            expect(result.error).toBe("Moment cannot be deleted in current state")
             expect(result.deleted).toBeUndefined()
             expect(mockMomentService.getMomentById).toHaveBeenCalledWith("moment_123")
             expect(mockMomentService.deleteMoment).not.toHaveBeenCalled()
@@ -175,7 +175,7 @@ describe("DeleteMomentUseCase", () => {
             const result = await deleteMomentUseCase.execute(request)
 
             expect(result.success).toBe(false)
-            expect(result.error).toBe("ID do momento é obrigatório")
+            expect(result.error).toBe("Moment ID is required")
             expect(mockMomentService.getMomentById).not.toHaveBeenCalled()
         })
 
@@ -188,7 +188,7 @@ describe("DeleteMomentUseCase", () => {
             const result = await deleteMomentUseCase.execute(request)
 
             expect(result.success).toBe(false)
-            expect(result.error).toBe("ID do usuário é obrigatório")
+            expect(result.error).toBe("User ID is required")
             expect(mockMomentService.getMomentById).not.toHaveBeenCalled()
         })
 

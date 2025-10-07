@@ -2,8 +2,8 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import { MomentService } from "@/application/moment/moment.service"
-import { MomentNotFoundError } from "@/domain/moment/errors/moment.errors"
+import { MomentNotFoundError } from "../../../../../domain/moment/moment.errors"
+import { MomentService } from "../../../services/moment.service"
 import { DeleteMomentUseCase } from "../delete.moment.use.case"
 
 // Mock do MomentService

@@ -81,7 +81,7 @@ export class GetMomentCommentsUseCase {
         } catch (error) {
             return {
                 success: false,
-                error: error instanceof Error ? error.message : "Erro interno do servidor",
+                error: error instanceof Error ? error.message : "Internal server error",
             }
         }
     }

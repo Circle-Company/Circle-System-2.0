@@ -1,6 +1,5 @@
-import { IMomentRepository, Moment } from "@/domain/moment"
-
 import { MomentService } from "@/application/moment/services/moment.service"
+import { Moment } from "@/domain/moment"
 import { User } from "@/domain/user/entities/user.entity"
 import { IUserRepository } from "@/domain/user/repositories/user.repository"
 
@@ -13,8 +12,6 @@ export interface CreateMomentRequest {
         size: number
     }
     description?: string
-    hashtags?: string[]
-    mentions?: string[]
     location?: {
         latitude: number
         longitude: number
@@ -37,7 +34,6 @@ export interface CreateMomentResponse {
 
 export class CreateMomentUseCase {
     constructor(
-        private readonly momentRepository: IMomentRepository,
         private readonly momentService: MomentService,
         private readonly userRepository: IUserRepository,
     ) {}
@@ -59,7 +55,7 @@ export class CreateMomentUseCase {
             if (!request.ownerId) {
                 return {
                     success: false,
-                    error: "Owner ID é obrigatório",
+                    error: "Owner ID is required",
                 }
             }
 
@@ -70,14 +66,14 @@ export class CreateMomentUseCase {
             } catch (error) {
                 return {
                     success: false,
-                    error: "ID do usuário inválido",
+                    error: "Invalid user ID",
                 }
             }
 
             if (!owner) {
                 return {
                     success: false,
-                    error: "Owner não encontrado",
+                    error: "Owner not found",
                 }
             }
 
@@ -85,7 +81,7 @@ export class CreateMomentUseCase {
             if (!owner.canCreateMoments()) {
                 return {
                     success: false,
-                    error: "Usuário não tem permissão para criar momentos",
+                    error: "User does not have permission to create moments",
                 }
             }
 
@@ -93,25 +89,24 @@ export class CreateMomentUseCase {
             if (!request.videoData || request.videoData.length === 0) {
                 return {
                     success: false,
-                    error: "Dados do vídeo são obrigatórios",
+                    error: "Video data is required",
                 }
             }
 
             if (!request.videoMetadata) {
                 return {
                     success: false,
-                    error: "Metadados do vídeo são obrigatórios",
+                    error: "Video metadata is required",
                 }
             }
 
             // Criar o momento usando o service
             const moment = await this.momentService.createMoment({
-                ownerId: request.ownerId,
+                ownerId: owner.id,
+                ownerUsername: owner.username,
                 videoData: request.videoData,
                 videoMetadata: request.videoMetadata,
                 description: request.description || "",
-                hashtags: request.hashtags || [],
-                mentions: request.mentions || [],
                 location: request.location,
                 device: request.device,
             })
@@ -123,7 +118,7 @@ export class CreateMomentUseCase {
         } catch (error) {
             return {
                 success: false,
-                error: error instanceof Error ? error.message : "Erro interno do servidor",
+                error: error instanceof Error ? error.message : "Internal server error",
             }
         }
     }

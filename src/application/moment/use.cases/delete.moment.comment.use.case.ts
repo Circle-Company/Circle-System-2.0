@@ -25,7 +25,7 @@ export class DeleteMomentCommentUseCase {
             if (!user) {
                 return {
                     success: false,
-                    error: "Usuário não encontrado",
+                    error: "User not found",
                 }
             }
 
@@ -34,7 +34,7 @@ export class DeleteMomentCommentUseCase {
             if (!comment) {
                 return {
                     success: false,
-                    error: "Comentário não encontrado",
+                    error: "Comment not found",
                 }
             }
 
@@ -42,7 +42,7 @@ export class DeleteMomentCommentUseCase {
             if (comment.momentId !== request.momentId) {
                 return {
                     success: false,
-                    error: "Comentário não pertence a este momento",
+                    error: "Comment does not belong to this moment",
                 }
             }
 
@@ -51,7 +51,7 @@ export class DeleteMomentCommentUseCase {
             if (!canDelete.allowed) {
                 return {
                     success: false,
-                    error: canDelete.reason || "Não autorizado a deletar este comentário",
+                    error: canDelete.reason || "Not authorized to delete this comment",
                 }
             }
 
@@ -75,7 +75,7 @@ export class DeleteMomentCommentUseCase {
         } catch (error) {
             return {
                 success: false,
-                error: error instanceof Error ? error.message : "Erro interno do servidor",
+                error: error instanceof Error ? error.message : "Internal server error",
             }
         }
     }

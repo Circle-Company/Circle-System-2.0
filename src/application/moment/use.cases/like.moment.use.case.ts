@@ -26,14 +26,14 @@ export class LikeMomentUseCase {
             if (!request.momentId) {
                 return {
                     success: false,
-                    error: "ID do momento é obrigatório",
+                    error: "Moment ID is required",
                 }
             }
 
             if (!request.userId) {
                 return {
                     success: false,
-                    error: "ID do usuário é obrigatório",
+                    error: "User ID is required",
                 }
             }
 
@@ -51,14 +51,14 @@ export class LikeMomentUseCase {
             if (!moment) {
                 return {
                     success: false,
-                    error: "Momento não encontrado",
+                    error: "Moment not found",
                 }
             }
 
             if (isOwner) {
                 return {
                     success: false,
-                    error: "Usuário não pode curtir seu próprio momento",
+                    error: "User cannot like their own moment",
                 }
             }
 
@@ -66,7 +66,7 @@ export class LikeMomentUseCase {
             if (!isInteractable) {
                 return {
                     success: false,
-                    error: "Momento não pode ser curtido no estado atual",
+                    error: "Moment cannot be liked in current state",
                 }
             }
 
@@ -79,7 +79,7 @@ export class LikeMomentUseCase {
             if (alreadyLiked) {
                 return {
                     success: false,
-                    error: "Usuário já curtiu este momento",
+                    error: "User has already liked this moment",
                 }
             }
 
@@ -93,7 +93,7 @@ export class LikeMomentUseCase {
         } catch (error) {
             return {
                 success: false,
-                error: error instanceof Error ? error.message : "Erro interno do servidor",
+                error: error instanceof Error ? error.message : "Internal server error",
             }
         }
     }

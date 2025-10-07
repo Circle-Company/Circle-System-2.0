@@ -30,7 +30,7 @@ export class CommentMomentUseCase {
             if (!user) {
                 return {
                     success: false,
-                    error: "Usuário não encontrado",
+                    error: "User not found",
                 }
             }
 
@@ -38,7 +38,7 @@ export class CommentMomentUseCase {
             if (!user.canInteractWithMoments()) {
                 return {
                     success: false,
-                    error: "Usuário não pode interagir com momentos",
+                    error: "User cannot interact with moments",
                 }
             }
 
@@ -47,7 +47,7 @@ export class CommentMomentUseCase {
             if (!moment) {
                 return {
                     success: false,
-                    error: "Momento não encontrado",
+                    error: "Moment not found",
                 }
             }
 
@@ -56,7 +56,7 @@ export class CommentMomentUseCase {
             if (!isInteractable) {
                 return {
                     success: false,
-                    error: "Momento não está disponível para comentários",
+                    error: "Moment is not available for comments",
                 }
             }
 
@@ -66,7 +66,7 @@ export class CommentMomentUseCase {
                 if (!parentComment) {
                     return {
                         success: false,
-                        error: "Comentário pai não encontrado",
+                        error: "Parent comment not found",
                     }
                 }
 
@@ -74,7 +74,7 @@ export class CommentMomentUseCase {
                 if (parentComment.momentId !== request.momentId) {
                     return {
                         success: false,
-                        error: "Comentário pai não pertence a este momento",
+                        error: "Parent comment does not belong to this moment",
                     }
                 }
             }
@@ -102,7 +102,7 @@ export class CommentMomentUseCase {
         } catch (error) {
             return {
                 success: false,
-                error: error instanceof Error ? error.message : "Erro interno do servidor",
+                error: error instanceof Error ? error.message : "Internal server error",
             }
         }
     }

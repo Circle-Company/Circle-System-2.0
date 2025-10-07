@@ -234,7 +234,7 @@ describe("GetLikedMomentsUseCase", () => {
 
             // Assert
             expect(result.success).toBe(false)
-            expect(result.error).toBe("ID do usuário é obrigatório")
+            expect(result.error).toBe("User ID is required")
             expect(result.moments).toBeUndefined()
             expect(result.total).toBeUndefined()
             expect(mockMomentService.getLikedMomentsByUser).not.toHaveBeenCalled()

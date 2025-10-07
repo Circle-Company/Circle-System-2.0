@@ -26,7 +26,7 @@ export class GetMomentUseCase {
             if (!request.momentId) {
                 return {
                     success: false,
-                    error: "ID do momento é obrigatório",
+                    error: "Moment ID is required",
                 }
             }
 
@@ -36,7 +36,7 @@ export class GetMomentUseCase {
             if (!moment) {
                 return {
                     success: false,
-                    error: "Momento não encontrado",
+                    error: "Moment not found",
                 }
             }
 
@@ -55,7 +55,7 @@ export class GetMomentUseCase {
         } catch (error) {
             return {
                 success: false,
-                error: error instanceof Error ? error.message : "Erro interno do servidor",
+                error: error instanceof Error ? error.message : "Internal server error",
             }
         }
     }

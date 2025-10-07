@@ -33,41 +33,41 @@ export class ReportMomentUseCase {
         try {
             // Validar parâmetros obrigatórios
             if (!request.momentId) {
-                return { success: false, error: "ID do momento é obrigatório" }
+                return { success: false, error: "Moment ID is required" }
             }
 
             if (!request.userId) {
-                return { success: false, error: "ID do usuário é obrigatório" }
+                return { success: false, error: "User ID is required" }
             }
 
             if (!request.reason || request.reason.trim().length === 0) {
-                return { success: false, error: "Motivo do report é obrigatório" }
+                return { success: false, error: "Report reason is required" }
             }
 
             // Validar tamanho do motivo
             if (request.reason.length > 500) {
-                return { success: false, error: "Motivo não pode ter mais de 500 caracteres" }
+                return { success: false, error: "Reason cannot exceed 500 characters" }
             }
 
             // Validar descrição se fornecida
             if (request.description && request.description.length > 1000) {
-                return { success: false, error: "Descrição não pode ter mais de 1000 caracteres" }
+                return { success: false, error: "Description cannot exceed 1000 characters" }
             }
 
             // Buscar o momento
             const moment = await this.momentService.getMomentById(request.momentId)
             if (!moment) {
-                return { success: false, error: "Momento não encontrado" }
+                return { success: false, error: "Moment not found" }
             }
 
             // Verificar se o momento está publicado
             if (moment.status.current !== MomentStatusEnum.PUBLISHED) {
-                return { success: false, error: "Só é possível reportar momentos publicados" }
+                return { success: false, error: "Only published moments can be reported" }
             }
 
             // Verificar se o usuário não está reportando o próprio momento
             if (moment.ownerId === request.userId) {
-                return { success: false, error: "Não é possível reportar seus próprios momentos" }
+                return { success: false, error: "Cannot report your own moments" }
             }
 
             // Verificar se o usuário já reportou este momento
@@ -77,7 +77,7 @@ export class ReportMomentUseCase {
             )
 
             if (alreadyReported) {
-                return { success: false, error: "Você já reportou este momento" }
+                return { success: false, error: "You have already reported this moment" }
             }
 
             // Criar o report
@@ -103,7 +103,7 @@ export class ReportMomentUseCase {
         } catch (error) {
             return {
                 success: false,
-                error: error instanceof Error ? error.message : "Erro interno do servidor",
+                error: error instanceof Error ? error.message : "Internal server error",
             }
         }
     }

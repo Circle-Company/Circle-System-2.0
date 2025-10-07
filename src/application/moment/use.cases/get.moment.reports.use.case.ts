@@ -43,7 +43,7 @@ export class GetMomentReportsUseCase {
         try {
             // Validar parâmetros obrigatórios
             if (!request.momentId) {
-                return { success: false, error: "ID do momento é obrigatório" }
+                return { success: false, error: "Moment ID is required" }
             }
 
             // Validar limites
@@ -61,7 +61,7 @@ export class GetMomentReportsUseCase {
             // Buscar o momento
             const moment = await this.momentService.getMomentById(request.momentId)
             if (!moment) {
-                return { success: false, error: "Momento não encontrado" }
+                return { success: false, error: "Moment not found" }
             }
 
             // Verificar permissões
@@ -112,7 +112,7 @@ export class GetMomentReportsUseCase {
         } catch (error) {
             return {
                 success: false,
-                error: error instanceof Error ? error.message : "Erro interno do servidor",
+                error: error instanceof Error ? error.message : "Internal server error",
             }
         }
     }

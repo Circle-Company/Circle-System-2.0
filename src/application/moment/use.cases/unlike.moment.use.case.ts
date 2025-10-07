@@ -26,14 +26,14 @@ export class UnlikeMomentUseCase {
             if (!request.momentId) {
                 return {
                     success: false,
-                    error: "ID do momento é obrigatório",
+                    error: "Moment ID is required",
                 }
             }
 
             if (!request.userId) {
                 return {
                     success: false,
-                    error: "ID do usuário é obrigatório",
+                    error: "User ID is required",
                 }
             }
 
@@ -43,7 +43,7 @@ export class UnlikeMomentUseCase {
             if (!moment) {
                 return {
                     success: false,
-                    error: "Momento não encontrado",
+                    error: "Moment not found",
                 }
             }
 
@@ -51,7 +51,7 @@ export class UnlikeMomentUseCase {
             if (!this.canUnlikeMoment(moment)) {
                 return {
                     success: false,
-                    error: "Momento não pode ser descurtido no estado atual",
+                    error: "Moment cannot be unliked in current state",
                 }
             }
 
@@ -64,7 +64,7 @@ export class UnlikeMomentUseCase {
             if (!hasLiked) {
                 return {
                     success: false,
-                    error: "Usuário não curtiu este momento",
+                    error: "User has not liked this moment",
                 }
             }
 
@@ -78,7 +78,7 @@ export class UnlikeMomentUseCase {
         } catch (error) {
             return {
                 success: false,
-                error: error instanceof Error ? error.message : "Erro interno do servidor",
+                error: error instanceof Error ? error.message : "Internal server error",
             }
         }
     }

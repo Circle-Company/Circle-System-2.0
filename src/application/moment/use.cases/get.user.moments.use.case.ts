@@ -35,7 +35,7 @@ export class GetUserMomentsUseCase {
         try {
             // Validar parâmetros obrigatórios
             if (!request.userId) {
-                return { success: false, error: "ID do usuário é obrigatório" }
+                return { success: false, error: "User ID is required" }
             }
 
             // Validar limites
@@ -78,7 +78,7 @@ export class GetUserMomentsUseCase {
         } catch (error) {
             return {
                 success: false,
-                error: error instanceof Error ? error.message : "Erro interno do servidor",
+                error: error instanceof Error ? error.message : "Internal server error",
             }
         }
     }

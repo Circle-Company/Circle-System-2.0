@@ -89,7 +89,7 @@ describe("ReportMomentUseCase", () => {
             const result = await reportMomentUseCase.execute(request)
 
             expect(result.success).toBe(false)
-            expect(result.error).toBe("Momento não encontrado")
+            expect(result.error).toBe("Moment not found")
             expect(result.report).toBeUndefined()
             expect(mockMomentService.getMomentById).toHaveBeenCalledWith("moment_inexistente")
             expect(mockMomentService.hasUserReportedMoment).not.toHaveBeenCalled()
@@ -112,7 +112,7 @@ describe("ReportMomentUseCase", () => {
             const result = await reportMomentUseCase.execute(request)
 
             expect(result.success).toBe(false)
-            expect(result.error).toBe("Só é possível reportar momentos publicados")
+            expect(result.error).toBe("Only published moments can be reported")
             expect(result.report).toBeUndefined()
             expect(mockMomentService.getMomentById).toHaveBeenCalledWith("moment_123")
             expect(mockMomentService.hasUserReportedMoment).not.toHaveBeenCalled()
@@ -131,7 +131,7 @@ describe("ReportMomentUseCase", () => {
             const result = await reportMomentUseCase.execute(request)
 
             expect(result.success).toBe(false)
-            expect(result.error).toBe("Não é possível reportar seus próprios momentos")
+            expect(result.error).toBe("Cannot report your own moments")
             expect(result.report).toBeUndefined()
             expect(mockMomentService.getMomentById).toHaveBeenCalledWith("moment_123")
             expect(mockMomentService.hasUserReportedMoment).not.toHaveBeenCalled()
@@ -151,7 +151,7 @@ describe("ReportMomentUseCase", () => {
             const result = await reportMomentUseCase.execute(request)
 
             expect(result.success).toBe(false)
-            expect(result.error).toBe("Você já reportou este momento")
+            expect(result.error).toBe("You have already reported this moment")
             expect(result.report).toBeUndefined()
             expect(mockMomentService.getMomentById).toHaveBeenCalledWith("moment_123")
             expect(mockMomentService.hasUserReportedMoment).toHaveBeenCalledWith(
@@ -171,7 +171,7 @@ describe("ReportMomentUseCase", () => {
             const result = await reportMomentUseCase.execute(request)
 
             expect(result.success).toBe(false)
-            expect(result.error).toBe("ID do momento é obrigatório")
+            expect(result.error).toBe("Moment ID is required")
             expect(mockMomentService.getMomentById).not.toHaveBeenCalled()
         })
 
@@ -185,7 +185,7 @@ describe("ReportMomentUseCase", () => {
             const result = await reportMomentUseCase.execute(request)
 
             expect(result.success).toBe(false)
-            expect(result.error).toBe("ID do usuário é obrigatório")
+            expect(result.error).toBe("User ID is required")
             expect(mockMomentService.getMomentById).not.toHaveBeenCalled()
         })
 
@@ -199,7 +199,7 @@ describe("ReportMomentUseCase", () => {
             const result = await reportMomentUseCase.execute(request)
 
             expect(result.success).toBe(false)
-            expect(result.error).toBe("Motivo do report é obrigatório")
+            expect(result.error).toBe("Report reason is required")
             expect(mockMomentService.getMomentById).not.toHaveBeenCalled()
         })
 
@@ -213,7 +213,7 @@ describe("ReportMomentUseCase", () => {
             const result = await reportMomentUseCase.execute(request)
 
             expect(result.success).toBe(false)
-            expect(result.error).toBe("Motivo não pode ter mais de 500 caracteres")
+            expect(result.error).toBe("Reason cannot exceed 500 characters")
             expect(mockMomentService.getMomentById).not.toHaveBeenCalled()
         })
 
@@ -228,7 +228,7 @@ describe("ReportMomentUseCase", () => {
             const result = await reportMomentUseCase.execute(request)
 
             expect(result.success).toBe(false)
-            expect(result.error).toBe("Descrição não pode ter mais de 1000 caracteres")
+            expect(result.error).toBe("Description cannot exceed 1000 characters")
             expect(mockMomentService.getMomentById).not.toHaveBeenCalled()
         })
 

@@ -28,7 +28,7 @@ export class EditMomentCommentUseCase {
             if (!user) {
                 return {
                     success: false,
-                    error: "Usuário não encontrado",
+                    error: "User not found",
                 }
             }
 
@@ -37,7 +37,7 @@ export class EditMomentCommentUseCase {
             if (!comment) {
                 return {
                     success: false,
-                    error: "Comentário não encontrado",
+                    error: "Comment not found",
                 }
             }
 
@@ -45,7 +45,7 @@ export class EditMomentCommentUseCase {
             if (comment.momentId !== request.momentId) {
                 return {
                     success: false,
-                    error: "Comentário não pertence a este momento",
+                    error: "Comment does not belong to this moment",
                 }
             }
 
@@ -54,7 +54,7 @@ export class EditMomentCommentUseCase {
             if (!canEdit.allowed) {
                 return {
                     success: false,
-                    error: canEdit.reason || "Não autorizado a editar este comentário",
+                    error: canEdit.reason || "Not authorized to edit this comment",
                 }
             }
 
@@ -77,7 +77,7 @@ export class EditMomentCommentUseCase {
         } catch (error) {
             return {
                 success: false,
-                error: error instanceof Error ? error.message : "Erro interno do servidor",
+                error: error instanceof Error ? error.message : "Internal server error",
             }
         }
     }

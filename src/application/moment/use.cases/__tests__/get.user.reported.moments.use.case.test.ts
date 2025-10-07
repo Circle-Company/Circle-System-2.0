@@ -191,7 +191,7 @@ describe("GetUserReportedMomentsUseCase", () => {
             const result = await getUserReportedMomentsUseCase.execute(request)
 
             expect(result.success).toBe(false)
-            expect(result.error).toBe("ID do usuário é obrigatório")
+            expect(result.error).toBe("User ID is required")
             expect(result.reportedMoments).toBeUndefined()
             expect(mockMomentService.getUserReportedMoments).not.toHaveBeenCalled()
         })

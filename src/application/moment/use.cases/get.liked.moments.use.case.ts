@@ -27,7 +27,7 @@ export class GetLikedMomentsUseCase {
             if (!request.userId) {
                 return {
                     success: false,
-                    error: "ID do usuário é obrigatório",
+                    error: "User ID is required",
                 }
             }
 
@@ -64,7 +64,7 @@ export class GetLikedMomentsUseCase {
         } catch (error) {
             return {
                 success: false,
-                error: error instanceof Error ? error.message : "Erro interno do servidor",
+                error: error instanceof Error ? error.message : "Internal server error",
             }
         }
     }

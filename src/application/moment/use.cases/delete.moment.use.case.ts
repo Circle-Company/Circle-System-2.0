@@ -24,17 +24,17 @@ export class DeleteMomentUseCase {
         try {
             // Validar parâmetros obrigatórios
             if (!request.momentId) {
-                return { success: false, error: "ID do momento é obrigatório" }
+                return { success: false, error: "Moment ID is required" }
             }
 
             if (!request.userId) {
-                return { success: false, error: "ID do usuário é obrigatório" }
+                return { success: false, error: "User ID is required" }
             }
 
             // Buscar o momento
             const moment = await this.momentService.getMomentById(request.momentId)
             if (!moment) {
-                return { success: false, error: "Momento não encontrado" }
+                return { success: false, error: "Moment not found" }
             }
 
             // Verificar permissões
@@ -47,12 +47,12 @@ export class DeleteMomentUseCase {
 
             // Verificar se o momento já foi deletado
             if (moment.deletedAt) {
-                return { success: false, error: "Momento já foi deletado" }
+                return { success: false, error: "Moment already deleted" }
             }
 
             // Verificar se o momento pode ser deletado
             if (!this.canDeleteMoment(moment, isAdmin)) {
-                return { success: false, error: "Momento não pode ser deletado no estado atual" }
+                return { success: false, error: "Moment cannot be deleted in current state" }
             }
 
             // Deletar o momento (soft delete)
@@ -69,7 +69,7 @@ export class DeleteMomentUseCase {
         } catch (error) {
             return {
                 success: false,
-                error: error instanceof Error ? error.message : "Erro interno do servidor",
+                error: error instanceof Error ? error.message : "Internal server error",
             }
         }
     }
