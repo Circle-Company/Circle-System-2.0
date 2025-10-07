@@ -1,3 +1,4 @@
+import { SecurityRisk, SignStatus } from "@/domain/auth/auth.type"
 import { DataTypes, Model, Sequelize } from "sequelize"
 
 import { generateId } from "@/shared"
@@ -5,19 +6,6 @@ import { generateId } from "@/shared"
 export enum SignType {
     SIGNIN = "signin",
     SIGNUP = "signup",
-}
-
-export enum SignStatus {
-    APPROVED = "approved",
-    SUSPICIOUS = "suspicious",
-    REJECTED = "rejected",
-}
-
-export enum SecurityRisk {
-    LOW = "low",
-    MEDIUM = "medium",
-    HIGH = "high",
-    CRITICAL = "critical",
 }
 
 export interface SignLogAttributes {
@@ -33,6 +21,8 @@ export interface SignLogAttributes {
     longitude?: number | null
     timezone?: string | null
     session_duration?: number | null
+    createdAt?: Date
+    updatedAt?: Date
 }
 
 export default class SignLog extends Model<SignLogAttributes> implements SignLogAttributes {
@@ -105,12 +95,22 @@ export default class SignLog extends Model<SignLogAttributes> implements SignLog
                     allowNull: true,
                     comment: "Duração da sessão em segundos",
                 },
+                createdAt: {
+                    type: DataTypes.DATE,
+                    allowNull: false,
+                    defaultValue: DataTypes.NOW,
+                },
+                updatedAt: {
+                    type: DataTypes.DATE,
+                    allowNull: false,
+                    defaultValue: DataTypes.NOW,
+                },
             },
             {
                 sequelize,
                 modelName: "SignLog",
                 tableName: "sign_logs",
-                timestamps: true,
+                timestamps: false,
                 // Índices serão criados automaticamente pelo Sequelize quando necessário
             },
         )

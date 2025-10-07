@@ -128,7 +128,7 @@ export default class UserPreferences
             },
             {
                 sequelize,
-                modelName: "UserPreference",
+                modelName: "UserPreferences",
                 tableName: "user_preferences",
                 timestamps: true,
             },

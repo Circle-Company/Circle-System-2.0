@@ -165,8 +165,8 @@ export default class User extends Model<UserAttributes> implements UserAttribute
             })
         }
 
-        if (models.UserTerms) {
-            this.hasOne(models.UserTerms, {
+        if (models.UserTerm) {
+            this.hasOne(models.UserTerm, {
                 foreignKey: "user_id",
                 as: "terms",
             })

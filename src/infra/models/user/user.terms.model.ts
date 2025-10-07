@@ -2,7 +2,7 @@ import { DataTypes, Model, Sequelize } from "sequelize"
 
 import { generateId } from "@/shared/id"
 
-interface UserTermsAttributes {
+interface UserTermAttributes {
     id?: bigint
     user_id: bigint
     terms_and_conditions_agreed: boolean
@@ -10,14 +10,14 @@ interface UserTermsAttributes {
     terms_and_conditions_agreed_at: Date | string | null
 }
 
-export default class UserTerms extends Model<UserTermsAttributes> implements UserTermsAttributes {
+export default class UserTerm extends Model<UserTermAttributes> implements UserTermAttributes {
     public readonly id!: bigint
     public user_id!: bigint
     public terms_and_conditions_agreed!: boolean
     public terms_and_conditions_agreed_version!: string | null
     public terms_and_conditions_agreed_at!: Date | string | null
     static initialize(sequelize: Sequelize) {
-        UserTerms.init(
+        UserTerm.init(
             {
                 id: {
                     type: DataTypes.BIGINT,
