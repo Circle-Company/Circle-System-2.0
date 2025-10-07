@@ -36,8 +36,48 @@ class MomentRouteHandlers {
      */
     async createMoment(request: HttpRequest, response: HttpResponse): Promise<void> {
         try {
+            // Extrair dados do multipart/form-data
+            // Assumindo que o framework HTTP já processou o upload
+            const videoData = request.body.videoData || request.body.video || Buffer.from([])
+            const videoMetadata = {
+                filename: request.body.filename || "video.mp4",
+                mimeType: request.body.mimeType || "video/mp4",
+                size: videoData.length || 0,
+            }
+
+            // Extrair outros campos
+            const description = request.body.description
+            const hashtags = request.body.hashtags
+                ? Array.isArray(request.body.hashtags)
+                    ? request.body.hashtags
+                    : JSON.parse(request.body.hashtags)
+                : undefined
+            const mentions = request.body.mentions
+                ? Array.isArray(request.body.mentions)
+                    ? request.body.mentions
+                    : JSON.parse(request.body.mentions)
+                : undefined
+            const location = request.body.location
+                ? typeof request.body.location === "string"
+                    ? JSON.parse(request.body.location)
+                    : request.body.location
+                : undefined
+            const device = request.body.device
+                ? typeof request.body.device === "string"
+                    ? JSON.parse(request.body.device)
+                    : request.body.device
+                : undefined
+
             const result = await this.momentController.createMoment(
-                request.body as any,
+                {
+                    videoData,
+                    videoMetadata,
+                    description,
+                    hashtags,
+                    mentions,
+                    location,
+                    device,
+                },
                 request.user?.id || "",
             )
 

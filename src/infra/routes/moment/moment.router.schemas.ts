@@ -8,7 +8,6 @@ import {
     CreateMomentSchema,
     ListMomentsQuerySchema,
     MomentErrorSchema,
-    MomentListResponseSchema,
     MomentResponseSchema,
     ReportSchema,
     SearchMomentsQuerySchema,
