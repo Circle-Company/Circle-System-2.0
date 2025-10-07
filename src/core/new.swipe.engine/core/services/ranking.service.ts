@@ -1,7 +1,7 @@
+import { Candidate, RankedCandidate, RankingOptions, UserEmbedding } from "../../types"
 import { IInteractionRepository, IMomentEmbeddingRepository } from "../repositories"
-import { Candidate, RankedCandidate, RankingOptions, UserEmbedding } from "../types"
 
-import { RankingParams } from "../params.type"
+import { RankingParams } from "../../types/params.types"
 
 /**
  * Serviço para ranquear candidatos de momentos

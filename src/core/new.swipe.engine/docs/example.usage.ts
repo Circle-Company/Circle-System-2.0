@@ -4,13 +4,17 @@
  * Este arquivo demonstra como integrar o sistema de recomendações
  */
 
-import { RecommendationEngineConfig, createRecommendationEngine } from "./index"
 import {
     IClusterRepository,
     IInteractionRepository,
     IMomentEmbeddingRepository,
     IUserEmbeddingRepository,
-} from "./repositories"
+} from "../core/repositories"
+import {
+    RecommendationEngine,
+    RecommendationEngineConfig,
+    createRecommendationEngine,
+} from "../index"
 
 // ============================================
 // 1. IMPLEMENTAR REPOSITÓRIOS
@@ -111,15 +115,14 @@ const config: RecommendationEngineConfig = {
             },
             feedback: {
                 interactionStrengths: {
-                    short_view: 0.1,
-                    long_view: 0.3,
+                    view: 0.1,
+                    completion: 0.3,
                     like: 0.5,
-                    like_comment: 0.6,
-                    share: 0.8,
                     comment: 0.4,
-                    dislike: -0.5,
-                    show_less_often: -0.6,
+                    share: 0.8,
+                    save: 0.6,
                     report: -0.8,
+                    skip: -0.5,
                 },
                 learningRates: {
                     user: {
@@ -155,7 +158,7 @@ const config: RecommendationEngineConfig = {
                     similarPostsLimit: 5,
                     similarityThreshold: 0.8,
                 },
-                highPriorityInteractions: ["like", "share", "like_comment", "report"],
+                highPriorityInteractions: ["like", "share", "comment", "report"],
             },
             candidateSelector: {
                 weights: {
@@ -251,13 +254,8 @@ async function exemploDeUso() {
     // Processar uma interação
     await engine.processInteraction("user123", "moment456", "like")
 
-    // Adicionar um novo momento
-    await engine.addMoment("moment789", {
-        textContent: "Descrição do momento",
-        tags: ["viagem", "praia"],
-        topics: ["turismo", "lazer"],
-        authorId: "author123",
-    })
+    // Nota: A criação de momentos e geração de embeddings deve ser feita
+    // pela camada de aplicação usando a entidade Moment do domínio
 
     // Re-clusterizar todos os momentos (executar periodicamente)
     await engine.reclusterMoments()
@@ -271,7 +269,7 @@ async function exemploDeUso() {
  * Exemplo de integração em um controller HTTP
  */
 export class RecommendationController {
-    constructor(private engine: typeof engine) {}
+    constructor(private engine: RecommendationEngine) {}
 
     async getFeed(userId: string, limit: number = 20) {
         try {

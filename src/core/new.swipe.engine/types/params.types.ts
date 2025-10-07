@@ -46,15 +46,14 @@ export type EmbeddingParams = {
     }
     feedback: {
         interactionStrengths: {
-            short_view: number
-            long_view: number
+            view: number
+            completion: number
             like: number
-            like_comment: number
-            share: number
             comment: number
-            dislike: number
-            show_less_often: number
+            share: number
+            save: number
             report: number
+            skip: number
         }
         learningRates: {
             user: {
@@ -183,17 +182,14 @@ export type ClusterRankingParams = {
         maxInteractionsPerUser: number
         normalizationFactor: number
         defaultInteractionWeights: {
-            partialView: number
-            completeView: number
+            view: number
+            completion: number
             like: number
-            likeComment: number
             comment: number
             share: number
             save: number
-            dislike: number
             report: number
-            showLessOften: number
-            click: number
+            skip: number
             default: number
         }
     }
@@ -407,21 +403,8 @@ export type DBSCANConfig = {
 }
 
 // Helper types for specific use cases
-export type InteractionType =
-    | "view"
-    | "like"
-    | "comment"
-    | "share"
-    | "save"
-    | "dislike"
-    | "report"
-    | "show_less_often"
-    | "short_view"
-    | "long_view"
-    | "like_comment"
-    | "partial_view"
-    | "complete_view"
-    | "click"
+// InteractionType agora está definido em types/interaction.types.ts
+// Mantemos aqui apenas tipos auxiliares específicos dos parâmetros
 
 export type UserType = "newUser" | "powerUser" | "casualUser"
 

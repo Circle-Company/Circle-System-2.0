@@ -10,18 +10,57 @@
  * Arquitetura desacoplada com injeção de dependências
  */
 
-export * from "./algorithms/dbscan.clustering"
-export * from "./params.type"
-export * from "./recommendation.engine"
-export * from "./repositories"
-export * from "./services/candidate.selector"
-export * from "./services/cluster.matcher"
-export * from "./services/moment.embedding.service"
-export * from "./services/ranking.service"
-export * from "./services/user.embedding.service"
-export * from "./types"
+export * from "./core/dbscan.clustering"
+export * from "./core/recommendation.engine"
+export * from "./core/services/candidate.selector"
+export * from "./core/services/cluster.matcher"
+export * from "./core/services/ranking.service"
 
-import { RecommendationEngine, RecommendationEngineConfig } from "./recommendation.engine"
+// Exportar repositórios (que agora são do domínio)
+export type {
+    IClusterRepository,
+    IInteractionRepository,
+    IMomentEmbeddingRepository,
+    IUserEmbeddingRepository,
+} from "./core/repositories"
+
+// Exportar tipos (exceto os conflitantes)
+export type {
+    Candidate,
+    Cluster,
+    ClusteringResult,
+    ClusterMatch,
+    InteractionSummary,
+    InteractionType,
+    RankedCandidate,
+    RankingOptions,
+    Recommendation,
+    RecommendationContext,
+    RecommendationRequest,
+    UserEmbedding,
+    UserProfile,
+} from "./types"
+
+// Exportar apenas os tipos de parâmetros (sem InteractionType para evitar conflito)
+export type {
+    ClusterRankingConfig,
+    ClusterRankingParams,
+    ContentType,
+    DayType,
+    DBSCANConfig,
+    EmbeddingParams,
+    FeedRecommendationParams,
+    InteractionBoosts,
+    InteractionScore,
+    RankingParams,
+    TemporalDecayConfig,
+    TimeOfDay,
+    UserType,
+    UserTypeConfig,
+    UserTypeConfigs,
+} from "./types/params.types"
+
+import { RecommendationEngine, RecommendationEngineConfig } from "./core/recommendation.engine"
 
 /**
  * Factory function para criar uma instância do RecommendationEngine
@@ -31,40 +70,3 @@ export function createRecommendationEngine(
 ): RecommendationEngine {
     return new RecommendationEngine(config)
 }
-
-/**
- * Tipo auxiliar para requisição de recomendação
- */
-export type { Recommendation, RecommendationRequest } from "./types"
-
-/**
- * Exemplo de uso:
- *
- * ```typescript
- * import { createRecommendationEngine } from './core/new.swipe.engine'
- *
- * const engine = createRecommendationEngine({
- *   repositories: {
- *     userEmbedding: new UserEmbeddingRepository(),
- *     momentEmbedding: new MomentEmbeddingRepository(),
- *     cluster: new ClusterRepository(),
- *     interaction: new InteractionRepository(),
- *   },
- *   params: {
- *     embedding: EmbeddingParams,
- *     ranking: RankingParams,
- *     clusterRanking: ClusterRankingParams,
- *     dbscan: DBSCANConfig,
- *   }
- * })
- *
- * const recommendations = await engine.getRecommendations({
- *   userId: '123',
- *   limit: 20,
- *   context: {
- *     timeOfDay: 18,
- *     dayOfWeek: 5
- *   }
- * })
- * ```
- */

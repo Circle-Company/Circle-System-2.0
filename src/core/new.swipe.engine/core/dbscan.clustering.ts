@@ -1,6 +1,6 @@
-import { Cluster, ClusteringResult } from "../types"
-
-import { DBSCANConfig } from "../params.type"
+import { Cluster } from "@/domain/cluster"
+import { ClusteringResult } from "../types"
+import { DBSCANConfig } from "../types/params.types"
 
 enum PointLabel {
     UNDEFINED = -2,
@@ -204,20 +204,25 @@ export class DBSCANClustering {
             }
         })
 
-        // Criar clusters
+        // Criar clusters usando entidade de domínio
         const clusters: Cluster[] = []
         const assignments: Record<string, string> = {}
 
         clusterMap.forEach((data, clusterId) => {
-            const cluster: Cluster = {
-                id: `cluster_${clusterId}`,
-                centroid: this.calculateCentroid(data.vectors),
+            const centroid = this.calculateCentroid(data.vectors)
+            const density = this.calculateDensity(data.vectors)
+            const coherence = this.calculateCoherence(data.vectors)
+
+            // Criar entidade de domínio (já é o tipo do swipe engine)
+            const cluster = Cluster.create({
+                name: `Cluster ${clusterId}`,
+                centroid,
+                dimension: centroid.length,
                 size: data.ids.length,
-                density: this.calculateDensity(data.vectors),
-                coherence: this.calculateCoherence(data.vectors),
-                createdAt: new Date(),
-                updatedAt: new Date(),
-            }
+                density,
+                coherence,
+                topics: [],
+            })
 
             clusters.push(cluster)
 

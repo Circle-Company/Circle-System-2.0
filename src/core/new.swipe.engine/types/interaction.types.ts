@@ -1,32 +1,12 @@
 /**
  * Tipos relacionados a interações de usuário
+ * Re-exporta os tipos do domínio para uso no swipe engine
  */
 
-export type InteractionType =
-    | "view"
-    | "like"
-    | "comment"
-    | "share"
-    | "save"
-    | "dislike"
-    | "report"
-    | "skip"
-    | "complete_view"
-    | "partial_view"
+import type { DomainUserInteraction, UserInteractionType } from "@/domain/user"
 
-export interface UserInteraction {
-    id: string
-    userId: string
-    momentId: string
-    type: InteractionType
-    timestamp: Date
-    metadata?: {
-        duration?: number
-        percentWatched?: number
-        engagementTime?: number
-        [key: string]: any
-    }
-}
+export type InteractionType = UserInteractionType
+export type UserInteraction = DomainUserInteraction
 
 export interface UserProfile {
     userId: string

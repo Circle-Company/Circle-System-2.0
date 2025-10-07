@@ -1,5 +1,5 @@
+import { Candidate, ClusterMatch } from "../../types"
 import { IClusterRepository, IInteractionRepository } from "../repositories"
-import { Candidate, ClusterMatch } from "../types"
 
 export interface CandidateSelectorOptions {
     userId: string
@@ -35,7 +35,7 @@ export class CandidateSelector {
 
         // Buscar momentos já interagidos para excluir
         const interactedMomentIds = await this.interactionRepository.findInteractedMomentIds(userId)
-        const excludeSet = new Set(interactedMomentIds)
+        const excludeSet = new Set<string>(interactedMomentIds)
 
         // Coletar candidatos de cada cluster
         const allCandidates: Candidate[] = []

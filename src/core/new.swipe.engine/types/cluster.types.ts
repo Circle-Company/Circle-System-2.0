@@ -1,33 +1,15 @@
 /**
  * Tipos relacionados a clusters
+ * Usa a entidade de domínio diretamente
  */
 
-export interface Cluster {
-    id: string
-    name?: string
-    centroid: number[]
-    size: number
-    density: number
-    coherence?: number
-    topics?: string[]
-    metadata?: {
-        dominantTopics?: string[]
-        avgEngagement?: number
-        [key: string]: any
-    }
-    createdAt: Date
-    updatedAt: Date
-}
+import { Cluster as DomainCluster } from "@/domain/cluster"
 
-export interface ClusterAssignment {
-    momentId: string
-    clusterId: string
-    similarity: number
-    assignedAt: Date
-}
+// Re-exporta a entidade de domínio
+export type Cluster = DomainCluster
 
 export interface ClusteringResult {
-    clusters: Cluster[]
+    clusters: DomainCluster[]
     assignments: Record<string, string> // momentId -> clusterId
     quality: number
     iterations: number
@@ -36,7 +18,7 @@ export interface ClusteringResult {
 }
 
 export interface ClusterMatch {
-    cluster: Cluster
+    cluster: DomainCluster
     score: number
     reason: "embedding" | "profile" | "context" | "default"
 }

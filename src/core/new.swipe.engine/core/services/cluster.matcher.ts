@@ -1,4 +1,10 @@
-import { Cluster, ClusterMatch, RecommendationContext, UserEmbedding, UserProfile } from "../types"
+import {
+    Cluster,
+    ClusterMatch,
+    RecommendationContext,
+    UserEmbedding,
+    UserProfile,
+} from "../../types"
 
 /**
  * Serviço para encontrar clusters relevantes para um usuário

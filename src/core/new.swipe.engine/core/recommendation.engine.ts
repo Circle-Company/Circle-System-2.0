@@ -1,18 +1,21 @@
-import { ClusterRankingParams, DBSCANConfig, EmbeddingParams, RankingParams } from "./params.type"
+import { Cluster, Recommendation, RecommendationRequest, UserProfile } from "../types"
+import {
+    ClusterRankingParams,
+    DBSCANConfig,
+    EmbeddingParams,
+    RankingParams,
+} from "../types/params.types"
 import {
     IClusterRepository,
     IInteractionRepository,
     IMomentEmbeddingRepository,
     IUserEmbeddingRepository,
 } from "./repositories"
-import { Cluster, Recommendation, RecommendationRequest, UserProfile } from "./types"
 
-import { DBSCANClustering } from "./algorithms/dbscan.clustering"
+import { DBSCANClustering } from "./dbscan.clustering"
 import { CandidateSelector } from "./services/candidate.selector"
 import { ClusterMatcher } from "./services/cluster.matcher"
-import { MomentEmbeddingService } from "./services/moment.embedding.service"
 import { RankingService } from "./services/ranking.service"
-import { UserEmbeddingService } from "./services/user.embedding.service"
 
 export interface RecommendationEngineConfig {
     repositories: {
@@ -31,10 +34,9 @@ export interface RecommendationEngineConfig {
 
 /**
  * Engine principal de recomendações baseado em clustering e embeddings
+ * Os embeddings são gerenciados diretamente pelas entidades de domínio (User e Moment)
  */
 export class RecommendationEngine {
-    private readonly userEmbeddingService: UserEmbeddingService
-    private readonly momentEmbeddingService: MomentEmbeddingService
     private readonly clusterMatcher: ClusterMatcher
     private readonly candidateSelector: CandidateSelector
     private readonly rankingService: RankingService
@@ -42,17 +44,6 @@ export class RecommendationEngine {
 
     constructor(private readonly config: RecommendationEngineConfig) {
         // Inicializar serviços com injeção de dependências
-        this.userEmbeddingService = new UserEmbeddingService(
-            config.repositories.userEmbedding,
-            config.repositories.interaction,
-            config.params.embedding,
-        )
-
-        this.momentEmbeddingService = new MomentEmbeddingService(
-            config.repositories.momentEmbedding,
-            config.params.embedding,
-        )
-
         this.clusterMatcher = new ClusterMatcher()
 
         this.candidateSelector = new CandidateSelector(
@@ -76,8 +67,25 @@ export class RecommendationEngine {
         const { userId, limit = 20, excludeMomentIds = [], context } = request
 
         try {
-            // 1. Buscar ou gerar embedding do usuário
-            const userEmbedding = await this.userEmbeddingService.getEmbedding(userId)
+            // 1. Buscar embedding do usuário diretamente do repositório (formato domínio)
+            const domainUserEmbedding = await this.config.repositories.userEmbedding.findByUserId(
+                userId,
+            )
+
+            // Converter para formato interno do swipe engine
+            const userEmbedding = domainUserEmbedding
+                ? {
+                      userId,
+                      vector:
+                          typeof domainUserEmbedding.vector === "string"
+                              ? JSON.parse(domainUserEmbedding.vector)
+                              : domainUserEmbedding.vector,
+                      dimension: domainUserEmbedding.dimension,
+                      metadata: domainUserEmbedding.metadata,
+                      createdAt: domainUserEmbedding.createdAt,
+                      updatedAt: domainUserEmbedding.updatedAt,
+                  }
+                : null
 
             // 2. Buscar perfil do usuário (interesses e histórico)
             const userProfile = await this.buildUserProfile(userId)
@@ -148,7 +156,8 @@ export class RecommendationEngine {
     }
 
     /**
-     * Processa uma interação de usuário para atualizar embeddings
+     * Processa uma interação de usuário
+     * Nota: A atualização de embeddings deve ser feita pela aplicação usando as entidades de domínio
      */
     async processInteraction(
         userId: string,
@@ -165,44 +174,10 @@ export class RecommendationEngine {
                 timestamp: new Date(),
             })
 
-            // Atualizar embedding do usuário incrementalmente
-            const momentEmbedding = await this.momentEmbeddingService.getEmbedding(momentId)
-
-            if (momentEmbedding) {
-                await this.userEmbeddingService.updateEmbedding(userId, momentEmbedding.vector)
-            }
+            // Nota: A atualização de embedding do usuário deve ser feita
+            // pela camada de aplicação usando a entidade User do domínio
         } catch (error) {
             console.error("Error processing interaction:", error)
-        }
-    }
-
-    /**
-     * Adiciona um novo momento e gera seu embedding
-     */
-    async addMoment(
-        momentId: string,
-        data: {
-            textContent: string
-            tags: string[]
-            topics: string[]
-            authorId: string
-        },
-    ): Promise<void> {
-        try {
-            // Gerar embedding
-            await this.momentEmbeddingService.generateEmbedding(momentId, {
-                textContent: data.textContent,
-                tags: data.tags,
-                topics: data.topics,
-                metadata: {
-                    authorId: data.authorId,
-                },
-            })
-
-            // Re-clusterizar (poderia ser feito em batch periodicamente)
-            await this.reclusterMoments()
-        } catch (error) {
-            console.error("Error adding moment:", error)
         }
     }
 
@@ -211,22 +186,23 @@ export class RecommendationEngine {
      */
     async reclusterMoments(): Promise<void> {
         try {
-            // Buscar todos os embeddings de momentos
+            // Buscar todos os embeddings de momentos do domínio
             const allEmbeddings = await this.config.repositories.momentEmbedding.findAll(10000, 0)
 
             if (allEmbeddings.length === 0) {
                 return
             }
 
-            // Executar clustering
-            const result = await this.clusteringAlgorithm.cluster(
-                allEmbeddings.map((e) => ({
-                    id: e.momentId,
-                    vector: e.vector,
-                })),
-            )
+            // Converter embeddings de domínio (string) para array de números
+            const embeddingsForClustering = allEmbeddings.map((e) => ({
+                id: e.momentId,
+                vector: typeof e.vector === "string" ? JSON.parse(e.vector) : e.vector,
+            }))
 
-            // Salvar clusters
+            // Executar clustering
+            const result = await this.clusteringAlgorithm.cluster(embeddingsForClustering)
+
+            // Salvar clusters (já são entidades de domínio)
             await this.config.repositories.cluster.saveMany(result.clusters)
 
             // Salvar assignments
@@ -234,8 +210,10 @@ export class RecommendationEngine {
                 await this.config.repositories.cluster.saveAssignment({
                     momentId,
                     clusterId,
-                    similarity: 1.0, // Poderia calcular similaridade real
+                    similarity: 1.0,
+                    confidence: 1.0,
                     assignedAt: new Date(),
+                    assignedBy: "algorithm",
                 })
             }
         } catch (error) {
@@ -252,7 +230,7 @@ export class RecommendationEngine {
         // Se não há clusters ou estão desatualizados, re-clusterizar
         if (clusters.length === 0) {
             await this.reclusterMoments()
-            return this.config.repositories.cluster.findAll()
+            return await this.config.repositories.cluster.findAll()
         }
 
         return clusters
