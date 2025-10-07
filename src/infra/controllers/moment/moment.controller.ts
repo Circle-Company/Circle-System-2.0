@@ -201,13 +201,15 @@ export class MomentController {
                 videoData: request.videoData,
                 videoMetadata: request.videoMetadata,
                 description: request.description,
-                hashtags: request.hashtags,
-                mentions: request.mentions,
                 location: request.location,
                 device: request.device,
             })
 
-            return this.mapToResponse(result)
+            if (!result.success || !result.moment) {
+                throw new Error(result.error || "Erro ao criar momento")
+            }
+
+            return this.mapToResponse(result.moment)
         } catch (error) {
             if (error instanceof z.ZodError) {
                 throw new Error(
