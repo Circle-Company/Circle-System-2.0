@@ -5,48 +5,13 @@
  * @version 1.0.0
  */
 
-import { circleTextLibrary, parseTimezone } from "@/shared"
+import { circleTextLibrary } from "@/shared"
 
 import { SignInUseCase } from "@/application/auth/signin.use.case"
 import { SignUpUseCase } from "@/application/auth/signup.use.case"
 import { Device } from "@/domain/auth"
+import { TimezoneCodes } from "circle-text-library"
 import { z } from "zod"
-
-// Schemas de validação
-const SignInRequestSchema = z.object({
-    username: z.string().min(1, "Username é obrigatório"),
-    password: z.string().min(1, "Senha é obrigatória"),
-    termsAccepted: z.boolean().optional(),
-    metadata: z
-        .object({
-            ipAddress: z.string().optional(),
-            userAgent: z.string().optional(),
-            machineId: z.string().optional(),
-            timezone: z.string().optional(),
-            latitude: z.number().optional(),
-            longitude: z.number().optional(),
-        })
-        .optional(),
-})
-
-const SignUpRequestSchema = z.object({
-    username: z.string().min(4, "Username deve ter pelo menos 4 caracteres"),
-    password: z
-        .string()
-        .min(6, "Senha deve ter pelo menos 6 caracteres")
-        .max(128, "Senha deve ter no máximo 128 caracteres"),
-    termsAccepted: z.boolean().optional(),
-    metadata: z
-        .object({
-            ipAddress: z.string().optional(),
-            userAgent: z.string().optional(),
-            machineId: z.string().optional(),
-            timezone: z.string().optional(),
-            latitude: z.number().optional(),
-            longitude: z.number().optional(),
-        })
-        .optional(),
-})
 
 // Interfaces de Request
 export interface SignInRequest {
@@ -144,6 +109,10 @@ export class AuthHandlers {
      */
     async signIn(request: SignInRequest): Promise<AuthResponse> {
         try {
+            circleTextLibrary.transform.timezone.setTimezone(
+                request.metadata?.timezone as TimezoneCodes,
+            )
+
             const result = await this.signInUseCase.execute({
                 username: request.username,
                 password: request.password,
@@ -193,7 +162,7 @@ export class AuthHandlers {
                     ),
                 },
                 preferences: {
-                    timezone: parseTimezone(request.metadata?.timezone || "UTC"),
+                    timezone: circleTextLibrary.transform.timezone.getTimezoneOffset(),
                     language: {
                         appLanguage: "pt",
                         translationLanguage: "pt",
@@ -237,6 +206,9 @@ export class AuthHandlers {
      */
     async signUp(request: SignUpRequest): Promise<AuthResponse> {
         try {
+            circleTextLibrary.transform.timezone.setTimezone(
+                request.metadata?.timezone as TimezoneCodes,
+            )
             const result = await this.signUpUseCase.execute({
                 username: request.username,
                 password: request.password,
@@ -282,11 +254,12 @@ export class AuthHandlers {
                     jwtExpiration: result.expiresIn.toString(),
                     muted: false,
                     unreadNotificationsCount: 0,
-                    last_login_at:
-                        circleTextLibrary.transform.timezone.result.user.lastLogin || new Date(),
+                    last_login_at: circleTextLibrary.transform.timezone.UTCToLocal(
+                        result.user.lastLogin || new Date(),
+                    ),
                 },
                 preferences: {
-                    timezone: parseTimezone(request.metadata?.timezone),
+                    timezone: circleTextLibrary.transform.timezone.getTimezoneOffset(),
                     language: {
                         appLanguage: "pt",
                         translationLanguage: "pt",
