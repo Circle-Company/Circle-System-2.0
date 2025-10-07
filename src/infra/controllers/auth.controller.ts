@@ -37,11 +37,4 @@ export class AuthController {
     async refreshToken() {
         return await this.authHandlers.refreshToken()
     }
-
-    /**
-     * Verifica o status da sessão
-     */
-    async checkSession() {
-        return await this.authHandlers.checkSession()
-    }
 }
