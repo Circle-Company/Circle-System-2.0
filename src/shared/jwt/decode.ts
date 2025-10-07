@@ -20,36 +20,43 @@ interface JwtPayload {
 
 function getJwtConfig(): JwtConfig {
     const config = {
-        secret: process.env.JWT_SECRET || "default-secret-key",
-        issuer: process.env.JWT_ISSUER || "access-controller-api",
-        audience: process.env.JWT_AUDIENCE || "access-controller-client",
+        secret: process.env.JWT_SECRET || "giIOw90192Gkdzc463FF4rhgwrdghdftt",
+        issuer: process.env.JWT_ISSUER || "circle.company",
+        audience: process.env.JWT_AUDIENCE || "circle.company",
     }
 
-    if (!config.secret || config.secret === "default-secret-key") {
-        throw new ValidationError({
-            message: "JWT_SECRET environment variable is required",
-            code: ErrorCode.CONFIGURATION_ERROR,
-            action: "Set JWT_SECRET environment variable",
-            context: {
-                additionalData: {
-                    missingEnvVar: "JWT_SECRET",
-                },
-            },
-        })
-    }
+    console.log("🔧 JWT Decoder Config:", {
+        secret: config.secret.substring(0, 10) + "...",
+        issuer: config.issuer,
+        audience: config.audience,
+    })
 
     return config
 }
 
 export async function jwtDecoder(token: string): Promise<JwtPayload> {
     try {
+        console.log("🔍 JWT Decoder - Starting decode process")
+        console.log("Token preview:", token.substring(0, 50) + "...")
+
         const config = getJwtConfig()
         const secret = new TextEncoder().encode(config.secret)
 
+        console.log("🔍 Verifying JWT with config...")
         const { payload } = await jwtVerify(token, secret, {
             issuer: config.issuer,
             audience: config.audience,
             algorithms: ["HS256"],
+        })
+
+        console.log("✅ JWT verified successfully")
+        console.log("Payload:", {
+            sub: payload.sub,
+            device: payload.device,
+            iat: payload.iat,
+            exp: payload.exp,
+            iss: payload.iss,
+            aud: payload.aud,
         })
 
         // Validar payload obrigatório
@@ -75,6 +82,9 @@ export async function jwtDecoder(token: string): Promise<JwtPayload> {
             aud: payload.aud as string,
         }
     } catch (error: any) {
+        console.log("❌ JWT Decode error:", error.message)
+        console.log("Error type:", error.constructor.name)
+
         if (error instanceof ValidationError) {
             throw error
         }
