@@ -402,6 +402,8 @@ export default class UserStatistics
                 modelName: "UserStatistics",
                 tableName: "user_statistics",
                 timestamps: true,
+                createdAt: "created_at",
+                updatedAt: "updated_at",
             },
         )
 

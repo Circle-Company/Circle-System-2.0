@@ -50,6 +50,8 @@ export default class UserTerm extends Model<UserTermAttributes> implements UserT
                 modelName: "UserTerm",
                 tableName: "user_terms",
                 timestamps: true,
+                createdAt: "created_at",
+                updatedAt: "updated_at",
             },
         )
 

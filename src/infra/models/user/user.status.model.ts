@@ -69,6 +69,8 @@ export default class UserStatus
                 modelName: "UserStatus",
                 tableName: "user_statuses",
                 timestamps: true,
+                createdAt: "created_at",
+                updatedAt: "updated_at",
             },
         )
 
