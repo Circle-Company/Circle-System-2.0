@@ -3,6 +3,9 @@ import { DataTypes, Model, Sequelize } from "sequelize"
 
 import { generateId } from "@/shared"
 
+// Re-export para facilitar imports
+export { SecurityRisk, SignStatus }
+
 export enum SignType {
     SIGNIN = "signin",
     SIGNUP = "signup",
