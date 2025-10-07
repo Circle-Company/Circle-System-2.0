@@ -16,14 +16,7 @@ export interface GetAnalyticsRequest {
     startDate?: Date
     endDate?: Date
     userId?: string
-    category?:
-        | "views"
-        | "engagement"
-        | "performance"
-        | "viral"
-        | "audience"
-        | "content"
-        | "monetization"
+    category?: "views" | "engagement" | "performance" | "viral" | "audience" | "content"
     includeTrends?: boolean
     includeComparisons?: boolean
 }

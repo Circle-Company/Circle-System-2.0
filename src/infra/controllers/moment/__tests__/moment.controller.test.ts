@@ -16,7 +16,6 @@ import {
     ListMomentsUseCase,
     PublishMomentUseCase,
     ReportMomentUseCase,
-    SearchMomentsUseCase,
     UnlikeMomentUseCase,
 } from "@/application/moment/use.cases"
 import { beforeEach, describe, expect, it, vi } from "vitest"
@@ -47,10 +46,6 @@ const mockListMomentsUseCase = {
 const mockGetUserMomentsUseCase = {
     execute: vi.fn(),
 } as unknown as GetUserMomentsUseCase
-
-const mockSearchMomentsUseCase = {
-    execute: vi.fn(),
-} as unknown as SearchMomentsUseCase
 
 const mockLikeMomentUseCase = {
     execute: vi.fn(),
@@ -182,7 +177,6 @@ describe("MomentController", () => {
             mockPublishMomentUseCase,
             mockListMomentsUseCase,
             mockGetUserMomentsUseCase,
-            mockSearchMomentsUseCase,
             mockLikeMomentUseCase,
             mockUnlikeMomentUseCase,
             mockGetLikedMomentsUseCase,
@@ -528,48 +522,6 @@ describe("MomentController", () => {
                 sortBy: "createdAt",
                 sortOrder: "desc",
                 status: "published",
-            })
-        })
-    })
-
-    describe("searchMoments", () => {
-        it("deve buscar momentos com sucesso", async () => {
-            // Arrange
-            const query = {
-                q: "test",
-                page: 1,
-                limit: 20,
-                type: "all" as const,
-            }
-
-            vi.mocked(mockSearchMomentsUseCase.execute).mockResolvedValue({
-                success: true,
-                results: {
-                    moments: [mockMoment],
-                    total: 1,
-                    page: 1,
-                    limit: 20,
-                    totalPages: 1,
-                    hasNext: false,
-                    hasPrev: false,
-                },
-            })
-
-            // Act
-            const result = await controller.searchMoments(query)
-
-            // Assert
-            expect(result).toHaveLength(1)
-            expect(result[0].id).toBe("moment_123")
-            expect(mockSearchMomentsUseCase.execute).toHaveBeenCalledWith({
-                term: "test",
-                filters: {
-                    status: undefined,
-                },
-                pagination: {
-                    limit: 20,
-                    offset: 0,
-                },
             })
         })
     })
