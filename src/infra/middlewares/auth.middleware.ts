@@ -25,7 +25,7 @@ export class AuthServiceImpl implements AuthService {
         // Decodificar e validar o JWT
         const payload = await jwtDecoder(token)
 
-        // Buscar usuário no banco de dados
+        // Buscar usuário no banco de dados usando o ID como string
         const user = await this.userRepository.findById(payload.sub)
 
         if (!user) {
@@ -58,7 +58,7 @@ export class AuthServiceImpl implements AuthService {
 
         // Retornar dados do usuário autenticado
         return {
-            id: payload.sub,
+            id: payload.sub, // Manter como string para compatibilidade
             device: payload.device as unknown as Device,
             level: user.status?.accessLevel as unknown as Level,
         }
@@ -69,45 +69,52 @@ export class AuthMiddleware {
 
     async execute(request: HttpRequest, response: HttpResponse): Promise<void> {
         try {
+            console.log("=== AUTH MIDDLEWARE DEBUG ===")
+            console.log("URL:", request.url)
+            console.log("Method:", request.method)
+            console.log("Headers:", request.headers)
+            console.log("Authorization header:", request.headers.authorization)
+
             // Extrair token do header Authorization
             const authHeader = request.headers.authorization
             if (!authHeader || !authHeader.startsWith("Bearer ")) {
+                console.log("❌ No valid authorization header found")
                 response.status(401).send({
                     success: false,
-                    error: {
-                        message: "Token de autenticação necessário",
-                        code: "AUTHENTICATION_REQUIRED",
-                        timestamp: new Date().toISOString(),
-                    },
+                    error: "Token de autenticação necessário",
+                    code: "AUTHENTICATION_REQUIRED",
+                    timestamp: new Date().toISOString(),
                 })
                 return
             }
 
             const token = authHeader.substring(7) // Remove "Bearer "
+            console.log("✅ Token found, authenticating...")
+            console.log("Token:", token.substring(0, 50) + "...")
 
             // Autenticar usuário usando o serviço
             const authenticatedUser = await this.authService.authenticate(token)
+            console.log("✅ User authenticated:", authenticatedUser)
 
             // Adicionar usuário ao request
             request.user = authenticatedUser
         } catch (error: any) {
+            console.log("❌ Authentication error:", error.message)
+            console.log("Error details:", error)
+
             if (error instanceof ValidationError) {
                 response.status(403).send({
                     success: false,
-                    error: {
-                        message: error.message,
-                        code: error.code,
-                        timestamp: new Date().toISOString(),
-                    },
+                    error: error.message,
+                    code: error.code,
+                    timestamp: new Date().toISOString(),
                 })
             } else {
                 response.status(401).send({
                     success: false,
-                    error: {
-                        message: "Erro de autenticação",
-                        code: "AUTH_ERROR",
-                        timestamp: new Date().toISOString(),
-                    },
+                    error: "Erro de autenticação",
+                    code: "AUTH_ERROR",
+                    timestamp: new Date().toISOString(),
                 })
             }
         }
@@ -138,11 +145,9 @@ export function authMiddleware(
             if (!authHeader || !authHeader.startsWith("Bearer ")) {
                 response.status(401).send({
                     success: false,
-                    error: {
-                        message: "Token de autenticação necessário",
-                        code: "AUTHENTICATION_REQUIRED",
-                        timestamp: new Date().toISOString(),
-                    },
+                    error: "Token de autenticação necessário",
+                    code: "AUTHENTICATION_REQUIRED",
+                    timestamp: new Date().toISOString(),
                 })
                 return
             }
@@ -155,17 +160,15 @@ export function authMiddleware(
             // Criar instância do repositório com o adapter
             const userRepository = new UserRepositoryImpl(databaseAdapter)
 
-            // Buscar usuário no banco de dados
+            // Buscar usuário no banco de dados usando o ID como string
             const user = await userRepository.findById(payload.sub)
 
             if (!user) {
                 response.status(401).send({
                     success: false,
-                    error: {
-                        message: "Usuário não encontrado",
-                        code: "USER_NOT_FOUND",
-                        timestamp: new Date().toISOString(),
-                    },
+                    error: "Usuário não encontrado",
+                    code: "USER_NOT_FOUND",
+                    timestamp: new Date().toISOString(),
                 })
                 return
             }
@@ -174,11 +177,9 @@ export function authMiddleware(
             if (user.status?.blocked || user.status?.deleted) {
                 response.status(403).send({
                     success: false,
-                    error: {
-                        message: "Usuário bloqueado ou deletado pelo sistema",
-                        code: "USER_BLOCKED",
-                        timestamp: new Date().toISOString(),
-                    },
+                    error: "Usuário bloqueado ou deletado pelo sistema",
+                    code: "USER_BLOCKED",
+                    timestamp: new Date().toISOString(),
                 })
                 return
             }
@@ -194,11 +195,9 @@ export function authMiddleware(
         } catch (error: any) {
             response.status(401).send({
                 success: false,
-                error: {
-                    message: "Erro de autenticação",
-                    code: "AUTH_ERROR",
-                    timestamp: new Date().toISOString(),
-                },
+                error: "Erro de autenticação",
+                code: "AUTH_ERROR",
+                timestamp: new Date().toISOString(),
             })
         }
     }

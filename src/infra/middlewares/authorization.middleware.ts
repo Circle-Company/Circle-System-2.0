@@ -1,8 +1,8 @@
 import { AuthorizationContext, Device, Level, Permission } from "@/domain/authorization"
 import { HttpRequest, HttpResponse } from "../http/http.type"
 
-import { AuthenticatedUser } from "./types"
 import { AuthorizationServiceImpl } from "@/application/authorization"
+import { AuthenticatedUser } from "./types"
 
 /**
  * Middleware de Autorização - RouteHandler
