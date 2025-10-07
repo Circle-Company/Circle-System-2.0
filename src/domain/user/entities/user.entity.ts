@@ -1,4 +1,4 @@
-import { Encrypt, circleTextLibrary, generateId } from "@/shared"
+import { Encrypt, generateId } from "@/shared"
 import {
     UserEmbedding,
     UserInterctionsSummary,
@@ -6,11 +6,18 @@ import {
     UserProfilePicture,
     UserProps,
     UserStatus,
-    UserTerms,
+    UserTerm,
 } from "../types/user.type"
+import {
+    shouldUpdatePassword,
+    validateDescription,
+    validateName,
+    validatePassword,
+    validateSearchMatchTerm,
+    validateUsername,
+} from "../user.rules"
 
 import { Level } from "@/domain/authorization"
-import { CircleText } from "circle-text-library"
 import { UserMetrics } from "./user.metrics.entity"
 
 /**
@@ -27,7 +34,7 @@ import { UserMetrics } from "./user.metrics.entity"
  * - Controle de status e permissões flexível
  * - Histórico de interações robusto
  *
- * @author Circle System Team
+ * @author Circle Team
  * @version 2.0.0
  */
 export class User {
@@ -43,7 +50,7 @@ export class User {
     private _status: UserStatus | null
     private _metrics: UserMetrics | null
     private _preferences: UserPreferences | null
-    private _terms: UserTerms | null
+    private _terms: UserTerm | null
     private _embedding: UserEmbedding | null
     private _interctionsSummary: UserInterctionsSummary | null
     private readonly _createdAt: Date
@@ -120,7 +127,7 @@ export class User {
         return this._preferences
     }
 
-    get terms(): UserTerms | null {
+    get terms(): UserTerm | null {
         return this._terms
     }
 
@@ -149,33 +156,32 @@ export class User {
         if (!username) {
             throw new Error("Username não pode ser vazio")
         }
-        const { isValid, errors } = circleTextLibrary.validate.username(username)
-        if (!isValid) {
-            throw new Error(errors.join(", "))
+        if (!validateUsername(username)) {
+            throw new Error("Username inválido")
         }
         this._username = username.trim()
         this._updatedAt = new Date()
     }
 
     public updateName(name: string): void {
-        if (!name || name.trim().length < 2) {
-            throw new Error("Nome deve ter pelo menos 2 caracteres")
+        if (!validateName(name)) {
+            throw new Error("Nome inválido")
         }
         this._name = name.trim()
         this._updatedAt = new Date()
     }
 
     public updateSearchMatchTerm(searchTerm: string): void {
-        if (!searchTerm || searchTerm.trim().length < 2) {
-            throw new Error("Termo de busca deve ter pelo menos 2 caracteres")
+        if (!validateSearchMatchTerm(searchTerm)) {
+            throw new Error("Termo de busca inválido")
         }
         this._searchMatchTerm = searchTerm.trim()
         this._updatedAt = new Date()
     }
 
     public updateDescription(description: string): void {
-        if (description && description.length > 300) {
-            throw new Error("Descrição deve ter no máximo 300 caracteres")
+        if (!validateDescription(description)) {
+            throw new Error("Descrição inválida")
         }
         this._description = description || null
         this._updatedAt = new Date()
@@ -209,7 +215,7 @@ export class User {
         this._updatedAt = new Date()
     }
 
-    public updateTerms(terms: UserTerms): void {
+    public updateTerms(terms: UserTerm): void {
         this._terms = terms
         this._updatedAt = new Date()
     }
@@ -246,14 +252,6 @@ export class User {
      */
     public canViewMoments(): boolean {
         return this.isActive()
-    }
-
-    /**
-     * Obtém limite de Moments por dia (sem restrições para usuários normais)
-     */
-    public getDailyMomentsLimit(): number {
-        // Removido sistema premium - todos têm acesso ilimitado
-        return Number.MAX_SAFE_INTEGER
     }
 
     /**
@@ -333,7 +331,7 @@ export class User {
      * Verifica se o usuário está ativo baseado nas métricas
      */
     public isActiveByMetrics(daysThreshold?: number): boolean {
-        return this._metrics?.isActiveUser(daysThreshold) ?? false
+        return this._metrics?.isRecentlyActiveUser(daysThreshold) ?? false
     }
 
     /**
@@ -341,13 +339,6 @@ export class User {
      */
     public isInfluencer(minFollowers?: number, minEngagementRate?: number): boolean {
         return this._metrics?.isInfluencer(minFollowers, minEngagementRate) ?? false
-    }
-
-    /**
-     * Verifica se há problemas de moderação que precisam de atenção
-     */
-    public hasModerationIssues(): boolean {
-        return this._metrics?.hasModerationIssues() ?? false
     }
 
     /**
@@ -363,41 +354,10 @@ export class User {
         return this._metrics?.getMetricsSummary() ?? null
     }
 
-    // ===== MÉTODOS DE ANÁLISE DE COMPORTAMENTO =====
-
-    /**
-     * Obtém estatísticas de criação de conteúdo
-     */
-    public getContentCreationStats(): {
-        totalMoments: number
-        totalMemories: number
-        averageMomentsPerDay: number
-        averageMemoriesPerDay: number
-        lastContentDate: Date | null
-    } {
-        if (!this._metrics) {
-            return {
-                totalMoments: 0,
-                totalMemories: 0,
-                averageMomentsPerDay: 0,
-                averageMemoriesPerDay: 0,
-                lastContentDate: null,
-            }
-        }
-
-        return {
-            totalMoments: this._metrics.totalMomentsCreated,
-            totalMemories: this._metrics.totalMemoriesCreated,
-            averageMomentsPerDay: this._metrics.momentsPerDayAverage,
-            averageMemoriesPerDay: this._metrics.memoriesPerDayAverage,
-            lastContentDate: this._metrics.lastMetricsUpdate,
-        }
-    }
-
     /**
      * Obtém estatísticas de engajamento
      */
-    public getEngagementStats(): {
+    public getEngagementMetrics(): {
         totalLikesReceived: number
         totalViewsReceived: number
         totalCommentsReceived: number
@@ -475,20 +435,6 @@ export class User {
         return this._status?.accessLevel === Level.ADMIN || this._status?.accessLevel === Level.SUDO
     }
 
-    /**
-     * Verifica se o usuário é um administrador
-     */
-    public isAdmin(): boolean {
-        return this._status?.accessLevel === Level.ADMIN || this._status?.accessLevel === Level.SUDO
-    }
-
-    /**
-     * Obtém o nível de acesso do usuário
-     */
-    public getAccessLevel(): Level {
-        return this._status?.accessLevel || Level.USER
-    }
-
     // ===== MÉTODOS DE EMBEDDINGS E RECOMENDAÇÕES =====
 
     /**
@@ -501,7 +447,7 @@ export class User {
     /**
      * Obtém dados do embedding para sistema de recomendações
      */
-    public getEmbeddingData(): {
+    public getSwipeEngineEmbedding(): {
         vector: string
         dimension: number
         metadata: Record<string, any>
@@ -594,140 +540,27 @@ export class User {
     /**
      * Verifica se a senha precisa ser atualizada (política de segurança)
      */
-    public shouldUpdatePassword(maxDays: number = 90): boolean {
+    public shouldUpdatePassword(maxDays?: number): boolean {
         if (!this._lastPasswordUpdatedAt) return true
 
-        const daysSinceUpdate = Math.floor(
-            (new Date().getTime() - this._lastPasswordUpdatedAt.getTime()) / (1000 * 60 * 60 * 24),
-        )
-
-        return daysSinceUpdate > maxDays
-    }
-
-    // ===== MÉTODOS DE COMPATIBILIDADE COM MOMENTS =====
-
-    /**
-     * Obtém lista de hashtags que o usuário mais usa
-     */
-    public getPreferredHashtags(): string[] {
-        return this._embedding?.metadata?.preferredHashtags || []
-    }
-
-    /**
-     * Obtém configurações de notificação para Moments
-     */
-    public getMomentNotificationSettings(): {
-        likeMoments: boolean
-        newMemories: boolean
-        addToMemory: boolean
-        followUser: boolean
-        viewUser: boolean
-        news: boolean
-        suggestions: boolean
-        aroundYou: boolean
-    } {
-        if (!this._preferences) {
-            return {
-                likeMoments: true,
-                newMemories: true,
-                addToMemory: true,
-                followUser: true,
-                viewUser: true,
-                news: true,
-                suggestions: true,
-                aroundYou: true,
-            }
+        if (maxDays) {
+            const daysSinceUpdate = Math.floor(
+                (new Date().getTime() - this._lastPasswordUpdatedAt.getTime()) /
+                    (1000 * 60 * 60 * 24),
+            )
+            return daysSinceUpdate > maxDays
         }
 
-        return {
-            likeMoments: !this._preferences.disableLikeMomentPushNotification,
-            newMemories: !this._preferences.disableNewMemoryPushNotification,
-            addToMemory: !this._preferences.disableAddToMemoryPushNotification,
-            followUser: !this._preferences.disableFollowUserPushNotification,
-            viewUser: !this._preferences.disableViewUserPushNotification,
-            news: !this._preferences.disableNewsPushNotification,
-            suggestions: !this._preferences.disableSugestionsPushNotification,
-            aroundYou: !this._preferences.disableAroundYouPushNotification,
-        }
+        return shouldUpdatePassword(this._lastPasswordUpdatedAt)
     }
 
-    /**
-     * Obtém configurações de reprodução de mídia
-     */
-    public getMediaPlaybackSettings(): {
-        autoplay: boolean
-        haptics: boolean
-        language: string
-        timezone: number
-    } {
-        return {
-            autoplay: this._preferences?.disableAutoplay ? false : true,
-            haptics: this._preferences?.disableHaptics ? false : true,
-            language: this._preferences?.appLanguage || "pt",
-            timezone: this._preferences?.appTimezone || -3,
-        }
-    }
-
-    /**
-     * Verifica se o usuário pode mencionar outros usuários
-     */
     public canMentionUsers(): boolean {
         return this.isActive() && !this.isMuted()
     }
 
-    /**
-     * Verifica se o usuário pode ser mencionado por outros
-     */
     public canBeMentioned(): boolean {
         return this.isActive() && !this.isBlocked()
     }
-
-    /**
-     * Obtém score de reputação baseado nas métricas
-     */
-    public getReputationScore(): number {
-        if (!this._metrics) return 0
-
-        const engagementScore = Math.min(this._metrics.engagementRate * 10, 100)
-        const contentScore = Math.min(
-            (this._metrics.totalMomentsCreated + this._metrics.totalMemoriesCreated) / 10,
-            100,
-        )
-        const socialScore = Math.min(this._metrics.totalFollowers / 100, 100)
-        const moderationPenalty = this._metrics.violationsCount * 10
-
-        return Math.max(0, (engagementScore + contentScore + socialScore) / 3 - moderationPenalty)
-    }
-
-    // ===== MÉTODOS AUXILIARES =====
-
-    /**
-     * Verifica se o usuário pode realizar uma ação específica
-     */
-    public canPerformAction(action: string): boolean {
-        if (!this.isActive()) return false
-
-        switch (action) {
-            case "create_moment":
-                return this.canCreateMoments()
-            case "interact_moment":
-                return this.canInteractWithMoments()
-            case "view_moment":
-                return this.canViewMoments()
-            case "mention_users":
-                return this.canMentionUsers()
-            case "be_mentioned":
-                return this.canBeMentioned()
-            case "admin_access":
-                return this.canAccessAdminFeatures()
-            default:
-                return false
-        }
-    }
-
-    /**
-     * Obtém informações básicas do usuário para exibição
-     */
     public getPublicProfile(): {
         id: string
         username: string
@@ -735,7 +568,6 @@ export class User {
         description: string | null
         isVerified: boolean
         isActive: boolean
-        reputationScore: number
         profilePicture: UserProfilePicture | null
     } {
         return {
@@ -745,21 +577,10 @@ export class User {
             description: this._description,
             isVerified: this.isVerified(),
             isActive: this.isActive(),
-            reputationScore: this.getReputationScore(),
             profilePicture: this._profilePicture,
         }
     }
 
-    /**
-     * Verifica se o usuário precisa de verificação
-     */
-    public needsVerification(): boolean {
-        return !this.isVerified() && this.isActive()
-    }
-
-    /**
-     * Obtém estatísticas de atividade do usuário
-     */
     public getActivityStats(): {
         daysSinceCreation: number
         isNewUser: boolean
@@ -790,28 +611,186 @@ export class User {
         }
     }
 
-    // Métodos privados de validação
-    private validate(): void {
-        const circleText = new CircleText()
-        if (!this._username || this._username.trim().length < 3) {
-            throw new Error("Username deve ter pelo menos 3 caracteres")
+    /**
+     * Calcula o score de reputação do usuário baseado em suas métricas
+     *
+     * O score é calculado considerando:
+     * - Engajamento recebido (likes, comentários, shares, views)
+     * - Crescimento de seguidores
+     * - Taxa de engajamento
+     * - Atividade de criação de conteúdo
+     * - Penalizações por reports e violações
+     *
+     * @returns Score de reputação entre 0 e 1000
+     */
+    public getReputationScore(): number {
+        if (!this._metrics) {
+            return 0
         }
 
-        if (!this._searchMatchTerm || this._searchMatchTerm.trim().length < 2) {
-            throw new Error("Termo de busca deve ter pelo menos 2 caracteres")
-        }
+        const metrics = this._metrics
 
-        if (!this.isValidPassword(this._password)) {
-            throw new Error("Senha deve ter pelo menos 8 caracteres")
-        }
+        // Fatores positivos (pesos)
+        const engagementWeight = 0.3
+        const growthWeight = 0.25
+        const activityWeight = 0.2
+        const reachWeight = 0.15
+        const consistencyWeight = 0.1
 
-        if (this._description && this._description.length > 300) {
-            throw new Error("Descrição deve ter no máximo 300 caracteres")
-        }
+        // Cálculo do engajamento (0-300 pontos)
+        const totalEngagement =
+            metrics.totalLikesReceived +
+            metrics.totalCommentsReceived +
+            metrics.totalSharesReceived +
+            metrics.totalViewsReceived * 0.1 // Views têm peso menor
+
+        const engagementScore = Math.min(totalEngagement * engagementWeight, 300)
+
+        // Cálculo do crescimento (0-250 pontos)
+        const growthScore = Math.min(
+            (metrics.followerGrowthRate30d * 10 + metrics.engagementGrowthRate30d * 5) *
+                growthWeight,
+            250,
+        )
+
+        // Cálculo da atividade (0-200 pontos)
+        const totalContent = metrics.totalMomentsCreated + metrics.totalMemoriesCreated
+        const activityScore = Math.min(totalContent * activityWeight, 200)
+
+        // Cálculo do alcance (0-150 pontos)
+        const reachScore = Math.min(
+            (metrics.totalFollowers * 0.1 + metrics.reachRate * 100) * reachWeight,
+            150,
+        )
+
+        // Cálculo da consistência (0-100 pontos)
+        const consistencyScore = Math.min(
+            (metrics.momentsPerDayAverage + metrics.memoriesPerDayAverage) * consistencyWeight * 10,
+            100,
+        )
+
+        // Penalizações
+        const penaltyMultiplier = Math.max(
+            1 - (metrics.reportsReceived * 0.1 + metrics.violationsCount * 0.2),
+            0.1, // Mínimo de 10% do score original
+        )
+
+        // Score final
+        const rawScore =
+            engagementScore + growthScore + activityScore + reachScore + consistencyScore
+        const finalScore = Math.round(rawScore * penaltyMultiplier)
+
+        // Garantir que o score esteja entre 0 e 1000
+        return Math.max(0, Math.min(finalScore, 1000))
     }
 
-    private isValidPassword(password: string): boolean {
-        return Boolean(password && password.length >= 8)
+    /**
+     * Retorna informações detalhadas sobre o score de reputação
+     */
+    public getReputationDetails(): {
+        score: number
+        level: "novice" | "rising" | "established" | "influencer" | "celebrity"
+        breakdown: {
+            engagement: number
+            growth: number
+            activity: number
+            reach: number
+            consistency: number
+        }
+        penalties: {
+            reports: number
+            violations: number
+        }
+    } {
+        if (!this._metrics) {
+            return {
+                score: 0,
+                level: "novice",
+                breakdown: {
+                    engagement: 0,
+                    growth: 0,
+                    activity: 0,
+                    reach: 0,
+                    consistency: 0,
+                },
+                penalties: {
+                    reports: 0,
+                    violations: 0,
+                },
+            }
+        }
+
+        const metrics = this._metrics
+        const score = this.getReputationScore()
+
+        // Determinar nível baseado no score
+        let level: "novice" | "rising" | "established" | "influencer" | "celebrity"
+        if (score >= 800) level = "celebrity"
+        else if (score >= 600) level = "influencer"
+        else if (score >= 400) level = "established"
+        else if (score >= 200) level = "rising"
+        else level = "novice"
+
+        // Calcular breakdown detalhado
+        const totalEngagement =
+            metrics.totalLikesReceived +
+            metrics.totalCommentsReceived +
+            metrics.totalSharesReceived +
+            metrics.totalViewsReceived * 0.1
+
+        const breakdown = {
+            engagement: Math.round(Math.min(totalEngagement * 0.3, 300)),
+            growth: Math.round(
+                Math.min(
+                    (metrics.followerGrowthRate30d * 10 + metrics.engagementGrowthRate30d * 5) *
+                        0.25,
+                    250,
+                ),
+            ),
+            activity: Math.round(
+                Math.min((metrics.totalMomentsCreated + metrics.totalMemoriesCreated) * 0.2, 200),
+            ),
+            reach: Math.round(
+                Math.min((metrics.totalFollowers * 0.1 + metrics.reachRate * 100) * 0.15, 150),
+            ),
+            consistency: Math.round(
+                Math.min(
+                    (metrics.momentsPerDayAverage + metrics.memoriesPerDayAverage) * 0.1 * 10,
+                    100,
+                ),
+            ),
+        }
+
+        return {
+            score,
+            level,
+            breakdown,
+            penalties: {
+                reports: metrics.reportsReceived,
+                violations: metrics.violationsCount,
+            },
+        }
+    }
+    private validate(): void {
+        if (!validateUsername(this._username)) {
+            throw new Error("Username validation failed")
+        }
+
+        if (!validateName(this._name)) {
+            throw new Error("Name validation failed")
+        }
+
+        if (!validateSearchMatchTerm(this._searchMatchTerm)) {
+            throw new Error("Search term validation failed")
+        }
+
+        if (!validatePassword(this._password)) {
+            throw new Error("Password validation failed")
+        }
+
+        if (!validateDescription(this._description)) {
+            throw new Error("Description validation failed")
+        }
     }
 
     // Factory method para criar usuário
