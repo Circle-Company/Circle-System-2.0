@@ -1,10 +1,8 @@
-import { extractErrorInfo, isBaseError } from "@/shared/errors"
-import Fastify, { FastifyInstance, FastifyServerOptions } from "fastify"
-import { HttpRequest, HttpResponse } from "./http/http.type"
+import { HttpRequest, HttpResponse } from "@/infra/http/http.type"
+import { extractErrorInfo, isBaseError, logger } from "@/shared"
 
 import { ENABLE_LOGGING } from "@/infra/database/environment"
-import { logger } from "@/shared/logger"
-import { HttpFactory } from "./http/http.factory"
+import { HttpFactory } from "@/infra/http/http.factory"
 
 // Configuração da aplicação
 const ENV_CONFIG = {
@@ -13,47 +11,19 @@ const ENV_CONFIG = {
     environment: process.env.NODE_ENV || "development",
 }
 
-// Configuração do Fastify (apenas para produção)
-const fastifyConfig: FastifyServerOptions = {
-    logger: ENABLE_LOGGING
-        ? {
-              level: "info",
-          }
-        : false,
-    disableRequestLogging: !ENABLE_LOGGING,
+// Configuração HTTP genérica
+const httpConfig = {
+    port: ENV_CONFIG.port,
+    host: ENV_CONFIG.host,
+    environment: ENV_CONFIG.environment,
+    logging: ENABLE_LOGGING,
     requestIdHeader: "x-request-id",
     requestIdLogLabel: "reqId",
     genReqId: () => `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    schemaErrorFormatter: (errors, dataVar) => {
-        return new Error(
-            `Validation failed for ${dataVar}: ${errors.map((e) => e.message).join(", ")}`,
-        )
-    },
-    ajv: {
-        customOptions: {
-            strict: false,
-            removeAdditional: false,
-            useDefaults: true,
-            coerceTypes: true,
-        },
-    },
 }
 
-// Instância do Fastify (apenas para produção)
-const fastifyInstance: FastifyInstance =
-    ENV_CONFIG.environment === "test" ? (null as any) : Fastify(fastifyConfig)
-
-// Instância da API usando adapter HTTP genérico
-export const api = HttpFactory.createForEnvironment(ENV_CONFIG.environment, fastifyInstance)
-
-// Adicionar referência ao Fastify para compatibilidade com Swagger
-if (fastifyInstance && api) {
-    const apiWithSwagger = api as any
-    apiWithSwagger.fastify = fastifyInstance
-    apiWithSwagger.registerPlugin = (plugin: any, options: any) =>
-        fastifyInstance.register(plugin, options)
-    apiWithSwagger.log = fastifyInstance.log
-}
+// Instância da API usando abstração HTTP
+export const api = HttpFactory.createForEnvironment(ENV_CONFIG.environment, httpConfig)
 
 // Configurar middleware de segurança e CORS
 function configureSecurityMiddleware() {
