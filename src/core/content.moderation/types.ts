@@ -19,8 +19,6 @@ export interface ContentDetectionResult {
     confidence: number
     isHumanContent: boolean
     flags: ModerationFlag[]
-    model: string
-    version: string
     processingTime: number
     reasoning: string
     detectedAt: Date

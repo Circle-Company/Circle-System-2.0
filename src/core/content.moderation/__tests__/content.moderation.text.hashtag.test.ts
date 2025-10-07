@@ -324,8 +324,6 @@ describe("Content Moderation Text and Hashtag Analysis", () => {
             status: "pending" as any,
             isBlocked: false,
             isHidden: false,
-            detectionModel: "mathematical-algorithms-v1",
-            detectionVersion: "1.0.0",
             processingTime: 1000,
             createdAt: new Date(),
             updatedAt: new Date(),

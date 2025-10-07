@@ -68,8 +68,6 @@ export class ModerationEngine {
                 isHidden: false,
                 flags: detectionResult.flags,
                 severity: this.calculateSeverity(detectionResult.flags),
-                detectionModel: detectionResult.model,
-                detectionVersion: detectionResult.version,
                 processingTime: detectionResult.processingTime,
                 moderatedAt: null,
             }

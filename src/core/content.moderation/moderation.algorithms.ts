@@ -234,9 +234,10 @@ export class ModerationAlgorithms {
         ModerationRules.SPAM_PATTERNS.forEach((pattern, index) => {
             const matches = text.match(pattern)
             if (matches) {
-                const weight =
-                    ModerationRules.SPAM_DETECTION.PATTERN_MATCH_WEIGHT *
-                    (matches.length / text.split(" ").length)
+                // Peso base por match encontrado, sem penalizar muito por tamanho do texto
+                const baseWeight = ModerationRules.SPAM_DETECTION.PATTERN_MATCH_WEIGHT
+                const matchRatio = Math.min(1, matches.length / 5) // Normalizar até 5 matches
+                const weight = baseWeight * (0.5 + matchRatio * 0.5) // Score mínimo de 50% do peso base
                 spamScore += weight
                 detectedPatterns.push(`Padrão ${index + 1}: ${matches.join(", ")}`)
             }
@@ -273,6 +274,16 @@ export class ModerationAlgorithms {
             detectedPatterns.push("Excesso de caracteres especiais")
         }
 
+        // 4. Detectar padrão de spam com hashtags/menções/URLs excessivas
+        const hashtags = (text.match(/#\w+/g) || []).length
+        const mentions = (text.match(/@\w+/g) || []).length
+        const urls = (text.match(/https?:\/\/\S+/g) || []).length
+
+        if (hashtags > 10 || mentions > 20 || urls > 5) {
+            spamScore += 20 // Adicionar peso por excesso de elementos
+            detectedPatterns.push("Muitas hashtags/menções/URLs")
+        }
+
         // 4. Análise de densidade de palavras-chave suspeitas
         const suspiciousWords = [
             "free",
@@ -302,7 +313,7 @@ export class ModerationAlgorithms {
         const confidence = normalizedScore / 100
 
         return {
-            isSpam: normalizedScore > ModerationRules.SPAM_DETECTION.SPAM_THRESHOLD_MEDIUM,
+            isSpam: normalizedScore > ModerationRules.SPAM_DETECTION.SPAM_THRESHOLD_LOW,
             confidence,
             spamScore: normalizedScore,
             detectedPatterns,
