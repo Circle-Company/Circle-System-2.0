@@ -75,8 +75,8 @@ export class AuthLogRepository implements AuthLogRepository {
             user_agent: logData.userAgent,
             machine_id: logData.deviceId,
             timezone: logData.deviceTimezone,
-            createdAt: new Date(),
-            updatedAt: new Date(),
+            created_at: new Date(),
+            updated_at: new Date(),
         }
     }
 
