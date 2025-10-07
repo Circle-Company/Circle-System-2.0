@@ -5,24 +5,11 @@
  * @version 2.0.0
  */
 
-import { signInSchema, signUpSchema } from "../../swagger/schemas/auth.schemas"
-
 import { AuthFactory } from "@/infra/factories/auth.factory"
 import { HttpAdapter } from "../../http/http.type"
 
 export class AuthRouter {
     constructor(private api: HttpAdapter) {}
-
-    /**
-     * Schemas de validação para as rotas
-     */
-    private get schemas() {
-        return {
-            signInSchema,
-            signUpSchema,
-        }
-    }
-
     /**
      * Registra todas as rotas de autenticação
      */
