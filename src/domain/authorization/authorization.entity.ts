@@ -6,59 +6,81 @@ import { AuthorizationRule, Device, Level, Permission } from "./authorization.ty
  */
 export const AUTHORIZATION_RULES: AuthorizationRule[] = [
     // Gerenciamento de usuários - apenas admin e manager
-    {
-        permission: Permission.READ_USERS,
-        allowedLevels: [Level.SUDO, Level.ADMIN],
-        allowedDevices: [Device.WEB, Device.MOBILE],
-        description: "Visualizar lista de usuários",
-    },
-    {
-        permission: Permission.CREATE_USERS,
-        allowedLevels: [Level.SUDO, Level.ADMIN],
-        allowedDevices: [Device.WEB, Device.MOBILE],
-        description: "Criar novos usuários",
-    },
-    {
-        permission: Permission.UPDATE_USERS,
-        allowedLevels: [Level.SUDO, Level.ADMIN],
-        allowedDevices: [Device.WEB, Device.MOBILE],
-        description: "Atualizar dados de usuários",
-    },
-    {
-        permission: Permission.DELETE_USERS,
-        allowedLevels: [Level.SUDO, Level.ADMIN],
-        allowedDevices: [Device.WEB, Device.MOBILE], // Apenas mobile para segurança
-        description: "Deletar usuários",
-    },
 
-    // Perfil próprio - todos os usuários autenticados
+    // Momentos - usuários autenticados
     {
-        permission: Permission.READ_OWN_PROFILE,
+        permission: Permission.CREATE_MOMENT,
+        allowedLevels: [Level.SUDO, Level.ADMIN, Level.USER],
+        allowedDevices: [Device.MOBILE],
+        description: "Criar momento",
+    },
+    {
+        permission: Permission.VIEW_OWN_MOMENT,
         allowedLevels: [Level.SUDO, Level.ADMIN, Level.USER],
         allowedDevices: [Device.WEB, Device.MOBILE],
-        description: "Visualizar próprio perfil",
+        description: "Visualizar próprio momento",
     },
     {
-        permission: Permission.UPDATE_OWN_PROFILE,
+        permission: Permission.UPDATE_OWN_MOMENT,
         allowedLevels: [Level.SUDO, Level.ADMIN, Level.USER],
         allowedDevices: [Device.WEB, Device.MOBILE],
-        description: "Atualizar próprio perfil",
+        description: "Atualizar próprio momento",
     },
-
-    // Sistema - apenas admin
     {
-        permission: Permission.MANAGE_SYSTEM,
-        allowedLevels: [Level.SUDO, Level.ADMIN],
-        allowedDevices: [Device.WEB, Device.MOBILE], // Apenas desktop para segurança máxima
-        description: "Gerenciar configurações do sistema",
-    },
-
-    // Analytics - admin e manager
-    {
-        permission: Permission.VIEW_ANALYTICS,
-        allowedLevels: [Level.SUDO, Level.ADMIN],
+        permission: Permission.DELETE_OWN_MOMENT,
+        allowedLevels: [Level.SUDO, Level.ADMIN, Level.USER],
         allowedDevices: [Device.WEB, Device.MOBILE],
-        description: "Visualizar relatórios e analytics",
+        description: "Deletar próprio momento",
+    },
+    {
+        permission: Permission.LIKE_MOMENT,
+        allowedLevels: [Level.SUDO, Level.ADMIN, Level.USER],
+        allowedDevices: [Device.WEB, Device.MOBILE],
+        description: "Curtir momento",
+    },
+    {
+        permission: Permission.COMMENT_MOMENT,
+        allowedLevels: [Level.SUDO, Level.ADMIN, Level.USER],
+        allowedDevices: [Device.WEB, Device.MOBILE],
+        description: "Comentar momento",
+    },
+    {
+        permission: Permission.REPORT_MOMENT,
+        allowedLevels: [Level.SUDO, Level.ADMIN, Level.USER],
+        allowedDevices: [Device.WEB, Device.MOBILE],
+        description: "Reportar momento",
+    },
+
+    // Conta própria - usuários autenticados
+    {
+        permission: Permission.READ_OWN_ACCOUNT,
+        allowedLevels: [Level.SUDO, Level.ADMIN, Level.USER],
+        allowedDevices: [Device.WEB, Device.MOBILE],
+        description: "Ler própria conta",
+    },
+    {
+        permission: Permission.UPDATE_OWN_ACCOUNT,
+        allowedLevels: [Level.SUDO, Level.ADMIN, Level.USER],
+        allowedDevices: [Device.WEB, Device.MOBILE],
+        description: "Atualizar própria conta",
+    },
+    {
+        permission: Permission.DELETE_OWN_ACCOUNT,
+        allowedLevels: [Level.SUDO, Level.ADMIN, Level.USER],
+        allowedDevices: [Device.WEB],
+        description: "Deletar própria conta",
+    },
+    {
+        permission: Permission.READ_OWN_SETTINGS,
+        allowedLevels: [Level.SUDO, Level.ADMIN, Level.USER],
+        allowedDevices: [Device.WEB, Device.MOBILE],
+        description: "Ler próprias configurações",
+    },
+    {
+        permission: Permission.UPDATE_OWN_PREFERENCES,
+        allowedLevels: [Level.SUDO, Level.ADMIN, Level.USER],
+        allowedDevices: [Device.MOBILE],
+        description: "Atualizar próprias preferências",
     },
 ]
 
