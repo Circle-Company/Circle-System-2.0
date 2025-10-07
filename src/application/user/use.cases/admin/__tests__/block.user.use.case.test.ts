@@ -1,299 +1,293 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import { User } from "@/domain/user/entities/user.entity"
-import { IUserRepository } from "@/domain/user/repositories/user.repository"
-import { ConflictError } from "@/shared/errors/conflict.error"
-import { NotFoundError } from "@/shared/errors/not.found.error"
-import { ValidationError } from "@/shared/errors/validation.error"
+import { UserRole } from "../../../../../domain/user"
+import { IUserRepository } from "../../../../../domain/user/repositories/user.repository"
+import { UserService } from "../../../services/user.service"
 import { AdminBlockUserUseCase } from "../block.user.use.case"
 
 describe("AdminBlockUserUseCase", () => {
     let adminBlockUserUseCase: AdminBlockUserUseCase
-    let mockUserRepository: jest.Mocked<IUserRepository>
+    let mockUserRepository: IUserRepository
+    let mockUserService: UserService
 
     beforeEach(() => {
-        mockUserRepository = {
-            create: vi.fn(),
-            findById: vi.fn(),
-            findByEmail: vi.fn(),
-            update: vi.fn(),
-            delete: vi.fn(),
-            findMany: vi.fn(),
-            findByUsername: vi.fn(),
-            findByPhone: vi.fn(),
-            findBySocialId: vi.fn(),
-        }
+        vi.clearAllMocks()
 
-        adminBlockUserUseCase = new AdminBlockUserUseCase(mockUserRepository)
+        mockUserRepository = {
+            save: vi.fn(),
+            findById: vi.fn(),
+            findByUsername: vi.fn(),
+            existsByUsername: vi.fn(),
+            update: vi.fn(),
+            isBlocked: vi.fn(),
+            isFollowing: vi.fn(),
+            followUser: vi.fn(),
+            unfollowUser: vi.fn(),
+            blockUser: vi.fn(),
+            unblockUser: vi.fn(),
+        } as any
+
+        mockUserService = {
+            getUserById: vi.fn(),
+            updateStatus: vi.fn(),
+        } as any
+
+        adminBlockUserUseCase = new AdminBlockUserUseCase(mockUserRepository, mockUserService)
     })
 
     describe("execute", () => {
         it("deve bloquear usuário com sucesso", async () => {
             // Arrange
-            const userId = "user-id"
-            const reason = "Violação dos termos de uso"
-            const adminId = "admin-id"
+            const request = {
+                userId: "user-id",
+                adminId: "admin-id",
+                reason: "Violação dos termos de uso",
+            }
 
-            const user = User.create({
-                email: "test@example.com",
+            const mockAdmin = {
+                id: "admin-id",
+                role: UserRole.ADMIN,
+            }
+
+            const mockUser = {
+                id: "user-id",
                 username: "testuser",
-                password: "password123",
-            })
+                status: "active",
+            }
 
-            const blockedUser = User.create({
-                ...user.toJSON(),
+            const mockBlockedUser = {
+                id: "user-id",
+                username: "testuser",
                 status: "blocked",
-            })
+            }
 
-            mockUserRepository.findById.mockResolvedValue(user)
-            mockUserRepository.update.mockResolvedValue(blockedUser)
+            vi.mocked(mockUserService.getUserById)
+                .mockResolvedValueOnce(mockAdmin as any)
+                .mockResolvedValueOnce(mockUser as any)
+            vi.mocked(mockUserService.updateStatus).mockResolvedValue(mockBlockedUser as any)
 
             // Act
-            const result = await adminBlockUserUseCase.execute({ userId, reason, adminId })
+            const result = await adminBlockUserUseCase.execute(request)
 
             // Assert
-            expect(result).toEqual(blockedUser)
-            expect(mockUserRepository.findById).toHaveBeenCalledWith(userId)
-            expect(mockUserRepository.update).toHaveBeenCalledWith(blockedUser)
+            expect(result.success).toBe(true)
+            expect(result.user?.id).toBe("user-id")
+            expect(result.user?.status).toBe("blocked")
+            expect(result.user?.reason).toBe("Violação dos termos de uso")
+            expect(mockUserService.updateStatus).toHaveBeenCalledWith("user-id", "blocked")
         })
 
-        it("deve bloquear usuário com motivo padrão quando não fornecido", async () => {
+        it("deve retornar erro quando usuário não é admin", async () => {
             // Arrange
-            const userId = "user-id"
-            const adminId = "admin-id"
+            const request = {
+                userId: "user-id",
+                adminId: "regular-user-id",
+                reason: "Violação dos termos de uso",
+            }
 
-            const user = User.create({
-                email: "test@example.com",
-                username: "testuser",
-                password: "password123",
-            })
+            const mockRegularUser = {
+                id: "regular-user-id",
+                role: UserRole.USER,
+            }
 
-            const blockedUser = User.create({
-                ...user.toJSON(),
-                status: "blocked",
-            })
-
-            mockUserRepository.findById.mockResolvedValue(user)
-            mockUserRepository.update.mockResolvedValue(blockedUser)
+            vi.mocked(mockUserService.getUserById).mockResolvedValue(mockRegularUser as any)
 
             // Act
-            const result = await adminBlockUserUseCase.execute({ userId, adminId })
+            const result = await adminBlockUserUseCase.execute(request)
 
             // Assert
-            expect(result).toEqual(blockedUser)
-            expect(mockUserRepository.findById).toHaveBeenCalledWith(userId)
-            expect(mockUserRepository.update).toHaveBeenCalledWith(blockedUser)
+            expect(result.success).toBe(false)
+            expect(result.error).toBe(
+                "Acesso negado. Apenas administradores podem bloquear usuários",
+            )
         })
 
-        it("deve lançar NotFoundError quando usuário não existe", async () => {
+        it("deve retornar erro quando usuário não existe", async () => {
             // Arrange
-            const userId = "non-existent-user"
-            const reason = "Violação dos termos de uso"
-            const adminId = "admin-id"
+            const request = {
+                userId: "non-existent-user",
+                adminId: "admin-id",
+                reason: "Violação dos termos de uso",
+            }
 
-            mockUserRepository.findById.mockResolvedValue(null)
+            const mockAdmin = {
+                id: "admin-id",
+                role: UserRole.ADMIN,
+            }
 
-            // Act & Assert
-            await expect(
-                adminBlockUserUseCase.execute({ userId, reason, adminId }),
-            ).rejects.toThrow(NotFoundError)
-            expect(mockUserRepository.findById).toHaveBeenCalledWith(userId)
-            expect(mockUserRepository.update).not.toHaveBeenCalled()
-        })
-
-        it("deve lançar ValidationError quando userId é inválido", async () => {
-            // Arrange
-            const invalidUserId = ""
-            const reason = "Violação dos termos de uso"
-            const adminId = "admin-id"
-
-            // Act & Assert
-            await expect(
-                adminBlockUserUseCase.execute({ userId: invalidUserId, reason, adminId }),
-            ).rejects.toThrow(ValidationError)
-            expect(mockUserRepository.findById).not.toHaveBeenCalled()
-            expect(mockUserRepository.update).not.toHaveBeenCalled()
-        })
-
-        it("deve lançar ValidationError quando adminId é inválido", async () => {
-            // Arrange
-            const userId = "user-id"
-            const reason = "Violação dos termos de uso"
-            const invalidAdminId = ""
-
-            // Act & Assert
-            await expect(
-                adminBlockUserUseCase.execute({ userId, reason, adminId: invalidAdminId }),
-            ).rejects.toThrow(ValidationError)
-            expect(mockUserRepository.findById).not.toHaveBeenCalled()
-            expect(mockUserRepository.update).not.toHaveBeenCalled()
-        })
-
-        it("deve lançar ConflictError quando usuário já está bloqueado", async () => {
-            // Arrange
-            const userId = "user-id"
-            const reason = "Violação dos termos de uso"
-            const adminId = "admin-id"
-
-            const user = User.create({
-                email: "test@example.com",
-                username: "testuser",
-                password: "password123",
-                status: "blocked", // Usuário já bloqueado
-            })
-
-            mockUserRepository.findById.mockResolvedValue(user)
-
-            // Act & Assert
-            await expect(
-                adminBlockUserUseCase.execute({ userId, reason, adminId }),
-            ).rejects.toThrow(ConflictError)
-            expect(mockUserRepository.findById).toHaveBeenCalledWith(userId)
-            expect(mockUserRepository.update).not.toHaveBeenCalled()
-        })
-
-        it("deve lançar ValidationError quando motivo é muito longo", async () => {
-            // Arrange
-            const userId = "user-id"
-            const reason = "a".repeat(501) // Motivo muito longo
-            const adminId = "admin-id"
-
-            // Act & Assert
-            await expect(
-                adminBlockUserUseCase.execute({ userId, reason, adminId }),
-            ).rejects.toThrow(ValidationError)
-            expect(mockUserRepository.findById).not.toHaveBeenCalled()
-            expect(mockUserRepository.update).not.toHaveBeenCalled()
-        })
-
-        it("deve lançar ValidationError quando motivo contém caracteres inválidos", async () => {
-            // Arrange
-            const userId = "user-id"
-            const reason = "Motivo com <script>alert('xss')</script>"
-            const adminId = "admin-id"
-
-            // Act & Assert
-            await expect(
-                adminBlockUserUseCase.execute({ userId, reason, adminId }),
-            ).rejects.toThrow(ValidationError)
-            expect(mockUserRepository.findById).not.toHaveBeenCalled()
-            expect(mockUserRepository.update).not.toHaveBeenCalled()
-        })
-
-        it("deve bloquear usuário com motivo em português", async () => {
-            // Arrange
-            const userId = "user-id"
-            const reason = "Usuário violou as regras da comunidade"
-            const adminId = "admin-id"
-
-            const user = User.create({
-                email: "test@example.com",
-                username: "testuser",
-                password: "password123",
-            })
-
-            const blockedUser = User.create({
-                ...user.toJSON(),
-                status: "blocked",
-            })
-
-            mockUserRepository.findById.mockResolvedValue(user)
-            mockUserRepository.update.mockResolvedValue(blockedUser)
+            vi.mocked(mockUserService.getUserById)
+                .mockResolvedValueOnce(mockAdmin as any)
+                .mockResolvedValueOnce(null)
 
             // Act
-            const result = await adminBlockUserUseCase.execute({ userId, reason, adminId })
+            const result = await adminBlockUserUseCase.execute(request)
 
             // Assert
-            expect(result).toEqual(blockedUser)
-            expect(mockUserRepository.findById).toHaveBeenCalledWith(userId)
-            expect(mockUserRepository.update).toHaveBeenCalledWith(blockedUser)
+            expect(result.success).toBe(false)
+            expect(result.error).toBe("Usuário não encontrado")
         })
 
-        it("deve bloquear usuário com motivo em inglês", async () => {
+        it("deve retornar erro quando usuário já está bloqueado", async () => {
             // Arrange
-            const userId = "user-id"
-            const reason = "User violated community guidelines"
-            const adminId = "admin-id"
+            const request = {
+                userId: "user-id",
+                adminId: "admin-id",
+                reason: "Violação dos termos de uso",
+            }
 
-            const user = User.create({
-                email: "test@example.com",
+            const mockAdmin = {
+                id: "admin-id",
+                role: UserRole.ADMIN,
+            }
+
+            const mockUser = {
+                id: "user-id",
                 username: "testuser",
-                password: "password123",
-            })
-
-            const blockedUser = User.create({
-                ...user.toJSON(),
                 status: "blocked",
-            })
+            }
 
-            mockUserRepository.findById.mockResolvedValue(user)
-            mockUserRepository.update.mockResolvedValue(blockedUser)
+            vi.mocked(mockUserService.getUserById)
+                .mockResolvedValueOnce(mockAdmin as any)
+                .mockResolvedValueOnce(mockUser as any)
 
             // Act
-            const result = await adminBlockUserUseCase.execute({ userId, reason, adminId })
+            const result = await adminBlockUserUseCase.execute(request)
 
             // Assert
-            expect(result).toEqual(blockedUser)
-            expect(mockUserRepository.findById).toHaveBeenCalledWith(userId)
-            expect(mockUserRepository.update).toHaveBeenCalledWith(blockedUser)
+            expect(result.success).toBe(false)
+            expect(result.error).toBe("Usuário já está bloqueado")
         })
 
-        it("deve bloquear usuário com motivo contendo números", async () => {
+        it("deve retornar erro quando razão é muito curta", async () => {
             // Arrange
-            const userId = "user-id"
-            const reason = "Usuário violou regra #3 da comunidade"
-            const adminId = "admin-id"
+            const request = {
+                userId: "user-id",
+                adminId: "admin-id",
+                reason: "abc",
+            }
 
-            const user = User.create({
-                email: "test@example.com",
-                username: "testuser",
-                password: "password123",
-            })
+            const mockAdmin = {
+                id: "admin-id",
+                role: UserRole.ADMIN,
+            }
 
-            const blockedUser = User.create({
-                ...user.toJSON(),
-                status: "blocked",
-            })
-
-            mockUserRepository.findById.mockResolvedValue(user)
-            mockUserRepository.update.mockResolvedValue(blockedUser)
+            vi.mocked(mockUserService.getUserById).mockResolvedValue(mockAdmin as any)
 
             // Act
-            const result = await adminBlockUserUseCase.execute({ userId, reason, adminId })
+            const result = await adminBlockUserUseCase.execute(request)
 
             // Assert
-            expect(result).toEqual(blockedUser)
-            expect(mockUserRepository.findById).toHaveBeenCalledWith(userId)
-            expect(mockUserRepository.update).toHaveBeenCalledWith(blockedUser)
+            expect(result.success).toBe(false)
+            expect(result.error).toBe("Razão do bloqueio deve ter pelo menos 5 caracteres")
         })
 
-        it("deve bloquear usuário com motivo contendo pontuação", async () => {
+        it("deve retornar erro quando razão é muito longa", async () => {
             // Arrange
-            const userId = "user-id"
-            const reason = "Usuário violou os termos de uso. Motivo: spam."
-            const adminId = "admin-id"
+            const request = {
+                userId: "user-id",
+                adminId: "admin-id",
+                reason: "A".repeat(501),
+            }
 
-            const user = User.create({
-                email: "test@example.com",
-                username: "testuser",
-                password: "password123",
-            })
+            const mockAdmin = {
+                id: "admin-id",
+                role: UserRole.ADMIN,
+            }
 
-            const blockedUser = User.create({
-                ...user.toJSON(),
-                status: "blocked",
-            })
-
-            mockUserRepository.findById.mockResolvedValue(user)
-            mockUserRepository.update.mockResolvedValue(blockedUser)
+            vi.mocked(mockUserService.getUserById).mockResolvedValue(mockAdmin as any)
 
             // Act
-            const result = await adminBlockUserUseCase.execute({ userId, reason, adminId })
+            const result = await adminBlockUserUseCase.execute(request)
 
             // Assert
-            expect(result).toEqual(blockedUser)
-            expect(mockUserRepository.findById).toHaveBeenCalledWith(userId)
-            expect(mockUserRepository.update).toHaveBeenCalledWith(blockedUser)
+            expect(result.success).toBe(false)
+            expect(result.error).toBe("Razão do bloqueio deve ter no máximo 500 caracteres")
+        })
+
+        it("deve retornar erro quando admin tenta bloquear a si mesmo", async () => {
+            // Arrange
+            const request = {
+                userId: "admin-id",
+                adminId: "admin-id",
+                reason: "Teste de bloqueio",
+            }
+
+            const mockAdmin = {
+                id: "admin-id",
+                role: UserRole.ADMIN,
+            }
+
+            vi.mocked(mockUserService.getUserById).mockResolvedValue(mockAdmin as any)
+
+            // Act
+            const result = await adminBlockUserUseCase.execute(request)
+
+            // Assert
+            expect(result.success).toBe(false)
+            expect(result.error).toBe("Não é possível bloquear a si mesmo")
+        })
+
+        it("deve aceitar bloqueio com duração especificada", async () => {
+            // Arrange
+            const request = {
+                userId: "user-id",
+                adminId: "admin-id",
+                reason: "Violação dos termos de uso",
+                duration: 30, // 30 dias
+            }
+
+            const mockAdmin = {
+                id: "admin-id",
+                role: UserRole.SUPER_ADMIN,
+            }
+
+            const mockUser = {
+                id: "user-id",
+                username: "testuser",
+                status: "active",
+            }
+
+            const mockBlockedUser = {
+                id: "user-id",
+                username: "testuser",
+                status: "blocked",
+            }
+
+            vi.mocked(mockUserService.getUserById)
+                .mockResolvedValueOnce(mockAdmin as any)
+                .mockResolvedValueOnce(mockUser as any)
+            vi.mocked(mockUserService.updateStatus).mockResolvedValue(mockBlockedUser as any)
+
+            // Act
+            const result = await adminBlockUserUseCase.execute(request)
+
+            // Assert
+            expect(result.success).toBe(true)
+            expect(result.user?.unblockAt).toBeDefined()
+        })
+
+        it("deve retornar erro quando duração é inválida", async () => {
+            // Arrange
+            const request = {
+                userId: "user-id",
+                adminId: "admin-id",
+                reason: "Violação dos termos de uso",
+                duration: 500, // Mais que 365 dias
+            }
+
+            const mockAdmin = {
+                id: "admin-id",
+                role: UserRole.ADMIN,
+            }
+
+            vi.mocked(mockUserService.getUserById).mockResolvedValue(mockAdmin as any)
+
+            // Act
+            const result = await adminBlockUserUseCase.execute(request)
+
+            // Assert
+            expect(result.success).toBe(false)
+            expect(result.error).toBe("Duração do bloqueio deve estar entre 1 e 365 dias")
         })
     })
 })
