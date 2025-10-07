@@ -106,7 +106,7 @@ export class AuthLogRepositoryImpl implements IAuthLogRepository {
             deviceType: Device.WEB, // Default, pode ser melhorado
             deviceId: signLog.machine_id || "",
             deviceTimezone: signLog.timezone || "",
-            createdAt: (signLog as any).createdAt || new Date(),
+            createdAt: (signLog as any).created_at || new Date(),
         }
     }
 

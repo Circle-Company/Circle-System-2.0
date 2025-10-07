@@ -1284,11 +1284,12 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
                 as: "statistics",
                 required: false,
             },
-            {
-                model: UserTermModel,
-                as: "user_terms",
-                required: false,
-            },
+            // Removendo UserTermModel temporariamente para debug
+            // {
+            //     model: UserTermModel,
+            //     as: "terms",
+            //     required: false,
+            // },
             {
                 model: UserEmbeddingModel,
                 as: "user_embedding",
