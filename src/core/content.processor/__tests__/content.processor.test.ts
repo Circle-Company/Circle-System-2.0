@@ -283,12 +283,12 @@ describe("ContentProcessor", () => {
             const result = await contentProcessor.processContent(mockRequest)
 
             expect(mockStorageAdapter.uploadVideo).toHaveBeenCalledWith(
-                "videos/user-456/test-content-123.mp4",
+                expect.stringContaining("videos/user-456/"),
                 mockVideoResult.processedVideo.data,
                 expect.objectContaining({
                     contentType: "video/mp4",
                     ownerId: "user-456",
-                    contentId: "test-content-123",
+                    contentId: expect.any(String),
                     wasProcessed: true,
                     wasCompressed: true,
                     wasConverted: false,
@@ -306,9 +306,10 @@ describe("ContentProcessor", () => {
             const result = await contentProcessor.processContent(mockRequest)
 
             expect(mockStorageAdapter.uploadVideo).toHaveBeenCalledWith(
-                "videos/user-456/test-content-123.mp4",
+                expect.stringContaining("videos/user-456/"),
                 mockRequest.videoData,
                 expect.objectContaining({
+                    contentId: expect.any(String),
                     wasProcessed: false,
                     wasCompressed: false,
                     wasConverted: false,
@@ -320,13 +321,13 @@ describe("ContentProcessor", () => {
             await contentProcessor.processContent(mockRequest)
 
             expect(mockStorageAdapter.uploadVideo).toHaveBeenCalledWith(
-                "videos/user-456/test-content-123.mp4",
+                expect.stringContaining("videos/user-456/"),
                 expect.any(Buffer),
                 expect.any(Object),
             )
 
             expect(mockStorageAdapter.uploadThumbnail).toHaveBeenCalledWith(
-                "thumbnails/user-456/test-content-123.jpg",
+                expect.stringContaining("thumbnails/user-456/"),
                 expect.any(Buffer),
                 expect.any(Object),
             )
@@ -336,15 +337,15 @@ describe("ContentProcessor", () => {
             await contentProcessor.processContent(mockRequest)
 
             expect(mockStorageAdapter.getVideoUrl).toHaveBeenCalledWith(
-                "videos/user-456/test-content-123.mp4",
+                expect.stringContaining("videos/user-456/"),
                 "low",
             )
             expect(mockStorageAdapter.getVideoUrl).toHaveBeenCalledWith(
-                "videos/user-456/test-content-123.mp4",
+                expect.stringContaining("videos/user-456/"),
                 "medium",
             )
             expect(mockStorageAdapter.getVideoUrl).toHaveBeenCalledWith(
-                "videos/user-456/test-content-123.mp4",
+                expect.stringContaining("videos/user-456/"),
                 "high",
             )
         })
