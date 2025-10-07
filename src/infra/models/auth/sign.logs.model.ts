@@ -24,8 +24,8 @@ export interface SignLogAttributes {
     longitude?: number | null
     timezone?: string | null
     session_duration?: number | null
-    createdAt?: Date
-    updatedAt?: Date
+    created_at?: Date
+    updated_at?: Date
 }
 
 export default class SignLog extends Model<SignLogAttributes> implements SignLogAttributes {
@@ -98,12 +98,12 @@ export default class SignLog extends Model<SignLogAttributes> implements SignLog
                     allowNull: true,
                     comment: "Duração da sessão em segundos",
                 },
-                createdAt: {
+                created_at: {
                     type: DataTypes.DATE,
                     allowNull: false,
                     defaultValue: DataTypes.NOW,
                 },
-                updatedAt: {
+                updated_at: {
                     type: DataTypes.DATE,
                     allowNull: false,
                     defaultValue: DataTypes.NOW,
