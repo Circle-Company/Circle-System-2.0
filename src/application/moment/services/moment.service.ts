@@ -1,15 +1,16 @@
 import { ContentProcessor, StorageAdapter } from "@/core/content.processor"
 import { Moment, MomentStatusEnum, MomentVisibilityEnum } from "@/domain/moment"
+import { circleTextLibrary, generateId } from "@/shared"
 
 import { ModerationEngine } from "@/core/content.moderation"
 import { IMomentRepository } from "@/domain/moment/repositories/moment.repository"
-import { generateId } from "@/shared"
+import { TimezoneCode } from "@/domain/user"
 import { MomentMetricsService } from "./moment.metrics.service"
 
-// ===== INTERFACES =====
 export interface CreateMomentData {
     ownerId: string
-    videoData: Buffer // Dados do vídeo para processamento
+    ownerUsername: string
+    videoData: Buffer
     videoMetadata: {
         filename: string
         mimeType: string
@@ -30,6 +31,7 @@ export interface CreateMomentData {
         screenResolution: string
         orientation: string
     }
+    timezone?: TimezoneCode
 }
 
 export interface UpdateMomentData {
@@ -130,13 +132,11 @@ export class MomentService {
 
         // 1. Processar vídeo (extração de metadados, thumbnail, moderação e upload)
         if (!this.contentProcessor) {
-            throw new Error("Content processor não configurado. Configure o storage adapter.")
+            throw new Error("Content processor not configured. Please configure storage adapter.")
         }
 
-        const contentId = generateId()
-
         const processingResult = await this.contentProcessor.processContent({
-            contentId,
+            description: data.description || "",
             ownerId: data.ownerId,
             videoData: data.videoData,
             metadata: data.videoMetadata,
@@ -144,22 +144,20 @@ export class MomentService {
 
         if (!processingResult.success) {
             throw new Error(
-                `Erro ao processar conteúdo: ${processingResult.error || "Erro desconhecido"}`,
+                `Error processing content: ${processingResult.error || "Unknown error"}`,
             )
         }
 
         // Verificar se foi aprovado pela moderação
         if (!processingResult.moderation.approved && !processingResult.moderation.requiresReview) {
             throw new Error(
-                `Conteúdo bloqueado pela moderação: ${processingResult.moderation.flags.join(
-                    ", ",
-                )}`,
+                `Content blocked by moderation: ${processingResult.moderation.flags.join(", ")}`,
             )
         }
 
         // 2. Criar dados do momento com informações do processamento
         const momentData = {
-            id: contentId,
+            id: processingResult.contentId,
             ownerId: data.ownerId,
             content: {
                 duration: processingResult.videoMetadata.duration,
@@ -176,6 +174,7 @@ export class MomentService {
                 updatedAt: new Date(),
             },
             description: data.description || "",
+            enrichedDescription: processingResult.enrichedDescription || "",
             hashtags: data.hashtags || [],
             mentions: data.mentions || [],
             media: {
@@ -212,7 +211,7 @@ export class MomentService {
                     : this.config.defaultStatus,
                 previous: null,
                 reason: processingResult.moderation.requiresReview
-                    ? "Aguardando revisão de moderação"
+                    ? "Awaiting moderation review"
                     : null,
                 changedBy: data.ownerId,
                 changedAt: new Date(),
@@ -404,7 +403,7 @@ export class MomentService {
     async updateMoment(id: string, data: UpdateMomentData): Promise<Moment | null> {
         const existingMoment = await this.repository.findById(id)
         if (!existingMoment) {
-            throw new Error(`Momento com ID ${id} não encontrado`)
+            throw new Error(`Moment with ID ${id} not found`)
         }
 
         // Validar dados de atualização
@@ -472,7 +471,7 @@ export class MomentService {
     async deleteMoment(id: string, reason?: string): Promise<boolean> {
         const existingMoment = await this.repository.findById(id)
         if (!existingMoment) {
-            throw new Error(`Momento com ID ${id} não encontrado`)
+            throw new Error(`Moment with ID ${id} not found`)
         }
 
         // Atualizar status para deletado
@@ -481,7 +480,7 @@ export class MomentService {
                 ...existingMoment.status,
                 current: MomentStatusEnum.DELETED,
                 previous: existingMoment.status.current,
-                reason: reason || "Excluído pelo usuário",
+                reason: reason || "Deleted by user",
                 changedBy: existingMoment.ownerId,
                 changedAt: new Date(),
                 updatedAt: new Date(),
@@ -549,7 +548,7 @@ export class MomentService {
      */
     async getAggregatedMetrics(momentIds: string[]) {
         if (!this.config.enableMetrics) {
-            throw new Error("Métricas não estão habilitadas")
+            throw new Error("Metrics are not enabled")
         }
 
         return await this.metricsService.getAggregatedMetrics(momentIds)
@@ -560,12 +559,12 @@ export class MomentService {
      */
     async getTrendingContent(limit: number = 10) {
         if (!this.config.enableMetrics) {
-            throw new Error("Métricas não estão habilitadas")
+            throw new Error("Metrics are not enabled")
         }
 
         // Validar limite
         if (limit <= 0 || limit > 100) {
-            throw new Error("Limite deve estar entre 1 e 100")
+            throw new Error("Limit must be between 1 and 100")
         }
 
         // TODO: Implementar busca real de conteúdo em tendência no banco de dados
@@ -578,12 +577,12 @@ export class MomentService {
      */
     async getViralContent(limit: number = 10) {
         if (!this.config.enableMetrics) {
-            throw new Error("Métricas não estão habilitadas")
+            throw new Error("Metrics are not enabled")
         }
 
         // Validar limite
         if (limit <= 0 || limit > 100) {
-            throw new Error("Limite deve estar entre 1 e 100")
+            throw new Error("Limit must be between 1 and 100")
         }
 
         // TODO: Implementar busca real de conteúdo viral no banco de dados
@@ -720,18 +719,18 @@ export class MomentService {
     async createReport(data: { momentId: string; userId: string; reason: string }): Promise<any> {
         const moment = await this.repository.findById(data.momentId)
         if (!moment) {
-            throw new Error(`Momento com ID ${data.momentId} não encontrado`)
+            throw new Error(`Moment with ID ${data.momentId} not found`)
         }
 
         // Verificar se já denunciou
         const hasReported = await this.hasUserReportedMoment(data.momentId, data.userId)
         if (hasReported) {
-            throw new Error("Usuário já denunciou este momento")
+            throw new Error("User has already reported this moment")
         }
 
         // Validar dados
         if (!data.reason || data.reason.trim().length === 0) {
-            throw new Error("Motivo da denúncia é obrigatório")
+            throw new Error("Report reason is required")
         }
 
         // Criar denúncia
@@ -817,7 +816,7 @@ export class MomentService {
         includeDeleted?: boolean
     }): Promise<any> {
         if (!this.config.enableMetrics) {
-            throw new Error("Métricas não estão habilitadas")
+            throw new Error("Metrics are not enabled")
         }
 
         // TODO: Implementar analytics reais com dados do banco
@@ -971,7 +970,7 @@ export class MomentService {
         // Verificar se o momento existe
         const moment = await this.repository.findById(momentId)
         if (!moment) {
-            throw new Error(`Momento com ID ${momentId} não encontrado`)
+            throw new Error(`Moment with ID ${momentId} not found`)
         }
 
         // TODO: Implementar busca real de reports do momento no banco de dados
@@ -994,13 +993,13 @@ export class MomentService {
         },
     ): Promise<any> {
         if (!this.config.enableMetrics) {
-            throw new Error("Métricas não estão habilitadas")
+            throw new Error("Metrics are not enabled")
         }
 
         // Verificar se o momento existe
         const moment = await this.repository.findById(momentId)
         if (!moment) {
-            throw new Error(`Momento com ID ${momentId} não encontrado`)
+            throw new Error(`Moment with ID ${momentId} not found`)
         }
 
         // TODO: Implementar métricas reais com opções do banco de dados
@@ -1052,11 +1051,11 @@ export class MomentService {
 
         // Validar parâmetros
         if (limit <= 0 || limit > 100) {
-            throw new Error("Limite deve estar entre 1 e 100")
+            throw new Error("Limit must be between 1 and 100")
         }
 
         if (offset < 0) {
-            throw new Error("Offset não pode ser negativo")
+            throw new Error("Offset cannot be negative")
         }
 
         // TODO: Implementar busca com filtros reais no banco de dados
@@ -1336,7 +1335,7 @@ export class MomentService {
         } catch (error) {
             return {
                 success: false,
-                error: `Erro ao listar momentos: ${
+                error: `Error listing moments: ${
                     error instanceof Error ? error.message : String(error)
                 }`,
             }
@@ -1351,58 +1350,55 @@ export class MomentService {
     private async validateCreateData(data: CreateMomentData): Promise<void> {
         // Validações básicas
         if (!data.ownerId) {
-            throw new Error("ID do proprietário é obrigatório")
+            throw new Error("Owner ID is required")
         }
 
         // Validar videoData
         if (!data.videoData || data.videoData.length === 0) {
-            throw new Error("Dados do vídeo são obrigatórios")
+            throw new Error("Video data is required")
         }
 
         // Validar metadata do vídeo
         if (!data.videoMetadata) {
-            throw new Error("Metadados do vídeo são obrigatórios")
+            throw new Error("Video metadata is required")
         }
 
         if (!data.videoMetadata.filename) {
-            throw new Error("Nome do arquivo é obrigatório")
+            throw new Error("Filename is required")
         }
 
         if (!data.videoMetadata.mimeType) {
-            throw new Error("Tipo MIME do arquivo é obrigatório")
+            throw new Error("MIME type is required")
         }
 
         if (!data.videoMetadata.mimeType.startsWith("video/")) {
-            throw new Error("Arquivo deve ser um vídeo")
-        }
-
-        // Validações de texto
-        if (data.description && data.description.length > 1000) {
-            throw new Error("Descrição não pode ter mais de 1000 caracteres")
-        }
-
-        if (data.hashtags && data.hashtags.length > 30) {
-            throw new Error("Máximo de 30 hashtags permitidas")
-        }
-
-        if (data.mentions && data.mentions.length > 50) {
-            throw new Error("Máximo de 50 menções permitidas")
+            throw new Error("File must be a video")
         }
 
         // Validar que usuário não pode mencionar a si mesmo
-        if (data.mentions && data.mentions.includes(data.ownerId)) {
-            throw new Error("Você não pode mencionar a si mesmo")
+        if (data.mentions && data.mentions.includes(data.ownerUsername)) {
+            throw new Error("You cannot mention yourself")
         }
 
         // Validar menções duplicadas
         if (data.mentions && new Set(data.mentions).size !== data.mentions.length) {
-            throw new Error("Não é permitido mencionar o mesmo usuário mais de uma vez")
+            throw new Error("Cannot mention the same user more than once")
         }
 
         // Validar hashtags duplicadas
         if (data.hashtags && new Set(data.hashtags).size !== data.hashtags.length) {
-            throw new Error("Não é permitido usar a mesma hashtag mais de uma vez")
+            throw new Error("Cannot use the same hashtag more than once")
         }
+
+        circleTextLibrary.validate.description(data.description || "")
+
+        data.mentions?.forEach((mention) => {
+            circleTextLibrary.validate.username(mention)
+        })
+
+        data.hashtags?.forEach((hashtag) => {
+            circleTextLibrary.validate.hashtag(hashtag)
+        })
     }
 
     /**
@@ -1411,15 +1407,15 @@ export class MomentService {
     private async validateUpdateData(data: UpdateMomentData): Promise<void> {
         // Validações de texto se fornecido
         if (data.description !== undefined && data.description.length > 1000) {
-            throw new Error("Descrição não pode ter mais de 1000 caracteres")
+            throw new Error("Description cannot be longer than 1000 characters")
         }
 
         if (data.hashtags !== undefined && data.hashtags.length > 30) {
-            throw new Error("Máximo de 30 hashtags permitidas")
+            throw new Error("Maximum of 30 hashtags allowed")
         }
 
         if (data.mentions !== undefined && data.mentions.length > 50) {
-            throw new Error("Máximo de 50 menções permitidas")
+            throw new Error("Maximum of 50 mentions allowed")
         }
     }
 }
