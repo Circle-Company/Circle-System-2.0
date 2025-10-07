@@ -1,7 +1,7 @@
-import { UserEmbedding } from "../types"
+import { IInteractionRepository, IUserEmbeddingRepository } from "../repositories"
 
 import { EmbeddingParams } from "../params.type"
-import { IInteractionRepository, IUserEmbeddingRepository } from "../repositories"
+import { UserEmbedding } from "../types"
 
 /**
  * Serviço para geração e gerenciamento de embeddings de usuário
