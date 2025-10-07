@@ -100,9 +100,7 @@ export class SignInUseCase {
         }
 
         // Buscar usuário por username
-        console.log("Buscando usuário com username:", request.username)
         const user = await this.userRepository.findByUsername(request.username)
-        console.log("Usuário encontrado:", user ? "SIM" : "NÃO")
         if (!user) {
             // Log tentativa falhada - usuário não encontrado
             if (this.authLogRepository && request.logContext) {

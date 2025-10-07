@@ -1,6 +1,6 @@
 import { AuthLogRepository, AuthLogStatus, AuthLogType, Device } from "@/domain/auth"
-import { IUserRepository, User, validatePassword } from "@/domain/user"
-import { jwtEncoder, parseTimezone } from "@/shared"
+import { IUserRepository, User } from "@/domain/user"
+import { circleTextLibrary, jwtEncoder } from "@/shared"
 import {
     AccessDeniedError,
     InvalidCredentialsError,
@@ -10,11 +10,11 @@ import {
 import { ProcessSignRequest, ProcessSignRequestResponse } from "./process.sign.request"
 
 import { SignStatus } from "@/domain/auth/auth.type"
+import { TimezoneCode } from "@/domain/user"
 import { UserMetrics } from "@/domain/user/entities/user.metrics.entity"
 import { SignType } from "@/infra/models/auth/sign.logs.model"
 import { SignRequest } from "@/modules/auth/types"
-import { circleTextLibrary } from "@/shared/circle.text.library"
-
+import { TimezoneCodes } from "circle-text-library"
 export interface SignUpInputDto {
     username: string
     password: string
@@ -127,6 +127,10 @@ export class SignUpUseCase {
                 throw new UserAlreadyExistsError(request.username)
             }
 
+            circleTextLibrary.transform.timezone.setTimezone(request.appTimezone as TimezoneCodes)
+
+            const timezoneOffset = circleTextLibrary.transform.timezone.getTimezoneOffset()
+
             // Criar novo usuário usando o método estático que encripta a senha automaticamente
             const newUser = await User.create({
                 username: request.username,
@@ -153,7 +157,6 @@ export class SignUpUseCase {
                 },
                 // Métricas inicializadas - será criada usando UserMetrics.create()
                 metrics: undefined, // Será criada após salvar o usuário
-                // Embedding vazio
                 embedding: {
                     vector: "",
                     dimension: 0,
@@ -164,7 +167,8 @@ export class SignUpUseCase {
                 // Preferências
                 preferences: {
                     appLanguage: request.appLanguage || "pt",
-                    appTimezone: this.parseTimezone(request.appTimezone),
+                    appTimezone: timezoneOffset,
+                    timezoneCode: request.appTimezone as TimezoneCode,
                     disableAutoplay: false,
                     disableHaptics: false,
                     disableTranslation: false,
@@ -317,11 +321,6 @@ export class SignUpUseCase {
 
     private isValidPassword(password: string): boolean {
         // Usar as regras permissivas do user.rules.ts
-        return validatePassword(password)
-    }
-
-    private parseTimezone(timezone?: string): number {
-        // Usar o helper para converter timezone
-        return parseTimezone(timezone)
+        return circleTextLibrary.validate.password(password).isValid
     }
 }
