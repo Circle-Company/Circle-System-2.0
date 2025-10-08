@@ -1,6 +1,6 @@
-import { User, UserRepositoryInterface } from "@/domain/user"
+import { IUserRepository, User } from "@/domain/user"
 
-import { Level } from "@/domain/authorization/types"
+import { Level } from "@/domain/authorization"
 
 export interface CreateUserRequest {
     username: string
@@ -114,80 +114,7 @@ export interface UserResponse {
 }
 
 export class UserController {
-    constructor(private readonly userRepository: UserRepositoryInterface) {}
-
-    /**
-     * Cria um novo usuário
-     */
-    async createUser(request: CreateUserRequest): Promise<UserResponse> {
-        try {
-            const user = await User.create({
-                username: request.username,
-                name: request.name,
-                searchMatchTerm: request.searchMatchTerm,
-                password: request.password,
-                description: request.description,
-                status: request.status
-                    ? {
-                          accessLevel: request.status.accessLevel,
-                          verified: request.status.verified || false,
-                          deleted: request.status.deleted || false,
-                          blocked: request.status.blocked || false,
-                          muted: request.status.muted || false,
-                          createdAt: new Date(),
-                          updatedAt: new Date(),
-                      }
-                    : undefined,
-                preferences: request.preferences
-                    ? {
-                          appLanguage: request.preferences.appLanguage || "pt",
-                          appTimezone: request.preferences.appTimezone || -3,
-                          disableAutoplay: request.preferences.disableAutoplay || false,
-                          disableHaptics: request.preferences.disableHaptics || false,
-                          disableTranslation: request.preferences.disableTranslation || false,
-                          translationLanguage: request.preferences.translationLanguage || "pt",
-                          disableLikeMomentPushNotification:
-                              request.preferences.disableLikeMomentPushNotification || false,
-                          disableNewMemoryPushNotification:
-                              request.preferences.disableNewMemoryPushNotification || false,
-                          disableAddToMemoryPushNotification:
-                              request.preferences.disableAddToMemoryPushNotification || false,
-                          disableFollowUserPushNotification:
-                              request.preferences.disableFollowUserPushNotification || false,
-                          disableViewUserPushNotification:
-                              request.preferences.disableViewUserPushNotification || false,
-                          disableNewsPushNotification:
-                              request.preferences.disableNewsPushNotification || false,
-                          disableSugestionsPushNotification:
-                              request.preferences.disableSugestionsPushNotification || false,
-                          disableAroundYouPushNotification:
-                              request.preferences.disableAroundYouPushNotification || false,
-                          createdAt: new Date(),
-                          updatedAt: new Date(),
-                      }
-                    : undefined,
-                terms: request.terms
-                    ? {
-                          termsAndConditionsAgreed: request.terms.termsAndConditionsAgreed,
-                          termsAndConditionsAgreedVersion:
-                              request.terms.termsAndConditionsAgreedVersion,
-                          termsAndConditionsAgreedAt: request.terms.termsAndConditionsAgreedAt,
-                          createdAt: new Date(),
-                          updatedAt: new Date(),
-                      }
-                    : undefined,
-            })
-
-            const savedUser = await this.userRepository.create(user)
-            return this.mapToResponse(savedUser)
-        } catch (error) {
-            throw new Error(
-                `Erro ao criar usuário: ${
-                    error instanceof Error ? error.message : "Erro desconhecido"
-                }`,
-            )
-        }
-    }
+    constructor(private readonly userRepository: IUserRepository) {}
 
     /**
      * Busca usuário por ID
@@ -215,22 +142,6 @@ export class UserController {
         } catch (error) {
             throw new Error(
                 `Erro ao buscar usuário: ${
-                    error instanceof Error ? error.message : "Erro desconhecido"
-                }`,
-            )
-        }
-    }
-
-    /**
-     * Busca usuários por termo de busca
-     */
-    async searchUsers(searchTerm: string): Promise<UserResponse[]> {
-        try {
-            const users = await this.userRepository.findBySearchTerm(searchTerm)
-            return users.map((user) => this.mapToResponse(user))
-        } catch (error) {
-            throw new Error(
-                `Erro ao buscar usuários: ${
                     error instanceof Error ? error.message : "Erro desconhecido"
                 }`,
             )
@@ -387,58 +298,22 @@ export class UserController {
      */
     async deleteUser(id: string): Promise<void> {
         try {
-            await this.userRepository.delete(id)
+            const user = await this.userRepository.findById(id)
+            if (!user) {
+                throw new Error("Usuário não encontrado")
+            }
+            // Soft delete via update do status
+            if (user.status) {
+                user.updateStatus({
+                    ...user.status,
+                    deleted: true,
+                    updatedAt: new Date(),
+                })
+                await this.userRepository.update(user)
+            }
         } catch (error) {
             throw new Error(
                 `Erro ao deletar usuário: ${
-                    error instanceof Error ? error.message : "Erro desconhecido"
-                }`,
-            )
-        }
-    }
-
-    /**
-     * Lista todos os usuários
-     */
-    async getAllUsers(limit: number = 50, offset: number = 0): Promise<UserResponse[]> {
-        try {
-            const users = await this.userRepository.findAll(limit, offset)
-            return users.map((user) => this.mapToResponse(user))
-        } catch (error) {
-            throw new Error(
-                `Erro ao listar usuários: ${
-                    error instanceof Error ? error.message : "Erro desconhecido"
-                }`,
-            )
-        }
-    }
-
-    /**
-     * Lista usuários ativos
-     */
-    async getActiveUsers(limit: number = 50, offset: number = 0): Promise<UserResponse[]> {
-        try {
-            const users = await this.userRepository.findActiveUsers(limit, offset)
-            return users.map((user) => this.mapToResponse(user))
-        } catch (error) {
-            throw new Error(
-                `Erro ao listar usuários ativos: ${
-                    error instanceof Error ? error.message : "Erro desconhecido"
-                }`,
-            )
-        }
-    }
-
-    /**
-     * Lista usuários por status
-     */
-    async getUsersByStatus(status: string): Promise<UserResponse[]> {
-        try {
-            const users = await this.userRepository.findUsersByStatus(status)
-            return users.map((user) => this.mapToResponse(user))
-        } catch (error) {
-            throw new Error(
-                `Erro ao listar usuários por status: ${
                     error instanceof Error ? error.message : "Erro desconhecido"
                 }`,
             )
@@ -452,11 +327,11 @@ export class UserController {
         const userData = user.toJSON()
 
         return {
-            id: userData.id,
-            username: userData.username,
-            name: userData.name,
-            searchMatchTerm: userData.searchMatchTerm,
-            description: userData.description,
+            id: userData.id || "",
+            username: userData.username || "",
+            name: userData.name || null,
+            searchMatchTerm: userData.searchMatchTerm || "",
+            description: userData.description || null,
             status: userData.status
                 ? {
                       accessLevel: userData.status.accessLevel,
@@ -499,8 +374,8 @@ export class UserController {
                       termsAndConditionsAgreedAt: userData.terms.termsAndConditionsAgreedAt,
                   }
                 : undefined,
-            createdAt: userData.createdAt,
-            updatedAt: userData.updatedAt,
+            createdAt: userData.createdAt || new Date(),
+            updatedAt: userData.updatedAt || new Date(),
         }
     }
 }
