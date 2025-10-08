@@ -23,7 +23,7 @@ export class UserFactory {
     /**
      * Cria um UserController completo com todas as dependências
      */
-    static createUserControllerWithDependencies(database: DatabaseAdapter): UserController {
+    static createUserControllerWithDeps(database: DatabaseAdapter): UserController {
         const userRepository = this.createUserRepository(database)
         return this.createUserController(userRepository)
     }
@@ -174,8 +174,8 @@ export const createUser = {
     /**
      * Cria UserController completo com dependências
      */
-    controllerWithDependencies: (database: DatabaseAdapter) =>
-        UserFactory.createUserControllerWithDependencies(database),
+    controllerWithDeps: (database: DatabaseAdapter) =>
+        UserFactory.createUserControllerWithDeps(database),
 
     /**
      * Cria componentes para produção
