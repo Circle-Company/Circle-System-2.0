@@ -34,13 +34,6 @@ function getJwtConfig(): JwtConfig {
         expiresIn: Number(process.env.JWT_EXPIRES) || 3600, // Default 1 hora
     }
 
-    console.log("🔧 JWT Encoder Config:", {
-        secret: config.secret.substring(0, 10) + "...",
-        issuer: config.issuer,
-        audience: config.audience,
-        expiresIn: config.expiresIn,
-    })
-
     // Cache apenas em produção
     if (process.env.NODE_ENV === "production" && !jwtConfig) {
         jwtConfig = config
