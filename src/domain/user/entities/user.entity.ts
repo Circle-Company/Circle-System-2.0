@@ -5,6 +5,7 @@ import {
     UserPreferences,
     UserProfilePicture,
     UserProps,
+    UserPublicProfile,
     UserStatus,
     UserTerm,
 } from "../types/user.type"
@@ -561,15 +562,12 @@ export class User {
     public canBeMentioned(): boolean {
         return this.isActive() && !this.isBlocked()
     }
-    public getPublicProfile(): {
-        id: string
-        username: string
-        name: string | null
-        description: string | null
-        isVerified: boolean
-        isActive: boolean
-        profilePicture: UserProfilePicture | null
-    } {
+
+    public canSign(): boolean {
+        return this.isActive() && !this.isBlocked() && !this.isDeleted()
+    }
+
+    public getPublicProfile(): UserPublicProfile {
         return {
             id: this._id,
             username: this._username,
