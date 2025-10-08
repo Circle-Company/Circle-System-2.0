@@ -75,6 +75,21 @@ export abstract class BaseHttpAdapter implements HttpAdapterInterface {
 export class FastifyAdapter implements HttpAdapter {
     constructor(private fastify: FastifyInstance) {}
 
+    /**
+     * Expõe a instância do Fastify para acesso direto quando necessário
+     * Útil para plugins específicos do Fastify como Swagger
+     */
+    getFastifyInstance(): FastifyInstance {
+        return this.fastify
+    }
+
+    /**
+     * Registra um plugin do Fastify
+     */
+    async registerPlugin(plugin: any, options?: any): Promise<void> {
+        await this.fastify.register(plugin, options)
+    }
+
     get(path: string, handler: RouteHandler, options?: RouteOptions): void {
         this.fastify.get(path, {
             preHandler: this.convertPreHandlers(options?.preHandler),
@@ -149,11 +164,27 @@ export class FastifyAdapter implements HttpAdapter {
             headers[key.toLowerCase()] = Array.isArray(value) ? value[0] : value || ""
         }
 
+        // Processar body multipart/form-data se presente
+        let body = request.body
+        try {
+            if (
+                body &&
+                typeof body === "object" &&
+                headers["content-type"]?.includes("multipart/form-data")
+            ) {
+                body = this.processMultipartBody(body)
+            }
+        } catch (error) {
+            console.error("Error processing multipart body:", error)
+            // Em caso de erro, usar body original
+            body = request.body
+        }
+
         return {
             method: request.method,
             url: request.url,
             headers,
-            body: request.body,
+            body,
             params: request.params as Record<string, string>,
             query: request.query as Record<string, string>,
             user: (request as any).user,
@@ -162,22 +193,47 @@ export class FastifyAdapter implements HttpAdapter {
         }
     }
 
+    /**
+     * Processa body de multipart/form-data
+     * Converte estruturas do @fastify/multipart para valores simples
+     */
+    private processMultipartBody(body: any): any {
+        if (!body || typeof body !== "object" || Array.isArray(body)) {
+            return body
+        }
+
+        const processedBody: any = {}
+
+        for (const [key, value] of Object.entries(body)) {
+            // Verificar se é um campo multipart com propriedade 'value'
+            if (value && typeof value === "object" && "value" in value && !("file" in value)) {
+                processedBody[key] = (value as any).value
+            } else {
+                // Manter o valor original (arquivos, strings, números, etc)
+                processedBody[key] = value
+            }
+        }
+
+        return processedBody
+    }
+
     private convertResponse(reply: FastifyReply): HttpResponse {
-        return {
+        const response: HttpResponse = {
             status: (code: number) => {
                 reply.status(code)
-                return this.convertResponse(reply)
+                return response
             },
             send: (data: any) => {
                 reply.send(data)
             },
             header: (name: string, value: string) => {
                 reply.header(name, value)
-                return this.convertResponse(reply)
+                return response
             },
             statusCode: reply.statusCode,
             elapsedTime: reply.elapsedTime,
         }
+        return response
     }
 
     private convertHandler(handler: RouteHandler) {
@@ -217,6 +273,21 @@ export class MockAdapter implements HttpAdapter {
     private hooks: Map<string, RouteHandler[]> = new Map()
     private errorHandler?: (error: any, request: HttpRequest, response: HttpResponse) => void
     private isListening = false
+
+    /**
+     * Mock para getFastifyInstance - retorna null em modo de teste
+     */
+    getFastifyInstance(): any {
+        return null
+    }
+
+    /**
+     * Mock para registerPlugin - não faz nada em modo de teste
+     */
+    async registerPlugin(plugin: any, options?: any): Promise<void> {
+        // Mock - não registra plugins em modo de teste
+        return Promise.resolve()
+    }
 
     get(path: string, handler: RouteHandler, options?: RouteOptions): void {
         this.routes.set(`GET:${path}`, { method: "GET", handler, options })
