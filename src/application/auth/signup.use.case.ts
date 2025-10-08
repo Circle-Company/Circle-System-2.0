@@ -2,27 +2,28 @@ import { AuthLogRepository, AuthLogStatus, AuthLogType, Device } from "@/domain/
 import { IUserRepository, User } from "@/domain/user"
 import { circleTextLibrary, jwtEncoder } from "@/shared"
 import {
-    AccessDeniedError,
     InvalidCredentialsError,
     SecurityRiskError,
+    TermsNotAcceptedError,
     UserAlreadyExistsError,
 } from "@/shared/errors/auth.errors"
 import { ProcessSignRequest, ProcessSignRequestResponse } from "./process.sign.request"
 
-import { SignStatus } from "@/domain/auth/auth.type"
+import { AuthLogContext, SignStatus } from "@/domain/auth/auth.type"
 import { TimezoneCode } from "@/domain/user"
 import { UserMetrics } from "@/domain/user/entities/user.metrics.entity"
 import { SignType } from "@/infra/models/auth/sign.logs.model"
 import { SignRequest } from "@/modules/auth/types"
-import { TimezoneCodes } from "circle-text-library"
+import { logger } from "@/shared/logger"
+import { Timezone, TimezoneCodes } from "circle-text-library"
 export interface SignUpInputDto {
     username: string
     password: string
     device: Device
-    termsAccepted?: boolean
-    appLanguage?: string
-    appTimezone?: string
+    logContext?: AuthLogContext // Para logging
     metadata?: {
+        language?: string
+        termsAccepted: boolean
         ipAddress: string
         userAgent?: string
         machineId?: string
@@ -42,6 +43,13 @@ export interface SignUpOutputDto {
         role: string
         status: string
         lastLogin?: Date
+    }
+    preferences: {
+        timezone: number
+        language: {
+            appLanguage: string
+            translationLanguage: string
+        }
     }
     securityInfo?: {
         riskLevel: string
@@ -74,7 +82,7 @@ export class SignUpUseCase {
                 timezone: request.metadata.timezone || "UTC",
                 latitude: request.metadata.latitude || 0,
                 longitude: request.metadata.longitude || 0,
-                termsAccepted: request.termsAccepted || false,
+                termsAccepted: request.metadata.termsAccepted || false,
             }
 
             await this.processSignRequest.setSignRequest(signRequest)
@@ -101,6 +109,9 @@ export class SignUpUseCase {
 
     async execute(request: SignUpInputDto): Promise<SignUpOutputDto> {
         try {
+            // ✅ Inicializar timezone usando circle-text-library
+            const timezone = new Timezone(request.metadata?.timezone as TimezoneCodes)
+
             // Validar entrada
             await this.validateInput(request)
 
@@ -108,6 +119,25 @@ export class SignUpUseCase {
                 this.processSecurityRisk(request),
                 this.userRepository.existsByUsername(request.username),
             ])
+
+            // ✅ Validar se os termos de uso foram aceitos
+            if (!request.metadata?.termsAccepted) {
+                // Log tentativa falhada - termos não aceitos
+                if (this.authLogRepository && request.logContext) {
+                    await this.authLogRepository.create({
+                        username: request.username,
+                        ipAddress: request.logContext.ip || "unknown",
+                        userAgent: request.logContext.userAgent || "unknown",
+                        type: AuthLogType.SIGNIN,
+                        status: AuthLogStatus.FAILED,
+                        failureReason: "Terms of use not accepted",
+                        deviceType: request.device,
+                        deviceId: request.metadata?.machineId || "unknown",
+                        deviceTimezone: request.metadata?.timezone || "UTC",
+                    })
+                }
+                throw new TermsNotAcceptedError()
+            }
 
             if (userExists) {
                 // Log tentativa de registro com username existente
@@ -120,16 +150,15 @@ export class SignUpUseCase {
                         status: AuthLogStatus.FAILED,
                         failureReason: "User already exists",
                         deviceType: request.device,
-                        deviceId: "unknown",
+                        deviceId: request.metadata.machineId || "unknown",
                         deviceTimezone: request.metadata.timezone || "UTC",
                     })
                 }
                 throw new UserAlreadyExistsError(request.username)
             }
 
-            circleTextLibrary.transform.timezone.setTimezone(request.appTimezone as TimezoneCodes)
-
-            const timezoneOffset = circleTextLibrary.transform.timezone.getTimezoneOffset()
+            // ✅ Obter timezone offset do objeto Timezone
+            const timezoneOffset = timezone.getTimezoneOffset()
 
             // Criar novo usuário usando o método estático que encripta a senha automaticamente
             const newUser = await User.create({
@@ -164,15 +193,15 @@ export class SignUpUseCase {
                     createdAt: new Date(),
                     updatedAt: new Date(),
                 },
-                // Preferências
+                // ✅ Preferências com timezone correto
                 preferences: {
-                    appLanguage: request.appLanguage || "pt",
+                    appLanguage: request.metadata?.language || "en",
                     appTimezone: timezoneOffset,
-                    timezoneCode: request.appTimezone as TimezoneCode,
+                    timezoneCode: timezone.getCurrentTimezoneCode() as unknown as TimezoneCode,
                     disableAutoplay: false,
                     disableHaptics: false,
                     disableTranslation: false,
-                    translationLanguage: request.appLanguage || "pt",
+                    translationLanguage: request.metadata?.language || "en",
                     disableLikeMomentPushNotification: false,
                     disableNewMemoryPushNotification: false,
                     disableAddToMemoryPushNotification: false,
@@ -187,9 +216,11 @@ export class SignUpUseCase {
                 },
                 // Termos
                 terms: {
-                    termsAndConditionsAgreed: request.termsAccepted || false,
+                    termsAndConditionsAgreed: request.metadata?.termsAccepted || false,
                     termsAndConditionsAgreedVersion: "1.0",
-                    termsAndConditionsAgreedAt: request.termsAccepted ? new Date() : new Date(),
+                    termsAndConditionsAgreedAt: request.metadata?.termsAccepted
+                        ? new Date()
+                        : new Date(),
                     createdAt: new Date(),
                     updatedAt: new Date(),
                 },
@@ -230,10 +261,17 @@ export class SignUpUseCase {
                     status: AuthLogStatus.SUCCESS,
                     failureReason: "Registration successful",
                     deviceType: request.device,
-                    deviceId: "unknown",
+                    deviceId: request.metadata.machineId || "unknown",
                     deviceTimezone: request.metadata.timezone || "UTC",
                 })
             }
+
+            logger.info("User registered successfully", {
+                userId: savedUser.id,
+                username: savedUser.username,
+                timezone: timezone.getCurrentTimezoneCode(),
+                timezoneOffset: timezoneOffset,
+            })
 
             return {
                 token,
@@ -244,7 +282,14 @@ export class SignUpUseCase {
                     name: savedUser.name || null,
                     role: savedUser.role || "user",
                     status: "active",
-                    lastLogin: new Date(),
+                    lastLogin: timezone.UTCToLocal(new Date()),
+                },
+                preferences: {
+                    timezone: timezoneOffset,
+                    language: {
+                        appLanguage: savedUser.preferences?.appLanguage || "pt",
+                        translationLanguage: savedUser.preferences?.translationLanguage || "pt",
+                    },
                 },
                 securityInfo: securityResult
                     ? {
@@ -293,11 +338,6 @@ export class SignUpUseCase {
 
         if (!this.isValidPassword(request.password)) {
             throw new InvalidCredentialsError("Senha inválida")
-        }
-
-        // Validar termos
-        if (!request.termsAccepted) {
-            throw new AccessDeniedError("Você deve aceitar os termos de uso")
         }
 
         // Validar device
