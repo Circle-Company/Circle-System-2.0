@@ -21,6 +21,16 @@ export interface UserEntity {
     updatedAt: Date
 }
 
+export interface UserPublicProfile {
+    id: string
+    username: string
+    name: string | null
+    description: string | null
+    isVerified: boolean
+    isActive: boolean
+    profilePicture: UserProfilePicture | null
+}
+
 export interface UserProps {
     id?: string
     username: string
