@@ -80,7 +80,8 @@ const baseConfig = {
     dialectOptions: {
         charset: "utf8mb4",
         connectTimeout: 60000,
-        timeout: process.env.DB_TIMEOUT!,
+        // Removido 'timeout' - não é uma opção válida para MySQL2
+        // Usar apenas as opções suportadas pelo driver
     },
 }
 
@@ -99,10 +100,12 @@ export const CONFIGS = {
                   }
                 : false,
         pool: {
-            max: 5,
-            min: 0,
-            acquire: 30000,
-            idle: 10000,
+            max: 5, // Máximo de conexões simultâneas
+            min: 0, // Mínimo de conexões
+            acquire: 30000, // Timeout para adquirir conexão
+            idle: 10000, // Tempo antes de liberar conexão inativa
+            evict: 1000, // Intervalo para verificar conexões ociosas
+            handleDisconnects: true, // Recriar conexões perdidas
         },
     },
 
@@ -115,11 +118,12 @@ export const CONFIGS = {
         database: process.env.DB_NAME || "test_access_controller_db",
         logging: false,
         pool: {
-            max: 20,
-            min: 5,
-            acquire: 30000,
-            idle: 10000,
-            evict: 1000,
+            max: 20, // Máximo de conexões para produção
+            min: 2, // Manter pelo menos 2 conexões abertas
+            acquire: 30000, // Timeout para adquirir conexão
+            idle: 10000, // Tempo antes de liberar conexão inativa
+            evict: 1000, // Intervalo para verificar conexões ociosas
+            handleDisconnects: true, // Recriar conexões perdidas
         },
         dialectOptions: {
             ...baseConfig.dialectOptions,
