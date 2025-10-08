@@ -69,7 +69,7 @@ export class ApplicationBootstrapper {
         process.env.NODE_ENV || "development",
     )
     private status: AppStatus = AppStatus.INITIALIZING
-    private metrics: BootMetrics
+    private metrics: BootMetrics | null
     private healthCheckInterval?: NodeJS.Timeout
     private shutdownTimeout?: NodeJS.Timeout
     private isShuttingDown = false
@@ -149,25 +149,27 @@ export class ApplicationBootstrapper {
     /**
      * Inicializa métricas de boot
      */
-    private initializeMetrics(): BootMetrics {
-        return {
-            startTime: Date.now(),
-            steps: [],
+    private initializeMetrics(): BootMetrics | null {
+        if (process.env.ENABLE_METRICS) {
+            return {
+                startTime: Date.now(),
+                steps: [],
+            }
         }
+        return null
     }
 
     /**
-     * Verifica se os logs de inicialização devem ser exibidos
+     * Verifica se os logs de inicialização devem ser exibidos no console
      */
     private shouldLog(): boolean {
-        return (
-            this.config.enableConsoleLogs &&
-            (this.config.environment === "development" || this.config.environment === "test")
-        )
+        // Respeita a variável ENABLE_CONSOLE_LOGS
+        return this.config.enableConsoleLogs
     }
 
     /**
      * Sistema de logging profissional
+     * Respeita as variáveis de ambiente ENABLE_LOGGER e ENABLE_CONSOLE_LOGS
      */
     private log(level: "info" | "warn" | "error", message: string, data?: any): void {
         const logData = {
@@ -177,21 +179,31 @@ export class ApplicationBootstrapper {
             ...data,
         }
 
+        const enableLogger = process.env.ENABLE_LOGGER !== "false"
+        const shouldLogToConsole = this.shouldLog()
+
         switch (level) {
             case "info":
-                logger.info(message, logData)
-                if (this.shouldLog()) {
+                if (enableLogger) {
+                    logger.info(message, logData)
+                }
+                if (shouldLogToConsole) {
                     console.log(`${message}`, data ? data : "")
                 }
                 break
             case "warn":
-                logger.warn(message, logData)
-                if (this.shouldLog()) {
+                if (enableLogger) {
+                    logger.warn(message, logData)
+                }
+                if (shouldLogToConsole) {
                     console.warn(`⚠️ ${message}`, data ? data : "")
                 }
                 break
             case "error":
-                logger.error(message, logData)
+                if (enableLogger) {
+                    logger.error(message, logData)
+                }
+                // Erros sempre são exibidos no console para garantir visibilidade
                 console.error(`❌ ${message}`, data ? data : "")
                 break
         }
@@ -232,7 +244,9 @@ export class ApplicationBootstrapper {
 
             throw error
         } finally {
-            this.metrics.steps.push(step)
+            if (this.metrics) {
+                this.metrics.steps.push(step)
+            }
         }
     }
 
@@ -248,7 +262,6 @@ export class ApplicationBootstrapper {
             })
 
             // Etapas do boot
-            await this.executeBootStep("Environment Validation", () => this.validateEnvironment())
             await this.executeBootStep("Database Connection", () => this.connectDatabase())
             await this.executeBootStep("Multipart Configuration", () => this.configureMultipart())
             await this.executeBootStep("Routes Setup", () => this.setupRoutes())
@@ -269,16 +282,17 @@ export class ApplicationBootstrapper {
 
             this.status = AppStatus.RUNNING
             this.finalizeBootMetrics()
-
-            this.log("info", "🎉 Application bootstrap completed successfully", {
-                totalDuration: `${this.metrics.duration}ms`,
-                stepsCompleted: this.metrics.steps.length,
-            })
+            if (this.metrics) {
+                this.log("info", "🎉 Application bootstrap completed successfully", {
+                    totalDuration: `${this.metrics.duration}ms`,
+                    stepsCompleted: this.metrics.steps.length,
+                })
+            }
         } catch (error) {
             this.status = AppStatus.ERROR
             this.log("error", "💥 Application bootstrap failed", {
                 error: (error as Error).message,
-                stepsCompleted: this.metrics.steps.length,
+                stepsCompleted: this.metrics?.steps.length,
             })
 
             await this.shutdown()
@@ -287,32 +301,17 @@ export class ApplicationBootstrapper {
     }
 
     /**
-     * Valida configurações do ambiente
-     */
-    private async validateEnvironment(): Promise<void> {
-        // Validações já feitas no construtor, mas pode ser expandido
-        this.log("info", "Environment validation passed", {
-            port: this.config.port,
-            environment: this.config.environment,
-        })
-    }
-
-    /**
-     * Configura suporte a multipart/form-data
+     * Verifica configurações de multipart/form-data
+     *
+     * Nota: O suporte a multipart já é configurado automaticamente
+     * durante a criação do adapter HTTP (veja http.factory.ts)
      */
     private async configureMultipart(): Promise<void> {
-        const { api } = await import("@/infra/api")
-
-        if (api.configureMultipart) {
-            this.log("info", "Configurando multipart/form-data...")
-            await api.configureMultipart({
-                fileSize: 10 * 1024 * 1024, // 10MB
-                files: 5, // máximo 5 arquivos
-            })
-            this.log("info", "Multipart/form-data configurado com sucesso")
-        } else {
-            this.log("warn", "Adapter não suporta configureMultipart")
-        }
+        this.log("info", "Multipart/form-data support enabled", {
+            maxFileSize: "500MB",
+            maxFiles: 10,
+            maxFieldSize: "10MB",
+        })
     }
 
     /**
@@ -375,12 +374,31 @@ export class ApplicationBootstrapper {
             // Resetar flag para evitar decorador duplicado
             resetSwaggerRegistration()
 
-            await setupSwagger(api as any, {
+            // Criar adapter estendido com suporte ao Fastify
+            const swaggerAdapter = {
+                ...api,
+                registerPlugin: (api as any).registerPlugin?.bind(api),
+                fastify: (api as any).getFastifyInstance?.(),
+                log: {
+                    info: (message: string, ...args: any[]) => this.log("info", message, args[0]),
+                    error: (message: string, ...args: any[]) => this.log("error", message, args[0]),
+                    debug: (message: string, ...args: any[]) => {
+                        if (this.shouldLog()) {
+                            console.log(`🐛 ${message}`, args[0] || "")
+                        }
+                    },
+                },
+            }
+
+            await setupSwagger(swaggerAdapter, {
                 enableAutoGeneration: true,
                 customSchemas: {},
                 customTags: [],
             })
-            this.log("info", "Swagger documentation configured successfully")
+
+            this.log("info", "Swagger documentation configured successfully", {
+                docsUrl: `http://localhost:${this.config.port}/docs`,
+            })
         } catch (error) {
             this.log("error", "Failed to configure Swagger", { error: (error as Error).message })
             throw error
@@ -425,8 +443,6 @@ export class ApplicationBootstrapper {
             })
             this.shutdown().then(() => process.exit(1))
         })
-
-        this.log("info", "Graceful shutdown handlers configured")
     }
 
     /**
@@ -479,17 +495,19 @@ export class ApplicationBootstrapper {
      * Finaliza métricas de boot
      */
     private finalizeBootMetrics(): void {
-        this.metrics.endTime = Date.now()
-        this.metrics.duration = this.metrics.endTime - this.metrics.startTime
+        if (this.metrics) {
+            this.metrics.endTime = Date.now()
+            this.metrics.duration = this.metrics.endTime - this.metrics.startTime
 
-        if (this.config.enableMetrics) {
-            this.log("info", "Boot metrics collected", {
-                totalDuration: `${this.metrics.duration}ms`,
-                stepsCount: this.metrics.steps.length,
-                averageStepDuration: `${Math.round(
-                    this.metrics.duration / this.metrics.steps.length,
-                )}ms`,
-            })
+            if (this.config.enableMetrics) {
+                this.log("info", "Boot metrics collected", {
+                    totalDuration: `${this.metrics.duration}ms`,
+                    stepsCount: this.metrics.steps.length,
+                    averageStepDuration: `${Math.round(
+                        this.metrics.duration / this.metrics.steps.length,
+                    )}ms`,
+                })
+            }
         }
     }
 
@@ -567,8 +585,8 @@ export class ApplicationBootstrapper {
     /**
      * Obtém métricas de boot
      */
-    getMetrics(): BootMetrics {
-        return { ...this.metrics }
+    getMetrics(): BootMetrics | null {
+        return this.metrics ? { ...this.metrics } : null
     }
 
     /**
