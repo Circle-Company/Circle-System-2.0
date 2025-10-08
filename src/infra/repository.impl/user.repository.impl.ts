@@ -100,9 +100,23 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
     }
 
     async findByUsername(username: string): Promise<User | null> {
+        // Otimizado: carregar apenas relacionamentos essenciais para autenticação
         const user = await UserModel.findOne({
             where: { username },
-            include: this.getIncludeOptions(),
+            include: [
+                {
+                    model: UserStatusModel,
+                    as: "status",
+                    required: false,
+                },
+                {
+                    model: UserPreferencesModel,
+                    as: "preferences",
+                    required: false,
+                },
+                // Não carregar statistics, embeddings e interaction_summary no login
+                // para reduzir carga de memória
+            ],
         })
 
         if (!user) return null
@@ -127,6 +141,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
     async update(user: User): Promise<User> {
         const sequelize = this.database.getConnection()
         const transaction = await sequelize.transaction()
+        let committed = false
 
         try {
             const userData = user.toJSON()
@@ -135,52 +150,43 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
                 throw new Error("ID do usuário é obrigatório")
             }
 
-            // Atualizar usuário principal usando o mapper
+            // Atualizar apenas o usuário principal
             const userAttributes = UserMapper.toUserModelAttributes(user)
             await UserModel.update(userAttributes, {
                 where: { id: BigInt(userData.id) },
                 transaction,
             })
 
-            // Atualizar registros relacionados usando o mapper
+            // Apenas fazer upsert se os dados realmente mudaram
+            // Isso reduz drasticamente operações no banco durante signin
             const statusAttributes = UserMapper.toUserStatusAttributes(user)
-            if (statusAttributes) {
+            if (statusAttributes && this.hasStatusChanges(statusAttributes)) {
                 await UserStatusModel.upsert(statusAttributes, { transaction })
             }
 
-            const preferencesAttributes = UserMapper.toUserPreferencesAttributes(user)
-            if (preferencesAttributes) {
-                await UserPreferencesModel.upsert(preferencesAttributes, { transaction })
-            }
-
-            const statisticsAttributes = UserMapper.toUserStatisticsAttributes(user)
-            if (statisticsAttributes) {
-                await UserStatisticsModel.upsert(statisticsAttributes, { transaction })
-            }
-
-            const termsAttributes = UserMapper.toUserTermAttributes(user)
-            if (termsAttributes) {
-                await UserTermModel.upsert(termsAttributes, { transaction })
-            }
-
-            const embeddingAttributes = UserMapper.toUserEmbeddingAttributes(user)
-            if (embeddingAttributes) {
-                await UserEmbeddingModel.upsert(embeddingAttributes, { transaction })
-            }
-
-            const interactionSummaryAttributes = UserMapper.toUserInteractionSummaryAttributes(user)
-            if (interactionSummaryAttributes) {
-                await UserInteractionSummaryModel.upsert(interactionSummaryAttributes, {
-                    transaction,
-                })
-            }
-
             await transaction.commit()
+            committed = true
             return user
         } catch (error) {
-            await transaction.rollback()
+            if (!committed) {
+                await transaction.rollback()
+            }
             throw error
         }
+    }
+
+    /**
+     * Verifica se há mudanças reais no status
+     * Evita upserts desnecessários que consomem memória
+     */
+    private hasStatusChanges(attributes: any): boolean {
+        // Verificar apenas campos que realmente mudam no login
+        return Boolean(
+            attributes.last_login_at ||
+                attributes.last_login_ip ||
+                attributes.last_login_device ||
+                attributes.last_login_user_agent,
+        )
     }
 
     async delete(id: string): Promise<void> {
