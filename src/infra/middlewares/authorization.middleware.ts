@@ -27,7 +27,7 @@ export function requirePermission(permission: Permission) {
             const context: AuthorizationContext = {
                 user: {
                     level: user.level as unknown as Level,
-                    device: (request.headers.device as Device) || Device.WEB,
+                    device: user.device as unknown as Device,
                 },
                 route: {
                     path: request.url,
