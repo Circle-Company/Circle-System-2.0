@@ -10,15 +10,16 @@ import { circleTextLibrary } from "@/shared"
 import { SignInUseCase } from "@/application/auth/signin.use.case"
 import { SignUpUseCase } from "@/application/auth/signup.use.case"
 import { Device } from "@/domain/auth"
-import { TimezoneCodes } from "circle-text-library"
 import { z } from "zod"
 
 // Interfaces de Request
 export interface SignInRequest {
     username: string
     password: string
-    termsAccepted?: boolean
     metadata?: {
+        device?: Device
+        language?: string
+        termsAccepted?: boolean
         ipAddress?: string
         userAgent?: string
         machineId?: string
@@ -31,8 +32,10 @@ export interface SignInRequest {
 export interface SignUpRequest {
     username: string
     password: string
-    termsAccepted?: boolean
     metadata?: {
+        device?: Device
+        language?: string
+        termsAccepted?: boolean
         ipAddress?: string
         userAgent?: string
         machineId?: string
@@ -109,29 +112,30 @@ export class AuthHandlers {
      */
     async signIn(request: SignInRequest): Promise<AuthResponse> {
         try {
-            circleTextLibrary.transform.timezone.setTimezone(
-                request.metadata?.timezone as TimezoneCodes,
-            )
-
             const result = await this.signInUseCase.execute({
                 username: request.username,
                 password: request.password,
-                device: Device.MOBILE,
-                securityData: {
-                    ipAddress: request.metadata?.ipAddress || "127.0.0.1",
-                    userAgent: request.metadata?.userAgent || "unknown",
-                    machineId: request.metadata?.machineId || "unknown",
-                    timezone: request.metadata?.timezone || "UTC",
+                logContext: {
+                    ip: request.metadata?.ipAddress,
+                    userAgent: request.metadata?.userAgent,
+                },
+                metadata: {
+                    device: request.metadata?.device,
+                    language: request.metadata?.language,
+                    termsAccepted: request.metadata?.termsAccepted,
+                    ipAddress: request.metadata?.ipAddress,
+                    userAgent: request.metadata?.userAgent,
+                    machineId: request.metadata?.machineId,
+                    timezone: request.metadata?.timezone,
                     latitude: request.metadata?.latitude,
                     longitude: request.metadata?.longitude,
                 },
             })
 
             if (!result.user) {
-                console.error("Handler signin - result.user é undefined!")
                 return {
                     success: false,
-                    error: "Erro interno: dados do usuário não encontrados",
+                    error: "Internal server error: user data not found",
                 }
             }
 
@@ -147,37 +151,37 @@ export class AuthHandlers {
                         tiny_resolution: "",
                     },
                 },
-                statistics: {
+                metrics: {
                     total_followers_num: 0,
                     total_likes_num: 0,
                     total_views_num: 0,
                 },
                 account: {
-                    jwtToken: `Bearer ${result.token}`,
+                    jwtToken: this.formatJwtToken(result.token),
                     jwtExpiration: result.expiresIn.toString(),
-                    muted: false,
+
                     unreadNotificationsCount: 0,
                     last_login_at: circleTextLibrary.transform.timezone.UTCToLocal(
                         result.user.lastLogin || new Date(),
                     ),
                 },
                 preferences: {
-                    timezone: circleTextLibrary.transform.timezone.getTimezoneOffset(),
+                    timezone: result.preferences.timezone,
                     language: {
-                        appLanguage: "pt",
-                        translationLanguage: "pt",
+                        appLanguage: result.preferences.language.appLanguage,
+                        translationLanguage: result.preferences.language.translationLanguage,
                     },
                     content: {
-                        disableAutoplay: false,
-                        disableHaptics: false,
-                        disableTranslation: false,
+                        disableAutoplay: result.preferences.content.disableAutoplay,
+                        disableHaptics: result.preferences.content.disableHaptics,
+                        disableTranslation: result.preferences.content.disableTranslation,
                     },
                     pushNotifications: {
-                        disableLikeMoment: false,
-                        disableNewMemory: false,
-                        disableAddToMemory: false,
-                        disableFollowUser: false,
-                        disableViewUser: false,
+                        disableLikeMoment: result.preferences.pushNotifications.disableLikeMoment,
+                        disableNewMemory: result.preferences.pushNotifications.disableNewMemory,
+                        disableAddToMemory: result.preferences.pushNotifications.disableAddToMemory,
+                        disableFollowUser: result.preferences.pushNotifications.disableFollowUser,
+                        disableViewUser: result.preferences.pushNotifications.disableViewUser,
                     },
                 },
             }
@@ -185,6 +189,7 @@ export class AuthHandlers {
             return {
                 success: true,
                 session: sessionData,
+                securityInfo: result.securityInfo,
             }
         } catch (error) {
             if (error instanceof z.ZodError) {
@@ -206,16 +211,17 @@ export class AuthHandlers {
      */
     async signUp(request: SignUpRequest): Promise<AuthResponse> {
         try {
-            circleTextLibrary.transform.timezone.setTimezone(
-                request.metadata?.timezone as TimezoneCodes,
-            )
             const result = await this.signUpUseCase.execute({
                 username: request.username,
                 password: request.password,
-                device: Device.MOBILE,
-                termsAccepted: request.termsAccepted,
-                appTimezone: request.metadata?.timezone || "UTC",
+                logContext: {
+                    ip: request.metadata?.ipAddress || "127.0.0.1",
+                    userAgent: request.metadata?.userAgent || "unknown",
+                },
                 metadata: {
+                    device: request.metadata?.device as Device,
+                    language: request.metadata?.language || "en",
+                    termsAccepted: request.metadata?.termsAccepted || false,
                     ipAddress: request.metadata?.ipAddress || "127.0.0.1",
                     userAgent: request.metadata?.userAgent || "unknown",
                     machineId: request.metadata?.machineId || "unknown",
@@ -228,7 +234,7 @@ export class AuthHandlers {
             if (!result.user) {
                 return {
                     success: false,
-                    error: "Erro interno: dados do usuário não encontrados",
+                    error: "Internal server error: user data not found",
                 }
             }
 
@@ -250,16 +256,14 @@ export class AuthHandlers {
                     total_views_num: 0,
                 },
                 account: {
-                    jwtToken: `Bearer ${result.token}`,
+                    jwtToken: this.formatJwtToken(result.token),
                     jwtExpiration: result.expiresIn.toString(),
                     muted: false,
                     unreadNotificationsCount: 0,
-                    last_login_at: circleTextLibrary.transform.timezone.UTCToLocal(
-                        result.user.lastLogin || new Date(),
-                    ),
+                    last_login_at: result.user.lastLogin || new Date(),
                 },
                 preferences: {
-                    timezone: circleTextLibrary.transform.timezone.getTimezoneOffset(),
+                    timezone: result.preferences.timezone,
                     language: {
                         appLanguage: "pt",
                         translationLanguage: "pt",
@@ -326,5 +330,9 @@ export class AuthHandlers {
                 error: error instanceof Error ? error.message : "Erro interno do servidor",
             }
         }
+    }
+
+    private formatJwtToken(token: string): string {
+        return `Bearer ${token}`
     }
 }

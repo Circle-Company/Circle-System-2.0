@@ -1,4 +1,5 @@
 import { SignInUseCase, SignUpUseCase } from "@/application/auth"
+import { ProcessSignRequest } from "@/application/auth/process.sign.request"
 import { DatabaseAdapter, DatabaseAdapterFactory } from "@/infra/database/adapter"
 
 import { AuthLogRepository } from "@/domain/auth"
@@ -24,8 +25,22 @@ export class AuthFactory {
             )
             const userRepository = new UserRepository(database)
             const authLogRepository = new AuthLogRepository(database)
-            const signInUseCase = new SignInUseCase(userRepository, authLogRepository)
-            const signUpUseCase = new SignUpUseCase(userRepository, authLogRepository)
+
+            // ✅ Criar ProcessSignRequest para processamento de segurança
+            const processSignRequest = new ProcessSignRequest()
+
+            // ✅ Passar processSignRequest para os use cases
+            const signInUseCase = new SignInUseCase(
+                userRepository,
+                authLogRepository,
+                processSignRequest,
+            )
+            const signUpUseCase = new SignUpUseCase(
+                userRepository,
+                authLogRepository,
+                processSignRequest,
+            )
+
             const authHandlers = new AuthHandlers(signInUseCase, signUpUseCase)
             this.authController = new AuthController(authHandlers)
             console.log("AuthController criado com sucesso")

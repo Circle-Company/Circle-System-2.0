@@ -17,11 +17,6 @@ export enum Permission {
     REPORT_MOMENT = "report:own_moment",
     LIKE_MOMENT = "like:own_moment",
 
-    READ_OWN_MEMORY = "read:own_memory",
-    READ_OWN_MEMORIES = "read:own_memories",
-    CREATE_OWN_MEMORY = "create:own_memory",
-    UPDATE_OWN_MEMORY = "update:own_memory",
-    DELETE_OWN_MEMORY = "delete:own_memory",
     READ_OWN_ACCOUNT = "read:own_account",
     UPDATE_OWN_ACCOUNT = "update:own_account",
     DELETE_OWN_ACCOUNT = "delete:own_account",

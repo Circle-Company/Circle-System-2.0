@@ -69,16 +69,9 @@ export class AuthMiddleware {
 
     async execute(request: HttpRequest, response: HttpResponse): Promise<void> {
         try {
-            console.log("=== AUTH MIDDLEWARE DEBUG ===")
-            console.log("URL:", request.url)
-            console.log("Method:", request.method)
-            console.log("Headers:", request.headers)
-            console.log("Authorization header:", request.headers.authorization)
-
             // Extrair token do header Authorization
             const authHeader = request.headers.authorization
             if (!authHeader || !authHeader.startsWith("Bearer ")) {
-                console.log("❌ No valid authorization header found")
                 response.status(401).send({
                     success: false,
                     error: "Token de autenticação necessário",
@@ -89,19 +82,13 @@ export class AuthMiddleware {
             }
 
             const token = authHeader.substring(7) // Remove "Bearer "
-            console.log("✅ Token found, authenticating...")
-            console.log("Token:", token.substring(0, 50) + "...")
 
             // Autenticar usuário usando o serviço
             const authenticatedUser = await this.authService.authenticate(token)
-            console.log("✅ User authenticated:", authenticatedUser)
 
             // Adicionar usuário ao request
             request.user = authenticatedUser
         } catch (error: any) {
-            console.log("❌ Authentication error:", error.message)
-            console.log("Error details:", error)
-
             if (error instanceof ValidationError) {
                 response.status(403).send({
                     success: false,
