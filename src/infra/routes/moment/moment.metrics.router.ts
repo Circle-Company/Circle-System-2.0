@@ -1,9 +1,11 @@
 import { HttpAdapter, HttpRequest, HttpResponse } from "../../http/http.type"
 
+import { DatabaseAdapter } from "@/infra/database/adapter"
 import { MomentFactory } from "@/infra/factories/moment.factory"
+import { ErrorCode, SystemError } from "@/shared/errors"
 
 export class MomentMetricsRouter {
-    constructor(private api: HttpAdapter) {}
+    constructor(private api: HttpAdapter, private databaseAdapter: DatabaseAdapter) {}
 
     /**
      * Registra todas as rotas de métricas de moment
@@ -131,7 +133,20 @@ export class MomentMetricsRouter {
 /**
  * Função de compatibilidade para inicialização das rotas
  */
-export async function Router(api: HttpAdapter): Promise<void> {
-    const routes = new MomentMetricsRouter(api)
-    routes.register()
+export async function Router(
+    httpAdapter: HttpAdapter,
+    databaseAdapter: DatabaseAdapter,
+): Promise<void> {
+    try {
+        new MomentMetricsRouter(httpAdapter, databaseAdapter).register()
+    } catch (error) {
+        throw new SystemError({
+            message: "Failed to initialize MomentMetricsRouter",
+            code: ErrorCode.INTERNAL_ERROR,
+            action: "Check the database configuration and try again",
+            context: {
+                additionalData: { originalError: error },
+            },
+        })
+    }
 }

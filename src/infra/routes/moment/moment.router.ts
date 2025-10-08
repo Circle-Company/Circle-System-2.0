@@ -24,6 +24,7 @@ import {
 import { Permission } from "@/domain/authorization"
 import { DatabaseAdapter } from "@/infra/database/adapter"
 import { MomentFactory } from "@/infra/factories/moment.factory"
+import { ErrorCode, SystemError } from "@/shared/errors"
 
 /**
  * Handler functions para encapsular lógica de rotas
@@ -36,22 +37,23 @@ class MomentRouteHandlers {
      */
     async createMoment(request: HttpRequest, response: HttpResponse): Promise<void> {
         try {
-            console.log("=== CREATE MOMENT DEBUG ===")
-            console.log("Request body:", request.body)
-            console.log("Request headers:", request.headers)
-            console.log("User:", request.user)
-            console.log("User ID:", request.user?.id)
+            // Verificar se usuário está autenticado (deveria ter sido verificado pelo middleware)
+            if (!request.user) {
+                return response.status(401).send({
+                    success: false,
+                    error: "Usuário não autenticado",
+                    code: "AUTHENTICATION_REQUIRED",
+                    timestamp: new Date().toISOString(),
+                })
+            }
 
             // Verificar se já foi enviada uma resposta
             if (response.statusCode && response.statusCode !== 200) {
-                console.log("Response already sent with status:", response.statusCode)
                 return
             }
 
             // Extrair dados do body (JSON ou multipart)
             const body = request.body as any
-            console.log("Body type:", typeof body)
-            console.log("Body content:", body)
 
             // Processar campos básicos
             const description = body.description
@@ -566,19 +568,20 @@ export class MomentRouter {
 /**
  * Função de compatibilidade para inicialização das rotas
  */
-export async function Router(api: HttpAdapter): Promise<void> {
+export async function Router(
+    httpAdapter: HttpAdapter,
+    databaseAdapter: DatabaseAdapter,
+): Promise<void> {
     try {
-        console.log("🚀 Inicializando MomentRouter...")
-        const { DatabaseAdapterFactory } = await import("@/infra/database/adapter")
-        const databaseAdapter = DatabaseAdapterFactory.createForEnvironment(
-            process.env.NODE_ENV || "development",
-        )
-        const routes = new MomentRouter(api, databaseAdapter)
-        console.log("📝 Registrando rotas de momento...")
-        routes.register()
-        console.log("✅ MomentRouter inicializado com sucesso")
+        new MomentRouter(httpAdapter, databaseAdapter).register()
     } catch (error) {
-        console.error("❌ Erro ao inicializar MomentRouter:", error)
-        throw error
+        throw new SystemError({
+            message: "Failed to initialize MomentRouter",
+            code: ErrorCode.INTERNAL_ERROR,
+            action: "Check the database configuration and try again",
+            context: {
+                additionalData: { originalError: error },
+            },
+        })
     }
 }
