@@ -1,103 +1,21 @@
+import { SecurityInfo, SignInOutputDto, SignInputDto } from "@/domain/auth/auth.dtos"
+
 /**
  * Auth HTTP Handlers - Handlers HTTP para autenticação
  *
  * @author Circle System Team
  * @version 1.0.0
  */
-
-import { circleTextLibrary } from "@/shared"
-
 import { SignInUseCase } from "@/application/auth/signin.use.case"
 import { SignUpUseCase } from "@/application/auth/signup.use.case"
-import { Device } from "@/domain/auth"
 import { z } from "zod"
 
-// Interfaces de Request
-export interface SignInRequest {
-    username: string
-    password: string
-    metadata?: {
-        device?: Device
-        language?: string
-        termsAccepted?: boolean
-        ipAddress?: string
-        userAgent?: string
-        machineId?: string
-        timezone?: string
-        latitude?: number
-        longitude?: number
-    }
-}
-
-export interface SignUpRequest {
-    username: string
-    password: string
-    metadata?: {
-        device?: Device
-        language?: string
-        termsAccepted?: boolean
-        ipAddress?: string
-        userAgent?: string
-        machineId?: string
-        timezone?: string
-        latitude?: number
-        longitude?: number
-    }
-}
-
-// Interfaces de Response
-export interface AuthResponse {
+interface SignInRequest extends SignInputDto {}
+interface SignUpRequest extends SignInputDto {}
+interface AuthResponse {
     success: boolean
-    session?: {
-        user: {
-            id: string
-            name: string
-            description?: string
-            username: string
-            verified?: boolean
-            profile_picture: {
-                small_resolution: string
-                tiny_resolution: string
-            }
-        }
-        statistics: {
-            total_followers_num: number
-            total_likes_num: number
-            total_views_num: number
-        }
-        account: {
-            jwtToken: string
-            jwtExpiration: string
-            muted?: boolean
-            unreadNotificationsCount: number
-            last_login_at: Date
-        }
-        preferences: {
-            timezone: number
-            language: {
-                appLanguage: string
-                translationLanguage: string
-            }
-            content: {
-                disableAutoplay: boolean
-                disableHaptics: boolean
-                disableTranslation: boolean
-            }
-            pushNotifications: {
-                disableLikeMoment: boolean
-                disableNewMemory: boolean
-                disableAddToMemory: boolean
-                disableFollowUser: boolean
-                disableViewUser: boolean
-            }
-        }
-    }
-    securityInfo?: {
-        riskLevel: string
-        status: string
-        message: string
-        additionalData?: any
-    }
+    session?: SignInOutputDto
+    securityInfo?: SecurityInfo
     error?: string
 }
 
@@ -112,90 +30,25 @@ export class AuthHandlers {
      */
     async signIn(request: SignInRequest): Promise<AuthResponse> {
         try {
-            const result = await this.signInUseCase.execute({
-                username: request.username,
-                password: request.password,
-                logContext: {
-                    ip: request.metadata?.ipAddress,
-                    userAgent: request.metadata?.userAgent,
-                },
-                metadata: {
-                    device: request.metadata?.device,
-                    language: request.metadata?.language,
-                    termsAccepted: request.metadata?.termsAccepted,
-                    ipAddress: request.metadata?.ipAddress,
-                    userAgent: request.metadata?.userAgent,
-                    machineId: request.metadata?.machineId,
-                    timezone: request.metadata?.timezone,
-                    latitude: request.metadata?.latitude,
-                    longitude: request.metadata?.longitude,
-                },
-            })
+            const session = await this.signInUseCase.execute(request)
 
-            if (!result.user) {
+            if (!session.user) {
                 return {
                     success: false,
                     error: "Internal server error: user data not found",
                 }
             }
 
-            const sessionData: AuthResponse["session"] = {
-                user: {
-                    id: result.user.id,
-                    name: result.user.name || "",
-                    description: "",
-                    username: result.user.username,
-                    verified: false,
-                    profile_picture: {
-                        small_resolution: "",
-                        tiny_resolution: "",
-                    },
-                },
-                metrics: {
-                    total_followers_num: 0,
-                    total_likes_num: 0,
-                    total_views_num: 0,
-                },
-                account: {
-                    jwtToken: this.formatJwtToken(result.token),
-                    jwtExpiration: result.expiresIn.toString(),
-
-                    unreadNotificationsCount: 0,
-                    last_login_at: circleTextLibrary.transform.timezone.UTCToLocal(
-                        result.user.lastLogin || new Date(),
-                    ),
-                },
-                preferences: {
-                    timezone: result.preferences.timezone,
-                    language: {
-                        appLanguage: result.preferences.language.appLanguage,
-                        translationLanguage: result.preferences.language.translationLanguage,
-                    },
-                    content: {
-                        disableAutoplay: result.preferences.content.disableAutoplay,
-                        disableHaptics: result.preferences.content.disableHaptics,
-                        disableTranslation: result.preferences.content.disableTranslation,
-                    },
-                    pushNotifications: {
-                        disableLikeMoment: result.preferences.pushNotifications.disableLikeMoment,
-                        disableNewMemory: result.preferences.pushNotifications.disableNewMemory,
-                        disableAddToMemory: result.preferences.pushNotifications.disableAddToMemory,
-                        disableFollowUser: result.preferences.pushNotifications.disableFollowUser,
-                        disableViewUser: result.preferences.pushNotifications.disableViewUser,
-                    },
-                },
-            }
-
             return {
                 success: true,
-                session: sessionData,
-                securityInfo: result.securityInfo,
+                session: session,
+                securityInfo: session.securityInfo,
             }
         } catch (error) {
             if (error instanceof z.ZodError) {
                 return {
                     success: false,
-                    error: `Erro de validação: ${error.issues.map((e) => e.message).join(", ")}`,
+                    error: `Validation error: ${error.issues.map((e) => e.message).join(", ")}`,
                 }
             }
 
@@ -211,25 +64,7 @@ export class AuthHandlers {
      */
     async signUp(request: SignUpRequest): Promise<AuthResponse> {
         try {
-            const result = await this.signUpUseCase.execute({
-                username: request.username,
-                password: request.password,
-                logContext: {
-                    ip: request.metadata?.ipAddress || "127.0.0.1",
-                    userAgent: request.metadata?.userAgent || "unknown",
-                },
-                metadata: {
-                    device: request.metadata?.device as Device,
-                    language: request.metadata?.language || "en",
-                    termsAccepted: request.metadata?.termsAccepted || false,
-                    ipAddress: request.metadata?.ipAddress || "127.0.0.1",
-                    userAgent: request.metadata?.userAgent || "unknown",
-                    machineId: request.metadata?.machineId || "unknown",
-                    timezone: request.metadata?.timezone || "UTC",
-                    latitude: request.metadata?.latitude || 0,
-                    longitude: request.metadata?.longitude || 0,
-                },
-            })
+            const result = await this.signUpUseCase.execute(request)
 
             if (!result.user) {
                 return {
@@ -239,56 +74,22 @@ export class AuthHandlers {
             }
 
             const sessionData: AuthResponse["session"] = {
-                user: {
-                    id: result.user.id,
-                    name: result.user.name || "",
-                    description: "",
-                    username: result.user.username,
-                    verified: false,
-                    profile_picture: {
-                        small_resolution: "",
-                        tiny_resolution: "",
-                    },
-                },
-                statistics: {
-                    total_followers_num: 0,
-                    total_likes_num: 0,
-                    total_views_num: 0,
-                },
-                account: {
-                    jwtToken: this.formatJwtToken(result.token),
-                    jwtExpiration: result.expiresIn.toString(),
-                    muted: false,
-                    unreadNotificationsCount: 0,
-                    last_login_at: result.user.lastLogin || new Date(),
-                },
-                preferences: {
-                    timezone: result.preferences.timezone,
-                    language: {
-                        appLanguage: "pt",
-                        translationLanguage: "pt",
-                    },
-                    content: {
-                        disableAutoplay: false,
-                        disableHaptics: false,
-                        disableTranslation: false,
-                    },
-                    pushNotifications: {
-                        disableLikeMoment: false,
-                        disableNewMemory: false,
-                        disableAddToMemory: false,
-                        disableFollowUser: false,
-                        disableViewUser: false,
-                    },
-                },
+                user: result.user,
+                metrics: result.metrics,
+                status: result.status,
+                terms: result.terms,
+                preferences: result.preferences,
+                token: result.token,
+                expiresIn: result.expiresIn,
             }
 
             return {
                 success: true,
                 session: sessionData,
+                securityInfo: result.securityInfo,
             }
         } catch (error) {
-            console.error("Erro no signup handler:", error)
+            console.error("Error in signup handler:", error)
             return {
                 success: false,
                 error: error instanceof Error ? error.message : String(error),
@@ -304,12 +105,12 @@ export class AuthHandlers {
             // TODO: Implementar logout
             return {
                 success: true,
-                message: "Logout realizado com sucesso",
+                message: "Logout successful",
             }
         } catch (error) {
             return {
                 success: false,
-                message: error instanceof Error ? error.message : "Erro interno do servidor",
+                message: error instanceof Error ? error.message : "Internal server error",
             }
         }
     }
@@ -322,17 +123,13 @@ export class AuthHandlers {
             // TODO: Implementar refresh token
             return {
                 success: false,
-                error: "Refresh token não implementado",
+                error: "Refresh token not implemented",
             }
         } catch (error) {
             return {
                 success: false,
-                error: error instanceof Error ? error.message : "Erro interno do servidor",
+                error: error instanceof Error ? error.message : "Internal server error",
             }
         }
-    }
-
-    private formatJwtToken(token: string): string {
-        return `Bearer ${token}`
     }
 }
