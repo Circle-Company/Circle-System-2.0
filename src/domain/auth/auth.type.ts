@@ -79,6 +79,11 @@ export interface AuthSecurityRules {
     }
 }
 
+export enum SignType {
+    SIGNIN = "signin",
+    SIGNUP = "signup",
+}
+
 export enum SignStatus {
     APPROVED = "approved",
     SUSPICIOUS = "suspicious",
