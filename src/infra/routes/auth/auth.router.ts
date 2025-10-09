@@ -104,13 +104,22 @@ export class AuthRouter {
                           }
 
                     const statusCode = result.success ? 200 : 400
-                    reply.status(statusCode).send(response)
+                    return reply.status(statusCode).send(response)
                 } catch (error: any) {
                     console.error("❌ Signin router error:", error)
 
+                    // Tratar erros de validação do Fastify
+                    if (error.validation) {
+                        const validationErrors = error.validation.map((v: any) => v.message).join(", ")
+                        return reply.status(400).send({
+                            success: false,
+                            error: `Validation error: ${validationErrors}`,
+                        })
+                    }
+
                     const errorMessage = error instanceof Error ? error.message : "Unknown error"
 
-                    reply.status(400).send({
+                    return reply.status(400).send({
                         success: false,
                         error: errorMessage,
                     })
@@ -201,43 +210,28 @@ Autentica um usuário no sistema e retorna um token JWT para acesso às rotas pr
                             type: "object",
                             properties: {
                                 success: { type: "boolean", example: true },
-                                token: {
-                                    type: "string",
-                                    description: "Token JWT de acesso",
-                                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-                                },
-                                user: {
+                                session: {
                                     type: "object",
                                     properties: {
-                                        id: { type: "string", example: "1234567890" },
-                                        username: { type: "string", example: "johndoe" },
+                                        user: { type: "object" },
+                                        metrics: { type: "object" },
+                                        status: { type: "object" },
+                                        terms: { type: "object" },
+                                        preferences: { type: "object" },
+                                        token: { type: "string" },
+                                        expiresIn: { type: "number" },
                                     },
                                 },
-                                timestamp: {
-                                    type: "string",
-                                    format: "date-time",
-                                    example: "2025-10-08T10:30:00.000Z",
-                                },
+                                securityInfo: { type: "object" },
                             },
                         },
                         400: {
-                            description: "Credenciais inválidas",
+                            description: "Erro na requisição",
                             type: "object",
-                            properties: {
-                                success: { type: "boolean", example: false },
-                                error: {
-                                    type: "string",
-                                    example: "Usuário ou senha incorretos",
-                                },
-                            },
-                        },
-                        401: {
-                            description: "Unauthorized",
-                            type: "object",
+                            additionalProperties: true,
                             properties: {
                                 success: { type: "boolean", example: false },
                                 error: { type: "string" },
-                                code: { type: "string" },
                             },
                         },
                     },
@@ -254,7 +248,6 @@ Autentica um usuário no sistema e retorna um token JWT para acesso às rotas pr
         this.api.post(
             "/signup",
             async (request, reply) => {
-                console.log("🚀 SIGNUP REQUEST RECEIVED")
                 try {
                     // Validar se o body é um objeto
                     if (!request.body || typeof request.body !== "object") {
@@ -314,36 +307,29 @@ Autentica um usuário no sistema e retorna um token JWT para acesso às rotas pr
                         longitude: body.longitude ? Number(body.longitude) : undefined,
                     }
 
-                    console.log("📞 Calling authController.signUp")
                     const result = await authController.signUp({
                         username: body.username,
                         password: body.password,
                         metadata,
                     } as any)
-                    console.log("📦 Result received, success:", result.success)
-                    console.log("📦 Result.error type:", typeof result.error)
-                    console.log("📦 Result.error value:", result.error)
 
-                    // Criar novo objeto com error como string
-                    const response = result.success
-                        ? result
-                        : {
-                              success: false,
-                              error:
-                                  typeof result.error === "string"
-                                      ? result.error
-                                      : "An error occurred",
-                          }
-
-                    console.log("📤 Sending response:", JSON.stringify(response).substring(0, 100))
                     const statusCode = result.success ? 200 : 400
-                    reply.status(statusCode).send(response)
+                    return reply.status(statusCode).send(result)
                 } catch (error: any) {
                     console.error("❌ Signup router error:", error)
 
+                    // Tratar erros de validação do Fastify
+                    if (error.validation) {
+                        const validationErrors = error.validation.map((v: any) => v.message).join(", ")
+                        return reply.status(400).send({
+                            success: false,
+                            error: `Validation error: ${validationErrors}`,
+                        })
+                    }
+
                     const errorMessage = error instanceof Error ? error.message : "Unknown error"
 
-                    reply.status(400).send({
+                    return reply.status(400).send({
                         success: false,
                         error: errorMessage,
                     })
@@ -429,52 +415,6 @@ Registra um novo usuário no sistema.
                                 type: "string",
                                 description: "Timezone do usuário",
                                 example: "America/Sao_Paulo",
-                            },
-                        },
-                    },
-                    response: {
-                        200: {
-                            description: "Conta criada com sucesso",
-                            type: "object",
-                            properties: {
-                                success: { type: "boolean", example: true },
-                                token: {
-                                    type: "string",
-                                    description: "Token JWT de acesso",
-                                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-                                },
-                                user: {
-                                    type: "object",
-                                    properties: {
-                                        id: { type: "string", example: "1234567890" },
-                                        username: { type: "string", example: "newuser123" },
-                                        createdAt: {
-                                            type: "string",
-                                            format: "date-time",
-                                            example: "2025-10-08T10:30:00.000Z",
-                                        },
-                                    },
-                                },
-                            },
-                        },
-                        400: {
-                            description: "Dados inválidos ou username já existe",
-                            type: "object",
-                            properties: {
-                                success: { type: "boolean", example: false },
-                                error: {
-                                    type: "string",
-                                    example: "Username já está em uso",
-                                },
-                            },
-                        },
-                        409: {
-                            description: "Conflict",
-                            type: "object",
-                            properties: {
-                                success: { type: "boolean", example: false },
-                                error: { type: "string" },
-                                code: { type: "string" },
                             },
                         },
                     },

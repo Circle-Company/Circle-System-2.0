@@ -13,18 +13,12 @@ import { z } from "zod"
 interface SignInRequest extends SignInputDto {}
 interface SignUpRequest extends SignInputDto {}
 
-type AuthResponseSuccess = {
-    success: true
-    session: SignInOutputDto
+interface AuthResponse {
+    success: boolean
+    session?: SignInOutputDto
     securityInfo?: SecurityInfo
+    error?: string
 }
-
-type AuthResponseError = {
-    success: false
-    error: string
-}
-
-type AuthResponse = AuthResponseSuccess | AuthResponseError
 
 export class AuthHandlers {
     constructor(
