@@ -31,19 +31,19 @@ import {
 } from "@/application/moment/use.cases"
 import { DatabaseAdapter, DatabaseAdapterFactory } from "@/infra/database/adapter"
 
-import { MomentMetricsService } from "@/application/moment/services/moment.metrics.service"
-import { MomentService } from "@/application/moment/services/moment.service"
-import { MomentMapper } from "@/domain/moment/moment.mapper"
+import { CommentRepositoryImpl } from "@/infra/repository.impl/comment.repository.impl"
 import { ICommentRepository } from "@/domain/moment/repositories/comment.repository"
 import { IMomentMetricsRepository } from "@/domain/moment/repositories/moment.metrics.repository"
 import { IMomentRepository } from "@/domain/moment/repositories/moment.repository"
 import { IUserRepository } from "@/domain/user/repositories/user.repository"
 import { MomentCommentController } from "@/infra/controllers/moment/moment.comment.controller"
 import { MomentController } from "@/infra/controllers/moment/moment.controller"
+import { MomentMapper } from "@/domain/moment/moment.mapper"
 import { MomentMetricsController } from "@/infra/controllers/moment/moment.metrics.controller"
-import { CommentRepositoryImpl } from "@/infra/repository.impl/comment.repository.impl"
 import { MomentMetricsRepositoryImpl } from "@/infra/repository.impl/moment.metrics.repository.impl"
+import { MomentMetricsService } from "@/application/moment/services/moment.metrics.service"
 import { MomentRepositoryImpl } from "@/infra/repository.impl/moment.repository.impl"
+import { MomentService } from "@/application/moment/services/moment.service"
 import { UserRepositoryImpl } from "@/infra/repository.impl/user.repository.impl"
 
 /**
@@ -124,7 +124,7 @@ export class MomentFactory {
 
         return {
             // CRUD Operations
-            createMoment: new CreateMomentUseCase(momentRepository, momentService, userRepository),
+            createMoment: new CreateMomentUseCase(momentService, userRepository),
             getMoment: new GetMomentUseCase(momentRepository, momentService),
             deleteMoment: new DeleteMomentUseCase(momentRepository, momentService),
             publishMoment: new PublishMomentUseCase(momentRepository, momentService),
@@ -166,11 +166,11 @@ export class MomentFactory {
             getMomentsAnalytics: new GetMomentsAnalyticsUseCase(momentRepository, momentService),
 
             // Admin Operations
-            adminBlockMoment: new BlockMomentUseCase(momentRepository, momentService),
-            adminUnblockMoment: new UnblockMomentUseCase(momentRepository, momentService),
-            adminChangeMomentStatus: new ChangeMomentStatusUseCase(momentRepository, momentService),
-            adminDeleteMoment: new AdminDeleteMomentUseCase(momentRepository, momentService),
-            adminListAllMoments: new ListAllMomentsUseCase(momentRepository, momentService),
+            adminBlockMoment: new BlockMomentUseCase(momentService),
+            adminUnblockMoment: new UnblockMomentUseCase(momentService),
+            adminChangeMomentStatus: new ChangeMomentStatusUseCase(momentService),
+            adminDeleteMoment: new AdminDeleteMomentUseCase(momentService),
+            adminListAllMoments: new ListAllMomentsUseCase(momentService),
         }
     }
 
@@ -190,11 +190,6 @@ export class MomentFactory {
             useCases.likeMoment,
             useCases.unlikeMoment,
             useCases.getLikedMoments,
-            useCases.commentMoment,
-            useCases.getMomentComments,
-            useCases.editMomentComment,
-            useCases.deleteMomentComment,
-            useCases.getCommentedMoments,
             useCases.reportMoment,
             useCases.getMomentReports,
             useCases.getUserMomentReports,
