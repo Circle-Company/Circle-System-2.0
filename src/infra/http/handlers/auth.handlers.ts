@@ -12,12 +12,19 @@ import { z } from "zod"
 
 interface SignInRequest extends SignInputDto {}
 interface SignUpRequest extends SignInputDto {}
-interface AuthResponse {
-    success: boolean
-    session?: SignInOutputDto
+
+type AuthResponseSuccess = {
+    success: true
+    session: SignInOutputDto
     securityInfo?: SecurityInfo
-    error?: string
 }
+
+type AuthResponseError = {
+    success: false
+    error: string
+}
+
+type AuthResponse = AuthResponseSuccess | AuthResponseError
 
 export class AuthHandlers {
     constructor(
@@ -45,6 +52,8 @@ export class AuthHandlers {
                 securityInfo: session.securityInfo,
             }
         } catch (error) {
+            console.error("❌ Signin error:", error)
+
             if (error instanceof z.ZodError) {
                 return {
                     success: false,
@@ -52,9 +61,18 @@ export class AuthHandlers {
                 }
             }
 
+            let errorMessage: string
+            if (error instanceof Error) {
+                errorMessage = error.message
+            } else if (typeof error === "string") {
+                errorMessage = error
+            } else {
+                errorMessage = "An unexpected error occurred"
+            }
+
             return {
                 success: false,
-                error: error instanceof Error ? error.message : String(error),
+                error: errorMessage,
             }
         }
     }
@@ -73,26 +91,34 @@ export class AuthHandlers {
                 }
             }
 
-            const sessionData: AuthResponse["session"] = {
-                user: result.user,
-                metrics: result.metrics,
-                status: result.status,
-                terms: result.terms,
-                preferences: result.preferences,
-                token: result.token,
-                expiresIn: result.expiresIn,
-            }
-
             return {
                 success: true,
-                session: sessionData,
+                session: {
+                    user: result.user,
+                    metrics: result.metrics,
+                    status: result.status,
+                    terms: result.terms,
+                    preferences: result.preferences,
+                    token: result.token,
+                    expiresIn: result.expiresIn,
+                },
                 securityInfo: result.securityInfo,
             }
         } catch (error) {
-            console.error("Error in signup handler:", error)
+            console.error("❌ Signup error:", error)
+
+            let errorMessage: string
+            if (error instanceof Error) {
+                errorMessage = error.message
+            } else if (typeof error === "string") {
+                errorMessage = error
+            } else {
+                errorMessage = "An unexpected error occurred"
+            }
+
             return {
                 success: false,
-                error: error instanceof Error ? error.message : String(error),
+                error: errorMessage,
             }
         }
     }

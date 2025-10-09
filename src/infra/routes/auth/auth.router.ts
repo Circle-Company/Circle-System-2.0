@@ -8,8 +8,8 @@
 import { ErrorCode, SystemError } from "@/shared/errors"
 
 import { AuthController } from "@/infra/controllers/auth.controller"
-import { AuthFactory } from "@/infra/factories/auth.factory"
 import { DatabaseAdapter } from "@/infra/database/adapter"
+import { AuthFactory } from "@/infra/factories/auth.factory"
 import { HttpAdapter } from "../../http/http.type"
 
 export class AuthRouter {
@@ -71,15 +71,19 @@ export class AuthRouter {
                     }
 
                     const metadata = {
-                        language: getHeader("language"),
-                        termsAccepted: getHeader("terms-accepted"),
-                        device: getHeader("device"),
-                        ipAddress: getHeader("forwarded-for"),
-                        userAgent: getHeader("user-agent"),
-                        machineId: getHeader("machine-id"),
-                        timezone: getHeader("timezone"),
-                        latitude: getHeader("latitude"),
-                        longitude: getHeader("longitude"),
+                        language: getHeader("language") || "en",
+                        termsAccepted:
+                            getHeader("terms-accepted") === "true" ||
+                            getHeader("terms-accepted") === "1",
+                        device: getHeader("device") || "WEB",
+                        ipAddress: getHeader("forwarded-for") || "127.0.0.1",
+                        userAgent: getHeader("user-agent") || "unknown",
+                        machineId: getHeader("machine-id") || getHeader("machineid") || "unknown",
+                        timezone: getHeader("timezone") || "UTC",
+                        latitude: getHeader("latitude") ? Number(getHeader("latitude")) : undefined,
+                        longitude: getHeader("longitude")
+                            ? Number(getHeader("longitude"))
+                            : undefined,
                     }
 
                     const result = await this.authController.signIn({
@@ -87,12 +91,28 @@ export class AuthRouter {
                         password: body.password,
                         metadata,
                     } as any)
-                    if (result.success) return reply.status(200).send(result)
-                    else return reply.status(400).send(result)
+
+                    // Criar novo objeto com error como string
+                    const response = result.success
+                        ? result
+                        : {
+                              success: false,
+                              error:
+                                  typeof result.error === "string"
+                                      ? result.error
+                                      : "An error occurred",
+                          }
+
+                    const statusCode = result.success ? 200 : 400
+                    reply.status(statusCode).send(response)
                 } catch (error: any) {
-                    return reply.status(400).send({
+                    console.error("❌ Signin router error:", error)
+
+                    const errorMessage = error instanceof Error ? error.message : "Unknown error"
+
+                    reply.status(400).send({
                         success: false,
-                        error: error instanceof Error ? error.message : String(error),
+                        error: errorMessage,
                     })
                 }
             },
@@ -234,6 +254,7 @@ Autentica um usuário no sistema e retorna um token JWT para acesso às rotas pr
         this.api.post(
             "/signup",
             async (request, reply) => {
+                console.log("🚀 SIGNUP REQUEST RECEIVED")
                 try {
                     // Validar se o body é um objeto
                     if (!request.body || typeof request.body !== "object") {
@@ -286,24 +307,45 @@ Autentica um usuário no sistema e retorna um token JWT para acesso às rotas pr
                         termsAccepted: termsAccepted,
                         ipAddress: getHeader("forwarded-for") || "127.0.0.1",
                         userAgent: getHeader("user-agent") || "unknown",
-                        machineId: getHeader("machine-id") || "unknown",
+                        machineId: getHeader("machine-id") || getHeader("machineid") || "unknown",
                         timezone: getHeader("timezone") || body.metadata?.timezone || "UTC",
+                        language: getHeader("language") || body.metadata?.language || "en",
                         latitude: body.latitude ? Number(body.latitude) : undefined,
                         longitude: body.longitude ? Number(body.longitude) : undefined,
                     }
 
+                    console.log("📞 Calling authController.signUp")
                     const result = await authController.signUp({
                         username: body.username,
                         password: body.password,
                         metadata,
                     } as any)
+                    console.log("📦 Result received, success:", result.success)
+                    console.log("📦 Result.error type:", typeof result.error)
+                    console.log("📦 Result.error value:", result.error)
 
-                    if (result.success) return reply.status(200).send(result)
-                    else return reply.status(400).send(result)
+                    // Criar novo objeto com error como string
+                    const response = result.success
+                        ? result
+                        : {
+                              success: false,
+                              error:
+                                  typeof result.error === "string"
+                                      ? result.error
+                                      : "An error occurred",
+                          }
+
+                    console.log("📤 Sending response:", JSON.stringify(response).substring(0, 100))
+                    const statusCode = result.success ? 200 : 400
+                    reply.status(statusCode).send(response)
                 } catch (error: any) {
-                    return reply.status(400).send({
+                    console.error("❌ Signup router error:", error)
+
+                    const errorMessage = error instanceof Error ? error.message : "Unknown error"
+
+                    reply.status(400).send({
                         success: false,
-                        error: error instanceof Error ? error.message : String(error),
+                        error: errorMessage,
                     })
                 }
             },

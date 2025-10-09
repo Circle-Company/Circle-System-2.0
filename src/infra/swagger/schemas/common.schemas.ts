@@ -505,3 +505,4 @@ export const CommonSchemas = {
     AuthHeaders: AuthHeadersSchema,
     DeviceHeaders: DeviceHeadersSchema,
 }
+

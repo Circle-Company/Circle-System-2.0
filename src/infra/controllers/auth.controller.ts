@@ -4,9 +4,11 @@
  * @author Circle System Team
  * @version 2.0.0
  */
+import { SignRequest } from "@/domain/auth"
+import { AuthHandlers } from "@/infra/http/handlers/auth.handlers"
 
-import { AuthHandlers, SignInRequest, SignUpRequest } from "@/infra/http/handlers/auth.handlers"
-
+interface SignInRequest extends SignRequest {}
+interface SignUpRequest extends SignRequest {}
 export class AuthController {
     constructor(private readonly authHandlers: AuthHandlers) {}
 

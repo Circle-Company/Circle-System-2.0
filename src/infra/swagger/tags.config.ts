@@ -331,3 +331,4 @@ export function getTagByName(name: string): SwaggerTag | undefined {
 export function isValidTag(name: string): boolean {
     return API_TAGS.some((tag) => tag.name === name)
 }
+
