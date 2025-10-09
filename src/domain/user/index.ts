@@ -5,6 +5,12 @@ export * from "./user.errors"
 export * from "./user.mapper"
 export * from "./user.rules"
 
+export type { IUserEmbeddingRepository } from "./repositories/user.embedding.repository"
+export type {
+    UserInteraction as DomainUserInteraction,
+    IInteractionRepository,
+    InteractionType as UserInteractionType,
+} from "./repositories/user.interaction.repository"
 export type {
     IUserMetricsRepository,
     UserMetricsAnalysis,
@@ -15,12 +21,6 @@ export type {
     UserMetricsStats,
 } from "./repositories/user.metrics.repository"
 export { IUserRepository, UserRepository } from "./repositories/user.repository"
-export type { IUserEmbeddingRepository } from "./user.embedding.repository"
-export type {
-    UserInteraction as DomainUserInteraction,
-    IInteractionRepository,
-    InteractionType as UserInteractionType,
-} from "./user.interaction.repository"
 
 export type {
     UserEmbedding,
@@ -29,6 +29,7 @@ export type {
     UserPreferences,
     UserProfilePicture,
     UserProps,
+    UserPublicProfile,
     UserStatus,
     UserTerm,
 } from "./types/user.type"
