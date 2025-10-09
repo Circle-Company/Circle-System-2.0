@@ -5,10 +5,11 @@
  * @version 2.0.0
  */
 
-import { AuthController } from "@/infra/controllers/auth.controller"
-import { DatabaseAdapter } from "@/infra/database/adapter"
-import { AuthFactory } from "@/infra/factories/auth.factory"
 import { ErrorCode, SystemError } from "@/shared/errors"
+
+import { AuthController } from "@/infra/controllers/auth.controller"
+import { AuthFactory } from "@/infra/factories/auth.factory"
+import { DatabaseAdapter } from "@/infra/database/adapter"
 import { HttpAdapter } from "../../http/http.type"
 
 export class AuthRouter {
@@ -268,26 +269,32 @@ Autentica um usuário no sistema e retorna um token JWT para acesso às rotas pr
                         return Array.isArray(value) ? value[0] : value
                     }
 
-                    const metadata = {
-                        ipAddress: getHeader("forwarded-for") || "127.0.0.1",
-                        userAgent: getHeader("user-agent") || "unknown",
-                        machineId: getHeader("machine-id") || "unknown",
-                        timezone: getHeader("timezone") || "UTC",
-                        latitude: body.latitude ? Number(body.latitude) : undefined,
-                        longitude: body.longitude ? Number(body.longitude) : undefined,
-                    }
-
-                    // Extrair termsAccepted APENAS do header (não aceita do body)
+                    // Extrair termsAccepted do body ou header
                     const termsAcceptedHeader = getHeader("terms-accepted")
                     const termsAccepted =
+                        body.metadata?.termsAccepted === true ||
                         termsAcceptedHeader === "true" ||
                         termsAcceptedHeader === "1" ||
                         termsAcceptedHeader === "True"
 
+                    // Extrair device do body ou header
+                    const deviceHeader = getHeader("device")
+                    const device = body.metadata?.device || deviceHeader || "WEB"
+
+                    const metadata = {
+                        device: device,
+                        termsAccepted: termsAccepted,
+                        ipAddress: getHeader("forwarded-for") || "127.0.0.1",
+                        userAgent: getHeader("user-agent") || "unknown",
+                        machineId: getHeader("machine-id") || "unknown",
+                        timezone: getHeader("timezone") || body.metadata?.timezone || "UTC",
+                        latitude: body.latitude ? Number(body.latitude) : undefined,
+                        longitude: body.longitude ? Number(body.longitude) : undefined,
+                    }
+
                     const result = await authController.signUp({
                         username: body.username,
                         password: body.password,
-                        termsAccepted,
                         metadata,
                     } as any)
 
