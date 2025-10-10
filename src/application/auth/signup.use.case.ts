@@ -193,20 +193,21 @@ export class SignUpUseCase {
             securityResult = await this.processSignRequest.process()
 
             // Verificar se a solicitação foi rejeitada por questões de segurança
+
             if (securityResult.status === SignStatus.REJECTED) {
                 throw new SecurityRiskError(
                     securityResult.reason || "Request rejected by security system",
                     securityResult.securityRisk,
                 )
             }
-
+            /** 
             // Verificar se há atividade suspeita que requer atenção
             if (securityResult.status === SignStatus.SUSPICIOUS) {
                 throw new SecurityRiskError(
                     securityResult.reason || "Request rejected by security system",
                     securityResult.securityRisk,
                 )
-            }
+            }*/
         }
         return securityResult as ProcessSignRequestResponse
     }
