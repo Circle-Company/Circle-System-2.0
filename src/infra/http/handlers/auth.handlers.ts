@@ -10,8 +10,8 @@ import { SignInUseCase } from "@/application/auth/signin.use.case"
 import { SignUpUseCase } from "@/application/auth/signup.use.case"
 import { z } from "zod"
 
-interface SignInRequest extends SignInputDto {}
-interface SignUpRequest extends SignInputDto {}
+export interface SignInRequest extends SignInputDto {}
+export interface SignUpRequest extends SignInputDto {}
 
 interface AuthResponse {
     success: boolean
@@ -46,8 +46,6 @@ export class AuthHandlers {
                 securityInfo: session.securityInfo,
             }
         } catch (error) {
-            console.error("❌ Signin error:", error)
-
             if (error instanceof z.ZodError) {
                 return {
                     success: false,
@@ -99,8 +97,6 @@ export class AuthHandlers {
                 securityInfo: result.securityInfo,
             }
         } catch (error) {
-            console.error("❌ Signup error:", error)
-
             let errorMessage: string
             if (error instanceof Error) {
                 errorMessage = error.message
