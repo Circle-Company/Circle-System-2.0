@@ -4,7 +4,7 @@
  * Integra processamento de vídeo, moderação e upload
  */
 
-import { circleTextLibrary, generateId } from "@/shared"
+import { generateId, textLib } from "@/shared"
 import { ContentProcessorConfig, StorageAdapter, VideoProcessingRequest } from "./type"
 
 import { ModerationEngine } from "@/core/content.moderation"
@@ -186,9 +186,7 @@ export class ContentProcessor {
             const thumbnailUrl = await this.storageAdapter.getThumbnailUrl(thumbnailKey)
 
             const processingTime = Date.now() - startTime
-            const enrichedDescription = circleTextLibrary.richText.formatToEnriched(
-                request.description,
-            )
+            const enrichedDescription = textLib.rich.formatToEnriched(request.description)
 
             return {
                 success: true,
