@@ -1,6 +1,14 @@
+import { MomentMetricsService } from "@/application/moment/services/moment.metrics.service"
+import { MomentService } from "@/application/moment/services/moment.service"
+import { GetUserMomentsUseCase } from "@/application/moment/use.cases/get.user.moments.use.case"
+import { GetUserProfileUseCase } from "@/application/user/use.cases/get.user.profile.use.case"
+import { IMomentRepository } from "@/domain/moment"
+import { IMomentMetricsRepository } from "@/domain/moment/repositories/moment.metrics.repository"
 import { UserRepository } from "@/domain/user"
 import { UserController } from "@/infra/controllers/user.controller"
 import { DatabaseAdapter } from "@/infra/database/adapter"
+import { MomentMetricsRepositoryImpl } from "@/infra/repository.impl/moment.metrics.repository.impl"
+import { MomentRepositoryImpl } from "@/infra/repository.impl/moment.repository.impl"
 
 /**
  * Factory para criar componentes relacionados ao usuário
@@ -14,10 +22,57 @@ export class UserFactory {
     }
 
     /**
-     * Cria um UserController com UserRepository
+     * Cria MomentRepository com DatabaseAdapter
      */
-    static createUserController(userRepository: UserRepository): UserController {
-        return new UserController(userRepository)
+    static createMomentRepository(database: DatabaseAdapter): IMomentRepository {
+        return new MomentRepositoryImpl(database)
+    }
+
+    /**
+     * Cria MomentMetricsRepository com DatabaseAdapter
+     */
+    static createMomentMetricsRepository(database: DatabaseAdapter): IMomentMetricsRepository {
+        return new MomentMetricsRepositoryImpl(database)
+    }
+
+    /**
+     * Cria MomentMetricsService com MomentMetricsRepository
+     */
+    static createMomentMetricsService(database: DatabaseAdapter): MomentMetricsService {
+        const momentMetricsRepository = this.createMomentMetricsRepository(database)
+        return new MomentMetricsService(momentMetricsRepository)
+    }
+
+    /**
+     * Cria MomentService com MomentRepository e MomentMetricsService
+     */
+    static createMomentService(database: DatabaseAdapter): MomentService {
+        const momentRepository = this.createMomentRepository(database)
+        const metricsService = this.createMomentMetricsService(database)
+        return new MomentService(momentRepository, metricsService)
+    }
+
+    /**
+     * Cria GetUserProfileUseCase com UserRepository
+     */
+    static createGetUserProfileUseCase(userRepository: UserRepository): GetUserProfileUseCase {
+        return new GetUserProfileUseCase(userRepository)
+    }
+
+    /**
+     * Cria GetUserMomentsUseCase com DatabaseAdapter
+     */
+    static createGetUserMomentsUseCase(database: DatabaseAdapter): GetUserMomentsUseCase {
+        const momentRepository = this.createMomentRepository(database)
+        const momentService = this.createMomentService(database)
+        return new GetUserMomentsUseCase(momentRepository, momentService)
+    }
+
+    /**
+     * Cria um UserController com GetUserProfileUseCase e GetUserMomentsUseCase
+     */
+    static createUserController(getUserProfileUseCase: GetUserProfileUseCase): UserController {
+        return new UserController(getUserProfileUseCase)
     }
 
     /**
@@ -25,7 +80,8 @@ export class UserFactory {
      */
     static createUserControllerWithDeps(database: DatabaseAdapter): UserController {
         const userRepository = this.createUserRepository(database)
-        return this.createUserController(userRepository)
+        const getUserProfileUseCase = this.createGetUserProfileUseCase(userRepository)
+        return this.createUserController(getUserProfileUseCase)
     }
 
     /**
@@ -57,7 +113,8 @@ export class UserFactory {
         userController: UserController
     } {
         const userRepository = this.createUserRepository(database)
-        const userController = this.createUserController(userRepository)
+        const getUserProfileUseCase = this.createGetUserProfileUseCase(userRepository)
+        const userController = this.createUserController(getUserProfileUseCase)
 
         return {
             userRepository,
@@ -99,7 +156,8 @@ export class UserFactory {
         userController: UserController
     } {
         const userRepository = this.createUserPermissionRepository(database)
-        const userController = this.createUserController(userRepository)
+        const getUserProfileUseCase = this.createGetUserProfileUseCase(userRepository)
+        const userController = this.createUserController(getUserProfileUseCase)
 
         return {
             userRepository,
@@ -115,7 +173,8 @@ export class UserFactory {
         userController: UserController
     } {
         const userRepository = this.createUserMetricsRepository(database)
-        const userController = this.createUserController(userRepository)
+        const getUserProfileUseCase = this.createGetUserProfileUseCase(userRepository)
+        const userController = this.createUserController(getUserProfileUseCase)
 
         return {
             userRepository,
@@ -131,7 +190,8 @@ export class UserFactory {
         userController: UserController
     } {
         const userRepository = this.createUserAdminRepository(database)
-        const userController = this.createUserController(userRepository)
+        const getUserProfileUseCase = this.createGetUserProfileUseCase(userRepository)
+        const userController = this.createUserController(getUserProfileUseCase)
 
         return {
             userRepository,
@@ -147,7 +207,8 @@ export class UserFactory {
         userController: UserController
     } {
         const userRepository = this.createUserRepository(database)
-        const userController = this.createUserController(userRepository)
+        const getUserProfileUseCase = this.createGetUserProfileUseCase(userRepository)
+        const userController = this.createUserController(getUserProfileUseCase)
 
         return {
             userRepository,
@@ -168,8 +229,8 @@ export const createUser = {
     /**
      * Cria UserController para produção
      */
-    controller: (userRepository: UserRepository) =>
-        UserFactory.createUserController(userRepository),
+    controller: (getUserProfileUseCase: GetUserProfileUseCase) =>
+        UserFactory.createUserController(getUserProfileUseCase),
 
     /**
      * Cria UserController completo com dependências

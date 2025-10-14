@@ -1,11 +1,11 @@
+import { RefreshTokenUseCase, SignInUseCase, SignUpUseCase } from "@/application/auth"
 import { DatabaseAdapter, DatabaseAdapterFactory } from "@/infra/database/adapter"
-import { SignInUseCase, SignUpUseCase } from "@/application/auth"
 
-import { AuthController } from "@/infra/controllers/auth.controller"
-import { AuthHandlers } from "@/infra/http/handlers/auth.handlers"
-import { AuthLogRepository } from "@/domain/auth"
 import { ProcessSignRequest } from "@/application/auth/process.sign.request"
+import { AuthLogRepository } from "@/domain/auth"
 import { UserRepository } from "@/domain/user"
+import { AuthController } from "@/infra/controllers/auth.controller"
+import { AuthHandlers } from "@/infra/handlers/auth.handlers"
 
 /**
  * Factory para criar instâncias do controller de autenticação
@@ -25,6 +25,7 @@ export class AuthFactory {
             const userRepository = new UserRepository(database)
             const authLogRepository = new AuthLogRepository(database)
             const processSignRequest = new ProcessSignRequest()
+
             const signInUseCase = new SignInUseCase(
                 userRepository,
                 authLogRepository,
@@ -35,8 +36,9 @@ export class AuthFactory {
                 authLogRepository,
                 processSignRequest,
             )
+            const refreshTokenUseCase = new RefreshTokenUseCase(userRepository)
 
-            const authHandlers = new AuthHandlers(signInUseCase, signUpUseCase)
+            const authHandlers = new AuthHandlers(signInUseCase, signUpUseCase, refreshTokenUseCase)
             this.authController = new AuthController(authHandlers)
             console.log("AuthController criado com sucesso")
         } else {
