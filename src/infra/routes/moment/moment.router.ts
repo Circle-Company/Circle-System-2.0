@@ -23,7 +23,7 @@ import {
 } from "./moment.router.schemas"
 
 import { Permission } from "@/domain/authorization"
-import { MomentController } from "@/infra/controllers"
+import { MomentProcessingStatusEnum } from "@/domain/moment/types"
 import { DatabaseAdapter } from "@/infra/database/adapter"
 import { MomentFactory } from "@/infra/factories/moment.factory"
 import { AuthMiddleware } from "@/infra/middlewares"
@@ -32,7 +32,7 @@ import { AuthMiddleware } from "@/infra/middlewares"
  * Handler functions para encapsular lógica de rotas
  */
 class MomentRouteHandlers {
-    constructor(private momentController: MomentController) {}
+    constructor(private momentController: any) {}
 
     /**
      * Wrapper para criação de momento
@@ -483,19 +483,10 @@ export class MomentRouter {
 
         // Obter momento
         this.api.get("/moments/:id", this.handlers.getMoment.bind(this.handlers), {
-            preHandler: [this.authMiddleware.execute.bind(this.authMiddleware)],
-            schema: {
-                tags: ["Moments"],
-                summary: "Obter momento",
-                description: "Busca um momento específico por ID com verificação de acesso",
-                params: MomentParamSchemas.momentId,
-                response: {
-                    200: MomentResponseSchemas.moment,
-                    404: MomentErrorSchemas.default,
-                    401: MomentErrorSchemas.default,
-                    403: MomentErrorSchemas.default,
-                },
-            },
+            preHandler: [
+                this.authMiddleware.execute.bind(this.authMiddleware),
+                requirePermission(Permission.READ_MOMENT),
+            ],
         })
 
         // Deletar momento
@@ -617,6 +608,88 @@ export class MomentRouter {
                 },
             },
         })
+
+        // Obter status de processamento
+        this.api.get(
+            "/moments/:id/processing-status",
+            async (request, response) => {
+                try {
+                    const { id } = request.params as { id: string }
+                    const user = (request as any).user
+
+                    if (!user) {
+                        return response.status(401).send({
+                            success: false,
+                            message: "Usuário não autenticado",
+                        })
+                    }
+
+                    const momentService = MomentFactory.createMomentService(this.database)
+                    const moment = await momentService.getMomentById(id)
+
+                    if (!moment) {
+                        return response.status(404).send({
+                            success: false,
+                            message: "Moment not found",
+                        })
+                    }
+
+                    // Verificar se o usuário tem permissão para ver o status
+                    if (moment.ownerId !== user.id) {
+                        return response.status(403).send({
+                            success: false,
+                            message: "You don't have permission to view this moment status",
+                        })
+                    }
+
+                    const isMediaProcessed = [
+                        MomentProcessingStatusEnum.MEDIA_PROCESSED,
+                        MomentProcessingStatusEnum.EMBEDDINGS_QUEUED,
+                        MomentProcessingStatusEnum.EMBEDDINGS_PROCESSED,
+                        MomentProcessingStatusEnum.COMPLETED,
+                    ].includes(moment.processing.status as MomentProcessingStatusEnum)
+
+                    const isEmbeddingsProcessed = [
+                        MomentProcessingStatusEnum.EMBEDDINGS_PROCESSED,
+                        MomentProcessingStatusEnum.COMPLETED,
+                    ].includes(moment.processing.status as MomentProcessingStatusEnum)
+
+                    return response.status(200).send({
+                        success: true,
+                        data: {
+                            momentId: moment.id,
+                            status: moment.processing.status,
+                            progress: moment.processing.progress,
+                            mediaProcessed: isMediaProcessed,
+                            embeddingsProcessed: isEmbeddingsProcessed,
+                            steps: moment.processing.steps,
+                            error: moment.processing.error,
+                            startedAt: moment.processing.startedAt,
+                            completedAt: moment.processing.completedAt,
+                        },
+                    })
+                } catch (error) {
+                    console.error("[MomentRouter] Error getting processing status:", error)
+                    return response.status(500).send({
+                        success: false,
+                        message:
+                            error instanceof Error
+                                ? error.message
+                                : "Failed to get processing status",
+                    })
+                }
+            },
+            {
+                preHandler: [this.authMiddleware.execute.bind(this.authMiddleware)],
+                schema: {
+                    tags: ["Moments"],
+                    summary: "Obter status de processamento",
+                    description:
+                        "Retorna o status de processamento de mídia e embeddings do momento",
+                    params: MomentParamSchemas.momentId,
+                },
+            },
+        )
     }
 }
 
