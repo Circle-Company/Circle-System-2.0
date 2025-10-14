@@ -6,6 +6,7 @@ import {
     Moment,
 } from "../../domain/moment"
 // Importar as interfaces corretas das métricas
+import { generateId } from "@/shared"
 import { Op, WhereOptions } from "sequelize"
 
 export class MomentRepositoryImpl implements IMomentRepository {
@@ -14,7 +15,7 @@ export class MomentRepositoryImpl implements IMomentRepository {
     // ===== OPERAÇÕES BÁSICAS CRUD =====
 
     async create(moment: Moment): Promise<Moment> {
-        const transaction = await this.database.getConnection().models.sequelize.transaction()
+        const transaction = await this.database.getConnection().transaction()
 
         try {
             // Criar momento principal
@@ -35,9 +36,10 @@ export class MomentRepositoryImpl implements IMomentRepository {
 
             // Criar conteúdo
             if (momentData.content) {
+                const contentId = generateId()
                 await this.database.getConnection().models.MomentContent.create(
                     {
-                        id: `content_${momentData.id}`,
+                        id: contentId,
                         momentId: momentData.id,
                         duration: momentData.content.duration,
                         size: momentData.content.size,
@@ -52,8 +54,8 @@ export class MomentRepositoryImpl implements IMomentRepository {
                 if (momentData.content.resolution) {
                     await this.database.getConnection().models.MomentResolution.create(
                         {
-                            id: `resolution_${momentData.id}`,
-                            contentId: `content_${momentData.id}`,
+                            id: generateId(),
+                            contentId: contentId,
                             width: momentData.content.resolution.width,
                             height: momentData.content.resolution.height,
                             quality: momentData.content.resolution.quality,
@@ -67,7 +69,7 @@ export class MomentRepositoryImpl implements IMomentRepository {
             if (momentData.status) {
                 await this.database.getConnection().models.MomentStatus.create(
                     {
-                        id: `status_${momentData.id}`,
+                        id: generateId(),
                         momentId: momentData.id,
                         current: momentData.status.current,
                         previousStatus: momentData.status.previous,
@@ -83,7 +85,7 @@ export class MomentRepositoryImpl implements IMomentRepository {
             if (momentData.visibility) {
                 await this.database.getConnection().models.MomentVisibility.create(
                     {
-                        id: `visibility_${momentData.id}`,
+                        id: generateId(),
                         momentId: momentData.id,
                         level: momentData.visibility.level,
                         allowedUsers: momentData.visibility.allowedUsers,
@@ -99,7 +101,7 @@ export class MomentRepositoryImpl implements IMomentRepository {
             if (momentData.metrics) {
                 await this.database.getConnection().models.MomentMetrics.create(
                     {
-                        id: `metrics_${momentData.id}`,
+                        id: generateId(),
                         momentId: momentData.id,
                         totalViews: momentData.metrics.views.totalViews,
                         uniqueViews: momentData.metrics.views.uniqueViews,
@@ -144,9 +146,10 @@ export class MomentRepositoryImpl implements IMomentRepository {
 
             // Criar contexto
             if (momentData.context) {
+                const contextId = generateId()
                 const context = await this.database.getConnection().models.MomentContext.create(
                     {
-                        id: `context_${momentData.id}`,
+                        id: contextId,
                         momentId: momentData.id,
                     },
                     { transaction },
@@ -156,7 +159,7 @@ export class MomentRepositoryImpl implements IMomentRepository {
                 if (momentData.context.device) {
                     await this.database.getConnection().models.MomentDevice.create(
                         {
-                            id: `device_${momentData.id}`,
+                            id: generateId(),
                             contextId: context.id,
                             type: momentData.context.device.type,
                             os: momentData.context.device.os,
@@ -172,11 +175,12 @@ export class MomentRepositoryImpl implements IMomentRepository {
 
             // Criar processamento
             if (momentData.processing) {
+                const processingId = generateId()
                 const processing = await this.database
                     .getConnection()
                     .models.MomentProcessing.create(
                         {
-                            id: `processing_${momentData.id}`,
+                            id: processingId,
                             momentId: momentData.id,
                             status: momentData.processing.status,
                             progress: momentData.processing.progress,
@@ -192,7 +196,7 @@ export class MomentRepositoryImpl implements IMomentRepository {
                 for (const step of momentData.processing.steps) {
                     await this.database.getConnection().models.MomentProcessingStep.create(
                         {
-                            id: `step_${momentData.id}_${step.name}`,
+                            id: generateId(),
                             processingId: processing.id,
                             name: step.name,
                             status: step.status,
@@ -210,7 +214,7 @@ export class MomentRepositoryImpl implements IMomentRepository {
             if (momentData.embedding) {
                 await this.database.getConnection().models.MomentEmbedding.create(
                     {
-                        id: `embedding_${momentData.id}`,
+                        id: generateId(),
                         momentId: momentData.id,
                         vector: momentData.embedding.vector,
                         dimension: momentData.embedding.dimension,
@@ -224,7 +228,7 @@ export class MomentRepositoryImpl implements IMomentRepository {
             if (momentData.media) {
                 await this.database.getConnection().models.MomentMedia.create(
                     {
-                        id: `media_${momentData.id}`,
+                        id: generateId(),
                         momentId: momentData.id,
                         lowUrl: momentData.media.urls.low,
                         mediumUrl: momentData.media.urls.medium,
@@ -242,7 +246,7 @@ export class MomentRepositoryImpl implements IMomentRepository {
             if (momentData.thumbnail) {
                 await this.database.getConnection().models.MomentThumbnail.create(
                     {
-                        id: `thumbnail_${momentData.id}`,
+                        id: generateId(),
                         momentId: momentData.id,
                         url: momentData.thumbnail.url,
                         width: momentData.thumbnail.width,
@@ -260,7 +264,7 @@ export class MomentRepositoryImpl implements IMomentRepository {
             if (momentData.context.location) {
                 await this.database.getConnection().models.MomentLocation.create(
                     {
-                        id: `location_${momentData.id}`,
+                        id: generateId(),
                         momentId: momentData.id,
                         latitude: momentData.context.location.latitude,
                         longitude: momentData.context.location.longitude,

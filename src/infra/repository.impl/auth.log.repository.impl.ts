@@ -14,7 +14,7 @@ import SignLog, {
 } from "@/infra/models/auth/sign.logs.model"
 import { Op, literal } from "sequelize"
 
-import { Device } from "@/domain/auth/auth.type"
+import { Device } from "@/domain/authorization"
 import { DatabaseAdapter } from "@/infra/database/adapter"
 import { logger } from "@/shared"
 
