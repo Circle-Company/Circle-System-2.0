@@ -1,8 +1,3 @@
-export enum Device {
-    WEB = "web",
-    MOBILE = "mobile",
-}
-
 export enum AuthLogType {
     SIGNIN = "signin",
     SIGNUP = "signup",

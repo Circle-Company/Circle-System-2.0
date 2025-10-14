@@ -9,6 +9,7 @@ export enum Permission {
     UPDATE_MOMENT_STATUS = "update:moment_status",
     UPDATE_MOMENT_PROCESSING = "update:moment_processing",
 
+    READ_MOMENT = "read:moment",
     VIEW_OWN_MOMENT = "view:own_moment",
     CREATE_MOMENT = "create:own_moment",
     UPDATE_OWN_MOMENT = "update:own_moment",
@@ -31,17 +32,17 @@ export enum Permission {
  * Tipos de dispositivo
  */
 export enum Device {
-    MOBILE = "mobile",
-    WEB = "web",
+    MOBILE = "MOBILE",
+    WEB = "WEB",
 }
 
 /**
  * Levels do sistema - usando os mesmos valores do Level
  */
 export enum Level {
-    SUDO = "sudo",
-    ADMIN = "admin",
-    USER = "user",
+    SUDO = "SUDO",
+    ADMIN = "ADMIN",
+    USER = "USER",
 }
 
 /**

@@ -15,6 +15,12 @@ export const AUTHORIZATION_RULES: AuthorizationRule[] = [
         description: "Criar momento",
     },
     {
+        permission: Permission.READ_MOMENT,
+        allowedLevels: [Level.SUDO, Level.ADMIN, Level.USER],
+        allowedDevices: [Device.WEB, Device.MOBILE],
+        description: "Visualizar momento",
+    },
+    {
         permission: Permission.VIEW_OWN_MOMENT,
         allowedLevels: [Level.SUDO, Level.ADMIN, Level.USER],
         allowedDevices: [Device.WEB, Device.MOBILE],
