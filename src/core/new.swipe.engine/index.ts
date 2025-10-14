@@ -16,6 +16,17 @@ export * from "./core/services/candidate.selector"
 export * from "./core/services/cluster.matcher"
 export * from "./core/services/ranking.service"
 
+// Novos serviços de embedding
+export * from "./core/services/content.embedding.generator"
+export * from "./core/services/engagement.calculator"
+export * from "./core/services/hybrid.ranker"
+
+// Adaptadores de embedding
+export * from "./core/embeddings"
+
+// Utilitários
+export * from "./utils"
+
 // Exportar repositórios (que agora são do domínio)
 export type {
     IClusterRepository,
