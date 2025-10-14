@@ -6,32 +6,10 @@ import { Dialect } from "sequelize"
 // Carregar variáveis de ambiente
 config()
 
-// Configurações padrão simplificadas
-const defaultConfig = {
-    DB_HOST: "localhost",
-    DB_USERNAME: "root",
-    DB_PASSWORD: "",
-    DB_NAME: "test_access_controller_db",
-    DB_SSL: "false",
-    DB_TIMEOUT: "60000",
-    TIMEZONE: "UTC",
-    ENABLE_LOGGER: "true",
-    DIALECT: "mysql",
-    NODE_ENV: "development",
-    PORT: "3000",
-    ENABLE_LOGGING: "true",
-}
-
-// Aplicar configurações padrão se não estiverem definidas
-Object.keys(defaultConfig).forEach((key) => {
-    if (!process.env[key]) {
-        process.env[key] = defaultConfig[key as keyof typeof defaultConfig]
-    }
-})
-
 // Variáveis obrigatórias apenas para produção
 const requiredEnvVars = [
     "DB_HOST",
+    "DB_PORT",
     "DB_USERNAME",
     "DB_PASSWORD",
     "DB_NAME",
@@ -78,21 +56,19 @@ const baseConfig = {
         freezeTableName: true,
     },
     dialectOptions: {
-        charset: "utf8mb4",
         connectTimeout: 60000,
-        // Removido 'timeout' - não é uma opção válida para MySQL2
-        // Usar apenas as opções suportadas pelo driver
+        // Opções específicas do PostgreSQL
     },
 }
 
 export const CONFIGS = {
     development: {
-        ...baseConfig,
-        dialect: (process.env.DIALECT || "mysql") as Dialect,
+        dialect: (process.env.DIALECT || "postgres") as Dialect,
         host: process.env.DB_HOST || "localhost",
-        username: process.env.DB_USERNAME || "root",
-        password: process.env.DB_PASSWORD || "",
-        database: process.env.DB_NAME || "test_access_controller_db",
+        username: process.env.DB_USERNAME || "admin",
+        password: process.env.DB_PASSWORD || "admin",
+        database: process.env.DB_NAME || "circle_db",
+        port: parseInt(process.env.DB_PORT || "5432"),
         logging:
             process.env.ENABLE_LOGGING === "true"
                 ? (sql: string, timing?: number) => {
@@ -110,12 +86,12 @@ export const CONFIGS = {
     },
 
     production: {
-        ...baseConfig,
-        dialect: (process.env.DIALECT || "mysql") as Dialect,
+        dialect: (process.env.DIALECT || "postgres") as Dialect,
         host: process.env.DB_HOST || "localhost",
-        username: process.env.DB_USERNAME || "root",
-        password: process.env.DB_PASSWORD || "",
-        database: process.env.DB_NAME || "test_access_controller_db",
+        username: process.env.DB_USERNAME || "admin",
+        password: process.env.DB_PASSWORD || "admin",
+        database: process.env.DB_NAME || "circle_db",
+        port: parseInt(process.env.DB_PORT || "5432"),
         logging: false,
         pool: {
             max: 20, // Máximo de conexões para produção
@@ -139,11 +115,12 @@ export const CONFIGS = {
 
     test: {
         ...baseConfig,
-        dialect: (process.env.DIALECT || "mysql") as Dialect,
+        dialect: (process.env.DIALECT || "postgres") as Dialect,
         host: process.env.DB_HOST || "localhost",
-        username: process.env.DB_USERNAME || "root",
-        password: process.env.DB_PASSWORD || "",
-        database: process.env.DB_NAME || "test_access_controller_db",
+        username: process.env.DB_USERNAME || "admin",
+        password: process.env.DB_PASSWORD || "admin",
+        database: process.env.DB_NAME || "circle_db_test",
+        port: parseInt(process.env.DB_PORT || "5432"),
         logging: false,
         pool: {
             max: 1,
