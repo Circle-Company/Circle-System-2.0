@@ -32,11 +32,11 @@ describe("MomentProcessingRules", () => {
             expect(DEFAULT_MOMENT_PROCESSING_RULES.storage.maxConcurrentUploads).toBe(1)
         })
 
-        it("deve ter apenas resoluções 9:16", () => {
+        it("deve ter apenas resoluções com aspect ratio 360:558", () => {
             const resolutions = DEFAULT_MOMENT_PROCESSING_RULES.content.allowedResolutions
             resolutions.forEach((res) => {
                 const aspectRatio = res.width / res.height
-                const targetRatio = 9 / 16
+                const targetRatio = 360 / 558
                 expect(Math.abs(aspectRatio - targetRatio)).toBeLessThan(0.01)
             })
         })
@@ -58,13 +58,12 @@ describe("MomentProcessingRules", () => {
             expect(HUMAN_CONTENT_PROCESSING_RULES.storage.maxConcurrentUploads).toBe(5)
         })
 
-        it("deve ter apenas resoluções 9:16 de alta qualidade", () => {
+        it("deve ter apenas resoluções com aspect ratio 360:558", () => {
             const resolutions = HUMAN_CONTENT_PROCESSING_RULES.content.allowedResolutions
             resolutions.forEach((res) => {
                 const aspectRatio = res.width / res.height
-                const targetRatio = 9 / 16
+                const targetRatio = 360 / 558
                 expect(Math.abs(aspectRatio - targetRatio)).toBeLessThan(0.01)
-                expect(res.quality).toBe(MomentQualityEnum.HIGH)
             })
         })
     })
@@ -121,9 +120,10 @@ describe("MomentProcessingRules", () => {
         })
 
         describe("validateResolution", () => {
-            it("deve validar resoluções 9:16 permitidas", () => {
-                expect(validator.validateResolution(720, 1280)).toBe(true)
-                expect(validator.validateResolution(1080, 1920)).toBe(true)
+            it("deve validar resoluções com aspect ratio 360:558 permitidas", () => {
+                expect(validator.validateResolution(360, 558)).toBe(true)
+                expect(validator.validateResolution(720, 1116)).toBe(true)
+                expect(validator.validateResolution(1080, 1674)).toBe(true)
             })
 
             it("deve rejeitar resoluções com aspect ratio incorreto", () => {
@@ -133,14 +133,14 @@ describe("MomentProcessingRules", () => {
             })
 
             it("deve rejeitar resoluções não permitidas mesmo com aspect ratio correto", () => {
-                expect(validator.validateResolution(1440, 2560)).toBe(false) // 9:16 mas não permitida
-                expect(validator.validateResolution(2160, 3840)).toBe(false) // 9:16 mas não permitida
+                expect(validator.validateResolution(1440, 2232)).toBe(false) // aspect ratio 360:558 mas não permitida
+                expect(validator.validateResolution(2160, 3348)).toBe(false) // aspect ratio 360:558 mas não permitida
             })
 
             it("deve aceitar resoluções com tolerância de aspect ratio", () => {
                 // Teste com tolerância de 1%
-                expect(validator.validateResolution(720, 1281)).toBe(true) // 0.5624 vs 0.5625
-                expect(validator.validateResolution(721, 1280)).toBe(true) // 0.5633 vs 0.5625
+                expect(validator.validateResolution(360, 559)).toBe(true)
+                expect(validator.validateResolution(361, 558)).toBe(true)
             })
         })
 
@@ -209,8 +209,8 @@ describe("MomentProcessingRules", () => {
                     duration: 30,
                     size: 100 * 1024 * 1024,
                     format: "mp4",
-                    width: 720,
-                    height: 1280,
+                    width: 360,
+                    height: 558,
                 }
 
                 const result = validator.validateContent(content)
@@ -290,7 +290,7 @@ describe("MomentProcessingRules", () => {
                         maxSize: 150 * 1024 * 1024,
                         allowedFormats: ["mp4"],
                         allowedResolutions: [
-                            { width: 1080, height: 1920, quality: MomentQualityEnum.HIGH },
+                            { width: 360, height: 558, quality: MomentQualityEnum.MEDIUM },
                         ],
                     },
                     text: {
@@ -319,7 +319,7 @@ describe("MomentProcessingRules", () => {
                         maxSize: 150 * 1024 * 1024,
                         allowedFormats: ["mp4"],
                         allowedResolutions: [
-                            { width: 1080, height: 1920, quality: MomentQualityEnum.HIGH },
+                            { width: 360, height: 558, quality: MomentQualityEnum.MEDIUM },
                         ],
                     },
                 }

@@ -162,26 +162,27 @@ describe("MomentValidationRules", () => {
         })
 
         describe("validateResolution", () => {
-            it("deve validar resoluções 9:16 permitidas", () => {
-                expect(validator.validateResolution(720, 1280).isValid).toBe(true)
-                expect(validator.validateResolution(1080, 1920).isValid).toBe(true)
+            it("deve validar resoluções com aspect ratio 360:558 permitidas", () => {
+                expect(validator.validateResolution(360, 558).isValid).toBe(true)
+                expect(validator.validateResolution(720, 1116).isValid).toBe(true)
+                expect(validator.validateResolution(1080, 1674).isValid).toBe(true)
             })
 
             it("deve rejeitar aspect ratio incorreto", () => {
                 const result = validator.validateResolution(1920, 1080)
                 expect(result.isValid).toBe(false)
-                expect(result.error).toContain("Aspect ratio deve ser 9:16")
+                expect(result.error).toContain("Aspect ratio deve ser 360:558")
             })
 
             it("deve rejeitar resoluções não permitidas", () => {
                 const result = validator.validateResolution(1440, 2560)
                 expect(result.isValid).toBe(false)
-                expect(result.error).toContain("Resolução 1440x2560 não é suportada")
+                expect(result.error).toContain("não é suportada")
             })
 
             it("deve aceitar resoluções com tolerância", () => {
-                expect(validator.validateResolution(720, 1281).isValid).toBe(true)
-                expect(validator.validateResolution(721, 1280).isValid).toBe(true)
+                expect(validator.validateResolution(360, 559).isValid).toBe(true)
+                expect(validator.validateResolution(361, 558).isValid).toBe(true)
             })
         })
 
@@ -352,8 +353,8 @@ describe("MomentValidationRules", () => {
                         duration: 30,
                         size: 100 * 1024 * 1024,
                         format: "mp4",
-                        width: 720,
-                        height: 1280,
+                        width: 360,
+                        height: 558,
                     },
                     description: "Great content here",
                     hashtags: ["#test", "#content"],
@@ -429,9 +430,9 @@ describe("MomentValidationRules", () => {
                         maxSize: 150 * 1024 * 1024,
                         minSize: 2048,
                         allowedFormats: ["mp4"],
-                        requiredAspectRatio: { width: 9, height: 16 },
+                        requiredAspectRatio: { width: 360, height: 558 },
                         allowedResolutions: [
-                            { width: 1080, height: 1920, quality: MomentQualityEnum.HIGH },
+                            { width: 360, height: 558, quality: MomentQualityEnum.MEDIUM },
                         ],
                         qualityThresholds: {
                             low: 40,

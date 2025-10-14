@@ -41,9 +41,11 @@ export interface EngagementMetrics {
     totalLikes: number
     totalComments: number
     totalReports: number
+    totalClicks: number
     likeRate: number
     commentRate: number
     reportRate: number
+    clickRate: number
     averageCommentLength: number
     topCommenters: Array<{ userId: string; count: number }>
     engagementScore: number
@@ -201,7 +203,7 @@ export interface MetricsAnalyticsResponse {
 
 // ===== METRICS EVENT TYPES =====
 export interface MetricsEvent {
-    type: "view" | "like" | "comment" | "report" | "completion" | "quality_update"
+    type: "view" | "like" | "comment" | "report" | "completion" | "quality_update" | "click"
     momentId: string
     userId?: string
     timestamp: Date

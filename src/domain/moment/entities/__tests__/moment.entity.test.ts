@@ -18,7 +18,7 @@ vi.mock("../../rules/moment.processing.rules", () => ({
                 maxDuration: 300,
                 maxSize: 100 * 1024 * 1024,
                 allowedFormats: [MomentFormatEnum.MP4],
-                allowedResolutions: ["720x1280", "1080x1920", "1440x2560"],
+                allowedResolutions: ["360x558", "720x1116", "1080x1674"],
                 minDuration: 1,
             },
             text: {

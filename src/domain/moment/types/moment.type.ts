@@ -21,6 +21,10 @@ export enum MomentContentTypeEnum {
 export enum MomentProcessingStatusEnum {
     PENDING = "pending",
     PROCESSING = "processing",
+    UPLOADED = "uploaded",
+    MEDIA_PROCESSED = "media_processed",
+    EMBEDDINGS_QUEUED = "embeddings_queued",
+    EMBEDDINGS_PROCESSED = "embeddings_processed",
     COMPLETED = "completed",
     FAILED = "failed",
 }
