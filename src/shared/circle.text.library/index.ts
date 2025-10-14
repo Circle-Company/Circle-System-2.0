@@ -1,10 +1,9 @@
-import { TextLibrary, Timezone } from "circle-text-library"
+import { CircleTextProps, TextLibrary } from "circle-text-library"
 
 import { userRules } from "@/domain/user/user.rules"
-import { ValidationConfig } from "circle-text-library/dist/src/types"
 
 // Função para converter regras do user.rules.ts para o formato ValidationConfig
-function createValidationConfig(): ValidationConfig {
+function createValidationConfig(): CircleTextProps["validationRules"] {
     const rules = userRules()
 
     return {
@@ -318,8 +317,61 @@ function createValidationConfig(): ValidationConfig {
     }
 }
 
-export const circleTextLibrary = new TextLibrary({
+function createSentimentConfig(): CircleTextProps["sentimentConfig"] {
+    return {
+        enableCache: false,
+        enableEmojiAnalysis: true,
+        enablePunctuationAnalysis: true,
+        enableRepetitionAnalysis: true,
+        enableContextAnalysis: true,
+        enableIronyDetection: true,
+        enableConnectorsAnalysis: true,
+        enablePositionWeight: true,
+    }
+}
+
+function createRulesConfig(): CircleTextProps["richTextConfig"] {
+    return {
+        mentionPrefix: "@",
+        hashtagPrefix: "#",
+    }
+}
+
+function createExtractConfig(): CircleTextProps["extractorConfig"] {
+    return {
+        mentionPrefix: "@",
+        hashtagPrefix: "#",
+    }
+}
+
+function createConversorConfig(): CircleTextProps["conversorConfig"] {
+    return {
+        defaultSliceLength: 100,
+        sliceSuffix: "...",
+        thousandsSeparator: ".",
+    }
+}
+
+function createDateConfig(): CircleTextProps["dateFormatterConfig"] {
+    return {
+        style: "full",
+        locale: "pt",
+        usePrefix: true,
+        useSuffix: true,
+        capitalize: true,
+        useApproximateTime: true,
+        recentTimeThreshold: 60,
+        recentTimeLabel: "agora",
+    }
+}
+
+export const textLib = new TextLibrary({
     validationRules: createValidationConfig(),
+    sentimentConfig: createSentimentConfig(),
+    richTextConfig: createRulesConfig(),
+    extractorConfig: createExtractConfig(),
+    conversorConfig: createConversorConfig(),
+    dateFormatterConfig: createDateConfig(),
 })
 
-export const timezone = Timezone
+export { Timezone } from "circle-text-library"
