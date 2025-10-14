@@ -336,55 +336,6 @@ export class UserService {
     }
 
     /**
-     * Busca usuários
-     */
-    async searchUsers(
-        query: string,
-        filters?: UserSearchFilters,
-        sortBy?: UserSortOptions,
-        pagination?: UserPaginationOptions,
-    ): Promise<{
-        users: User[]
-        total: number
-        page: number
-        limit: number
-        hasNext: boolean
-        hasPrev: boolean
-    }> {
-        try {
-            const limit = Math.min(pagination?.limit || 20, this.config.maxSearchResults)
-            const offset = pagination?.offset || ((pagination?.page || 1) - 1) * limit
-
-            const result = await this.repository.search({
-                query,
-                filters,
-                sortBy,
-                limit,
-                offset,
-            })
-
-            return {
-                users: result.users,
-                total: result.total,
-                page: pagination?.page || 1,
-                limit,
-                hasNext: offset + limit < result.total,
-                hasPrev: offset > 0,
-            }
-        } catch (error) {
-            console.error("Erro ao buscar usuários:", error)
-            return {
-                users: [],
-                total: 0,
-                page: 1,
-                limit: 20,
-                hasNext: false,
-                hasPrev: false,
-            }
-        }
-    }
-
-    /**
      * Obtém métricas agregadas
      */
     async getAggregatedMetrics(userIds?: string[]) {
