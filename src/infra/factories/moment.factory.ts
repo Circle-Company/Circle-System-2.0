@@ -31,19 +31,20 @@ import {
 } from "@/application/moment/use.cases"
 import { DatabaseAdapter, DatabaseAdapterFactory } from "@/infra/database/adapter"
 
-import { CommentRepositoryImpl } from "@/infra/repository.impl/comment.repository.impl"
+import { MomentMetricsService } from "@/application/moment/services/moment.metrics.service"
+import { MomentService } from "@/application/moment/services/moment.service"
+import { StorageAdapterFactory } from "@/core/content.processor/storage.adapter"
+import { MomentMapper } from "@/domain/moment/moment.mapper"
 import { ICommentRepository } from "@/domain/moment/repositories/comment.repository"
 import { IMomentMetricsRepository } from "@/domain/moment/repositories/moment.metrics.repository"
 import { IMomentRepository } from "@/domain/moment/repositories/moment.repository"
 import { IUserRepository } from "@/domain/user/repositories/user.repository"
 import { MomentCommentController } from "@/infra/controllers/moment/moment.comment.controller"
 import { MomentController } from "@/infra/controllers/moment/moment.controller"
-import { MomentMapper } from "@/domain/moment/moment.mapper"
 import { MomentMetricsController } from "@/infra/controllers/moment/moment.metrics.controller"
+import { CommentRepositoryImpl } from "@/infra/repository.impl/comment.repository.impl"
 import { MomentMetricsRepositoryImpl } from "@/infra/repository.impl/moment.metrics.repository.impl"
-import { MomentMetricsService } from "@/application/moment/services/moment.metrics.service"
 import { MomentRepositoryImpl } from "@/infra/repository.impl/moment.repository.impl"
-import { MomentService } from "@/application/moment/services/moment.service"
 import { UserRepositoryImpl } from "@/infra/repository.impl/user.repository.impl"
 
 /**
@@ -101,7 +102,19 @@ export class MomentFactory {
     static createMomentService(database: DatabaseAdapter): MomentService {
         const momentRepository = this.createMomentRepository(database)
         const momentMetricsService = this.createMomentMetricsService(database)
-        return new MomentService(momentRepository, momentMetricsService)
+
+        // Criar storage adapter REAL para processamento de conteúdo
+        const storageAdapter = StorageAdapterFactory.create("real-local")
+
+        // TODO: Configurar ModerationEngine quando necessário
+        // Por enquanto o ModerationEngine é opcional
+        return new MomentService(
+            momentRepository,
+            momentMetricsService,
+            undefined, // config
+            storageAdapter, // storageAdapter
+            undefined, // moderationEngine (opcional)
+        )
     }
 
     /**
