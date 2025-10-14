@@ -79,6 +79,21 @@ export class RealLocalStorageAdapter implements StorageAdapter {
     }
 
     /**
+     * Upload de thumbnail (alias para uploadImage)
+     */
+    async uploadThumbnail(
+        key: string,
+        data: Buffer,
+        metadata: Record<string, any>,
+    ): Promise<StorageUploadResult> {
+        return this.uploadImage(data, {
+            filename: key,
+            mimeType: metadata.mimeType || "image/jpeg",
+            metadata,
+        })
+    }
+
+    /**
      * Upload de imagem (thumbnail)
      */
     async uploadImage(
@@ -148,6 +163,36 @@ export class RealLocalStorageAdapter implements StorageAdapter {
         }
 
         console.log(`[RealLocalStorage] 📁 Diretórios prontos: ${this.baseDir}`)
+    }
+
+    /**
+     * Delete de vídeo
+     */
+    async deleteVideo(key: string): Promise<void> {
+        console.log(`[RealLocalStorage] 🗑️  Deletando vídeo: ${key}`)
+        // TODO: Implementar delete real se necessário
+    }
+
+    /**
+     * Delete de thumbnail
+     */
+    async deleteThumbnail(key: string): Promise<void> {
+        console.log(`[RealLocalStorage] 🗑️  Deletando thumbnail: ${key}`)
+        // TODO: Implementar delete real se necessário
+    }
+
+    /**
+     * Obter URL de vídeo
+     */
+    async getVideoUrl(key: string, quality?: "low" | "medium" | "high"): Promise<string> {
+        return `${this.baseUrl}/videos/${key}`
+    }
+
+    /**
+     * Obter URL de thumbnail
+     */
+    async getThumbnailUrl(key: string): Promise<string> {
+        return `${this.baseUrl}/thumbnails/${key}`
     }
 
     /**
