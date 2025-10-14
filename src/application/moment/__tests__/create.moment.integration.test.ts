@@ -1,6 +1,6 @@
 /**
  * Teste de Integração: Criação Completa de Moment
- * 
+ *
  * Testa o fluxo end-to-end de criação de um moment incluindo:
  * - Processamento de vídeo (H.264)
  * - Upload para storage
@@ -10,22 +10,21 @@
  * - Atualização de métricas
  */
 
+import { MomentMetricsService } from "@/application/moment/services/moment.metrics.service"
+import { MomentService } from "@/application/moment/services/moment.service"
 import {
     Moment,
     MomentProcessingStatusEnum,
     MomentStatusEnum,
     MomentVisibilityEnum,
 } from "@/domain/moment"
-import { IMomentRepository } from "@/domain/moment/repositories/moment.repository"
-import { IMomentMetricsRepository } from "@/domain/moment/repositories/moment.metrics.repository"
 import { MomentMetricsEntity } from "@/domain/moment/entities/moment.metrics.entity"
-import { MomentMetricsService } from "@/application/moment/services/moment.metrics.service"
-import { MomentService, CreateMomentData } from "@/application/moment/services/moment.service"
-import { ContentProcessor } from "@/core/content.processor"
+import { IMomentMetricsRepository } from "@/domain/moment/repositories/moment.metrics.repository"
+import { IMomentRepository } from "@/domain/moment/repositories/moment.repository"
 import { EmbeddingsQueue } from "@/infra/queue/embeddings.queue"
-import { existsSync, mkdirSync, rmSync } from "fs"
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import { generateId } from "@/shared"
+import { existsSync, mkdirSync, rmSync } from "fs"
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
 
 // ===== MOCK REPOSITORIES =====
 
@@ -188,7 +187,9 @@ describe("Integração: Criação Completa de Moment", () => {
         // Injetar mock do ContentProcessor
         ;(momentService as any).contentProcessor = mockContentProcessor
 
-        console.log("[Setup] ✅ Componentes inicializados (Mock ContentProcessor - sem FFmpeg/textLib)")
+        console.log(
+            "[Setup] ✅ Componentes inicializados (Mock ContentProcessor - sem FFmpeg/textLib)",
+        )
     })
 
     afterAll(async () => {
@@ -278,7 +279,9 @@ describe("Integração: Criação Completa de Moment", () => {
             // Validar status
             expect(createdMoment.status.current).toBe(MomentStatusEnum.PUBLISHED)
             expect(createdMoment.visibility.level).toBe(MomentVisibilityEnum.PUBLIC)
-            expect(createdMoment.processing.status).toBe(MomentProcessingStatusEnum.EMBEDDINGS_QUEUED)
+            expect(createdMoment.processing.status).toBe(
+                MomentProcessingStatusEnum.EMBEDDINGS_QUEUED,
+            )
 
             console.log(`[Test] ✅ Status validado: ${createdMoment.status.current}`)
         }, 30000)
@@ -589,7 +592,9 @@ describe("Integração: Criação Completa de Moment", () => {
             console.log(`🔒 Visibilidade: ${createdMoment.visibility.level}`)
             console.log(`⚙️  Processing: ${createdMoment.processing.status}`)
             console.log(`🎬 Codec: ${createdMoment.content.codec}`)
-            console.log(`📐 Resolução: ${createdMoment.content.resolution.width}x${createdMoment.content.resolution.height}`)
+            console.log(
+                `📐 Resolução: ${createdMoment.content.resolution.width}x${createdMoment.content.resolution.height}`,
+            )
             console.log(`⏳ Duração: ${createdMoment.content.duration}s`)
             console.log(`🔗 URL: ${createdMoment.media.urls.high}`)
             console.log("========================\n")
@@ -599,4 +604,3 @@ describe("Integração: Criação Completa de Moment", () => {
         }, 35000)
     })
 })
-
