@@ -14,13 +14,13 @@ interface JwtConfig {
 interface JwtPayload extends JWTPayload {
     sub: string
     device: Device
-    role: string
+    level: string
 }
 
 interface JwtEncoderParams {
     userId: string
     device: Device
-    role: string
+    level: string
 }
 
 let jwtConfig: JwtConfig | null = null
@@ -62,7 +62,7 @@ function validateDevice(device: Device): void {
 function createJwtPayload(
     userId: string,
     device: Device,
-    role: string,
+    level: string,
     config: JwtConfig,
 ): JwtPayload {
     const now = Math.floor(Date.now() / 1000)
@@ -70,7 +70,7 @@ function createJwtPayload(
     return {
         sub: userId,
         device,
-        role,
+        level,
         iat: now,
         exp: now + config.expiresIn,
         iss: config.issuer,
@@ -87,7 +87,7 @@ function createJwtPayload(
  * @throws {ValidationError} - Quando usuário não encontrado ou dispositivo inválido
  * @throws {Error} - Quando há erro na geração do token
  */
-export async function jwtEncoder({ userId, device, role }: JwtEncoderParams): Promise<string> {
+export async function jwtEncoder({ userId, device, level }: JwtEncoderParams): Promise<string> {
     try {
         // Validação prévia do dispositivo (sem I/O)
         validateDevice(device)
@@ -114,8 +114,8 @@ export async function jwtEncoder({ userId, device, role }: JwtEncoderParams): Pr
             })
         }
 
-        // Criar payload simples
-        const payload = createJwtPayload(userId, device, role, config)
+        // Criar payload com level do usuário
+        const payload = createJwtPayload(userId, device, level, config)
         const now = Math.floor(Date.now() / 1000)
 
         // Gerar token com JOSE (mais seguro que jsonwebtoken)
@@ -135,9 +135,6 @@ export async function jwtEncoder({ userId, device, role }: JwtEncoderParams): Pr
         if (error instanceof ValidationError || error instanceof NotFoundError) {
             throw error
         }
-
-        // Log e wrap outros erros como SystemError
-        console.error("JWT encoding error:", error)
         throw new ValidationError({
             message: "Failed to generate JWT token",
             code: ErrorCode.INTERNAL_ERROR,

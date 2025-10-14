@@ -12,6 +12,7 @@ interface JwtConfig {
 interface JwtPayload {
     sub: string
     device: Device
+    level: string
     iat?: number
     exp?: number
     iss?: string
@@ -56,6 +57,7 @@ export async function jwtDecoder(token: string): Promise<JwtPayload> {
         return {
             sub: payload.sub as string,
             device: payload.device as Device,
+            level: payload.level as string,
             iat: payload.iat,
             exp: payload.exp,
             iss: payload.iss as string,
