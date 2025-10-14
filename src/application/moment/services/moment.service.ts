@@ -1,11 +1,36 @@
 import { ContentProcessor, StorageAdapter } from "@/core/content.processor"
-import { Moment, MomentStatusEnum, MomentVisibilityEnum } from "@/domain/moment"
+import {
+    Moment,
+    MomentProcessingStatusEnum,
+    MomentStatusEnum,
+    MomentVisibilityEnum,
+} from "@/domain/moment"
 import { generateId, textLib } from "@/shared"
 
 import { ModerationEngine } from "@/core/content.moderation"
 import { IMomentRepository } from "@/domain/moment/repositories/moment.repository"
 import { TimezoneCode } from "@/domain/user"
 import { MomentMetricsService } from "./moment.metrics.service"
+
+// NEW SWIPE ENGINE - Arquitetura desacoplada
+import {
+    ContentEmbeddingGenerator,
+    EngagementCalculator,
+    TextEmbeddingAdapter,
+    TranscriptionAdapter,
+    VisualEmbeddingAdapter,
+    getEmbeddingConfig,
+} from "@/core/new.swipe.engine"
+
+// Audio extractor (mantido do old system)
+import { AudioExtractor } from "@/core/content.processor/audio.extractor"
+
+// Fallback para old system se necessário
+import { PostEmbeddingService } from "@/core/swipe.engine/core/embeddings/post"
+
+// Redis Queue para processamento assíncrono
+import { EmbeddingsQueue } from "@/infra/queue/embeddings.queue"
+import { EmbeddingJobPriority } from "@/infra/queue/types/embedding.job.types"
 
 export interface CreateMomentData {
     ownerId: string
@@ -90,6 +115,17 @@ export class MomentService {
     private config: MomentServiceConfig
     private contentProcessor: ContentProcessor | null = null
 
+    // NEW SWIPE ENGINE - Pipeline desacoplado com modelos REAIS
+    private contentEmbeddingGenerator: ContentEmbeddingGenerator
+    private engagementCalculator: EngagementCalculator
+    private audioExtractor: AudioExtractor
+
+    // Fallback para old system
+    private embeddingService: PostEmbeddingService
+
+    // Redis queue para processamento assíncrono
+    private embeddingsQueue: EmbeddingsQueue
+
     constructor(
         private repository: IMomentRepository,
         private metricsService: MomentMetricsService,
@@ -117,6 +153,39 @@ export class MomentService {
                 moderationEngine,
             )
         }
+
+        // Inicializar NEW SWIPE ENGINE com arquitetura desacoplada
+        const embeddingConfig = getEmbeddingConfig()
+
+        // Criar adaptadores de embedding REAIS
+        const textService = new TextEmbeddingAdapter(embeddingConfig.textEmbedding)
+        const visualService = new VisualEmbeddingAdapter(embeddingConfig.clip)
+        const transcriptionService = new TranscriptionAdapter(embeddingConfig.whisper)
+
+        // Audio extractor (compartilhado)
+        this.audioExtractor = new AudioExtractor()
+
+        // Injetar dependências no generator
+        this.contentEmbeddingGenerator = new ContentEmbeddingGenerator(
+            embeddingConfig,
+            textService,
+            transcriptionService,
+            visualService,
+            this.audioExtractor,
+        )
+
+        // Engagement calculator (stateless)
+        this.engagementCalculator = new EngagementCalculator()
+
+        // Fallback para old system (compatibilidade)
+        this.embeddingService = new PostEmbeddingService()
+
+        // Redis queue para embeddings assíncronos
+        this.embeddingsQueue = EmbeddingsQueue.getInstance()
+
+        console.log(
+            "[MomentService] ✅ Inicializado com NEW Swipe Engine (modelos REAIS) + Redis Queue",
+        )
     }
 
     // ===== MÉTODOS DE CRIAÇÃO =====
@@ -245,8 +314,8 @@ export class MomentService {
                       }
                     : undefined,
             processing: {
-                status: "completed" as any,
-                progress: 100,
+                status: MomentProcessingStatusEnum.MEDIA_PROCESSED,
+                progress: 50, // Mídia processada, embeddings pendentes
                 steps: [
                     {
                         name: "video_processing",
@@ -272,10 +341,18 @@ export class MomentService {
                         completedAt: new Date(),
                         error: null,
                     },
+                    {
+                        name: "embedding_generation",
+                        status: "pending" as any,
+                        progress: 0,
+                        startedAt: new Date(),
+                        completedAt: null,
+                        error: null,
+                    },
                 ],
                 error: null,
                 startedAt: new Date(),
-                completedAt: new Date(),
+                completedAt: null, // Não completado ainda (embeddings pendentes)
                 estimatedCompletion: null,
             },
             createdAt: new Date(),
@@ -288,11 +365,47 @@ export class MomentService {
         // 3. Criar entidade Moment
         const moment = new Moment(momentData)
 
-        // 4. Salvar no repositório
+        // 4. Salvar no repositório IMEDIATAMENTE (sem aguardar embeddings)
         const createdMoment = await this.repository.create(moment)
 
-        // 5. Inicializar métricas se habilitado
-        if (this.config.enableMetrics && createdMoment) {
+        // 5. Enfileirar job de embeddings para processamento às 01h da manhã
+        try {
+            const scheduleTime = process.env.EMBEDDINGS_SCHEDULE_TIME || "01:00"
+
+            console.log(`[MomentService] 📅 Agendando embeddings para ${scheduleTime}...`)
+
+            await this.embeddingsQueue.scheduleFor(
+                {
+                    momentId: createdMoment.id,
+                    videoUrl: processingResult.videoUrls.high, // Usar alta qualidade
+                    thumbnailUrl: processingResult.thumbnailUrl,
+                    description: data.description || "",
+                    hashtags: data.hashtags || [],
+                    videoMetadata: {
+                        width: processingResult.videoMetadata.width,
+                        height: processingResult.videoMetadata.height,
+                        duration: processingResult.videoMetadata.duration,
+                        codec: processingResult.videoMetadata.codec,
+                        hasAudio: processingResult.videoMetadata.hasAudio,
+                    },
+                    priority: EmbeddingJobPriority.NORMAL,
+                },
+                scheduleTime,
+            )
+
+            // Atualizar status para embeddings_queued
+            createdMoment.processing.status = MomentProcessingStatusEnum.EMBEDDINGS_QUEUED
+
+            await this.repository.update(createdMoment)
+
+            console.log(`[MomentService] ✅ Embeddings agendados para ${scheduleTime}`)
+        } catch (error) {
+            console.error("[MomentService] ❌ Erro ao agendar embeddings:", error)
+            console.warn("[MomentService] ⚠️ Moment criado, mas embeddings não agendados")
+        }
+
+        // 6. Inicializar métricas se habilitado
+        if (this.config.enableMetrics) {
             await this.metricsService.recordView(createdMoment.id, {
                 userId: data.ownerId,
                 device: data.device?.type,

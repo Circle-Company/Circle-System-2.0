@@ -3,7 +3,15 @@ import {
     MomentMetricsAnalysisService,
 } from "@/domain/moment/repositories/moment.metrics.repository"
 
+import { normalizeL2 } from "@/core/swipe.engine/utils/normalization"
 import { MomentMetricsEntity } from "@/domain/moment/entities/moment.metrics.entity"
+import {
+    CalculateEngagementVectorParams,
+    CalculateEngagementVectorResult,
+    EngagementFeatures,
+    EngagementMetrics,
+    MomentEngagementVector,
+} from "@/domain/moment/types/moment.engagement.vector.type"
 
 // ===== EVENTOS DE MÉTRICAS =====
 export interface MetricsEvent {
@@ -280,6 +288,137 @@ export class MomentMetricsService {
             averageEngagement,
             averageViralScore,
             averageTrendingScore,
+        }
+    }
+
+    /**
+     * Calcula vetor de engajamento com features normalizadas
+     * Este vetor é MUTÁVEL e deve ser atualizado periodicamente
+     */
+    async calculateEngagementVector(
+        params: CalculateEngagementVectorParams,
+    ): Promise<CalculateEngagementVectorResult> {
+        try {
+            console.log(`[MetricsService] 📊 Calculando engagement vector: ${params.momentId}`)
+
+            const { metrics, duration } = params
+
+            // Calcular features normalizadas
+            const features: EngagementFeatures = {
+                likeRate: metrics.views > 0 ? metrics.likes / metrics.views : 0,
+                commentRate: metrics.views > 0 ? metrics.comments / metrics.views : 0,
+                shareRate: metrics.views > 0 ? metrics.shares / metrics.views : 0,
+                saveRate: metrics.views > 0 ? metrics.saves / metrics.views : 0,
+                retentionRate:
+                    metrics.views > 0 && duration > 0
+                        ? metrics.avgWatchTime / (metrics.views * duration)
+                        : 0,
+                avgCompletionRate: metrics.completionRate,
+                reportRate: metrics.views > 0 ? metrics.reports / metrics.views : 0,
+                viralityScore: 0,
+                qualityScore: 0,
+            }
+
+            // Calcular scores compostos
+            features.viralityScore = (features.shareRate + features.saveRate) / 2
+            features.qualityScore = Math.max(
+                0,
+                features.retentionRate + features.avgCompletionRate - features.reportRate * 2,
+            )
+
+            // Montar vetor de features (10 dimensões)
+            const rawVector: number[] = [
+                features.likeRate,
+                features.commentRate,
+                features.shareRate,
+                features.saveRate,
+                features.retentionRate,
+                features.avgCompletionRate,
+                features.reportRate,
+                features.viralityScore,
+                features.qualityScore,
+                // Adicionar taxa de views únicas
+                metrics.uniqueViews > 0 ? metrics.views / metrics.uniqueViews : 1,
+            ]
+
+            // Normalizar vetor
+            const normalizedVector = normalizeL2(rawVector)
+
+            const engagementVector: MomentEngagementVector = {
+                vector: normalizedVector,
+                dimension: normalizedVector.length,
+                metrics,
+                features,
+                metadata: {
+                    lastUpdated: new Date(),
+                    version: "engagement-vector-v1",
+                    calculationMethod: "normalized-features",
+                },
+            }
+
+            console.log(
+                `[MetricsService] ✅ Engagement vector calculado: dim=${normalizedVector.length}`,
+            )
+            console.log(`  👍 Like rate: ${(features.likeRate * 100).toFixed(2)}%`)
+            console.log(`  💬 Comment rate: ${(features.commentRate * 100).toFixed(2)}%`)
+            console.log(`  📤 Share rate: ${(features.shareRate * 100).toFixed(2)}%`)
+            console.log(`  ⭐ Quality score: ${(features.qualityScore * 100).toFixed(2)}%`)
+
+            return {
+                success: true,
+                vector: engagementVector,
+            }
+        } catch (error) {
+            console.error("[MetricsService] ❌ Erro ao calcular engagement vector:", error)
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : String(error),
+            }
+        }
+    }
+
+    /**
+     * Calcula engagement vector para um moment existente
+     */
+    async calculateEngagementVectorForMoment(
+        momentId: string,
+        duration: number,
+    ): Promise<CalculateEngagementVectorResult> {
+        try {
+            // Buscar métricas do moment
+            const metricsEntity = await this.repository.findByMomentId(momentId)
+
+            if (!metricsEntity) {
+                return {
+                    success: false,
+                    error: "Metrics not found for moment",
+                }
+            }
+
+            // Montar EngagementMetrics a partir da entidade
+            const engagementMetrics: EngagementMetrics = {
+                views: metricsEntity.views.totalViews,
+                uniqueViews: metricsEntity.views.uniqueViews,
+                likes: metricsEntity.engagement.totalLikes,
+                comments: metricsEntity.engagement.totalComments,
+                shares: (metricsEntity.engagement as any).totalShares || 0,
+                saves: (metricsEntity.engagement as any).totalSaves || 0,
+                avgWatchTime: metricsEntity.views.averageWatchTime,
+                completionRate: (metricsEntity.views as any).completionRate || 0,
+                reports: metricsEntity.engagement.totalReports,
+            }
+
+            return await this.calculateEngagementVector({
+                momentId,
+                metrics: engagementMetrics,
+                duration,
+                createdAt: metricsEntity.createdAt,
+            })
+        } catch (error) {
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : String(error),
+            }
         }
     }
 
