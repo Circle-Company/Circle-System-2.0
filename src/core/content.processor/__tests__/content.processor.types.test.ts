@@ -3,9 +3,9 @@
  * Testes para tipos e interfaces do content processor
  */
 
+import { describe, expect, it } from "vitest"
+import { ContentProcessingRequest, ContentProcessingResult } from "../content.processor"
 import {
-    ContentProcessingRequest,
-    ContentProcessingResult,
     ContentProcessorConfig,
     StorageAdapter,
     StorageUploadResult,
@@ -14,8 +14,7 @@ import {
     VideoMetadataExtractionResult,
     VideoProcessingRequest,
     VideoProcessingResult,
-} from "@/core/content.processor/type"
-import { describe, expect, it } from "vitest"
+} from "../type"
 
 describe("Content Processor Types", () => {
     describe("VideoProcessingRequest", () => {
@@ -445,7 +444,7 @@ describe("Content Processor Types", () => {
                     maxDuration: 180,
                     minDuration: 3,
                     allowedFormats: ["mp4", "mov", "avi", "webm"],
-                    minResolution: { width: 720, height: 1280 },
+                    minResolution: { width: 360, height: 558 },
                     maxResolution: { width: 1920, height: 3840 },
                 },
                 processing: {

@@ -31,7 +31,7 @@ describe("VideoProcessor", () => {
                 maxDuration: 180, // 3 minutos
                 minDuration: 3, // 3 segundos
                 allowedFormats: ["mp4", "mov", "avi", "webm"],
-                minResolution: { width: 720, height: 1280 },
+                minResolution: { width: 360, height: 558 },
                 maxResolution: { width: 1920, height: 3840 },
             },
             processing: {
@@ -563,10 +563,10 @@ describe("VideoProcessor", () => {
 
         it("should limit by height when video is taller", () => {
             // @ts-ignore - acessando método privado para teste
-            const result = videoProcessor.calculateTargetResolution(1080, 1920, 1280, 720)
+            const result = videoProcessor.calculateTargetResolution(1080, 1674, 360, 558)
 
-            expect(result.width).toBeLessThanOrEqual(1280)
-            expect(result.height).toBe(720)
+            expect(result.width).toBeLessThanOrEqual(360)
+            expect(result.height).toBe(558)
         })
 
         it("should maintain aspect ratio", () => {

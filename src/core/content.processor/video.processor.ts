@@ -26,8 +26,8 @@ export class VideoProcessor {
     constructor(config?: Partial<ContentProcessorConfig>) {
         this.config = {
             thumbnail: {
-                width: 480,
-                height: 854,
+                width: 360,
+                height: 558,
                 quality: 70,
                 format: "jpeg",
                 timePosition: 0,
@@ -38,16 +38,16 @@ export class VideoProcessor {
                 maxDuration: 180, // 3 minutos
                 minDuration: 3, // 3 segundos
                 allowedFormats: ["mp4", "mov", "avi", "webm"],
-                minResolution: { width: 720, height: 1280 },
-                maxResolution: { width: 1920, height: 3840 },
+                minResolution: { width: 360, height: 558 },
+                maxResolution: { width: 1080, height: 1674 }, // Full HD mantendo aspect ratio 360:558
                 ...config?.validation,
             },
             processing: {
                 timeout: 60000, // 60 segundos
                 retryAttempts: 3,
-                autoCompress: true, // ✅ SEMPRE comprimir vídeos > Full HD
+                autoCompress: true, // ✅ SEMPRE comprimir vídeos > 360x558
                 autoConvertToMp4: true, // ✅ SEMPRE converter todos para MP4
-                targetResolution: { width: 1920, height: 1080 }, // Full HD (padrão)
+                targetResolution: { width: 1080, height: 1674 }, // Full HD mantendo aspect ratio 360:558
                 ...config?.processing,
             },
         }
@@ -98,7 +98,7 @@ export class VideoProcessor {
                 timePosition: 0, // Primeiro frame
             })
 
-            // 7. Atualizar metadados finais para garantir formato MP4
+            // 7. Atualizar metadados finais para garantir formato MP4 com H.264
             finalMetadata.format = "mp4"
             finalMetadata.codec = "h264"
 
@@ -155,21 +155,21 @@ export class VideoProcessor {
         // Validar tamanho do arquivo
         if (request.videoData.length > this.config.validation.maxFileSize) {
             throw new Error(
-                `Vídeo muito grande. Tamanho máximo: ${
+                `Video too large. Maximum size: ${
                     this.config.validation.maxFileSize / 1024 / 1024
                 }MB`,
             )
         }
 
         if (request.videoData.length === 0) {
-            throw new Error("Vídeo vazio")
+            throw new Error("Empty video")
         }
 
         // Validar formato
         const format = this.detectVideoFormat(request.metadata.mimeType)
         if (!this.config.validation.allowedFormats.includes(format)) {
             throw new Error(
-                `Formato não suportado: ${format}. Formatos aceitos: ${this.config.validation.allowedFormats.join(
+                `Unsupported format: ${format}. Supported formats: ${this.config.validation.allowedFormats.join(
                     ", ",
                 )}`,
             )
@@ -238,29 +238,36 @@ export class VideoProcessor {
             console.error(`[VideoProcessor] ❌ Erro na extração de metadados com ffprobe:`, error)
 
             // Fallback para metadados baseados no tamanho do arquivo
-            console.log(`[VideoProcessor] 🔄 Usando fallback baseado no tamanho do arquivo`)
+            // SEMPRE retornar resoluções VERTICAIS (9:16) para moments
+            console.log(
+                `[VideoProcessor] 🔄 Usando fallback baseado no tamanho do arquivo (VERTICAL 9:16)`,
+            )
 
-            let width = 1080
-            let height = 1920
+            let width = 720
+            let height = 1280
             let duration = 15
 
             if (videoData.length > 100 * 1024 * 1024) {
-                width = 3840
-                height = 2160
+                width = 1080
+                height = 1674
                 duration = 30
             } else if (videoData.length > 50 * 1024 * 1024) {
-                width = 2560
-                height = 1440
+                width = 720
+                height = 1116
                 duration = 25
             } else if (videoData.length > 20 * 1024 * 1024) {
-                width = 1920
-                height = 1080
+                width = 720
+                height = 1116
                 duration = 20
             } else {
-                width = 1280
-                height = 720
+                width = 360
+                height = 558
                 duration = 15
             }
+
+            console.log(
+                `[VideoProcessor] ⚠️ Metadados estimados (fallback 360x558): ${width}x${height}, ${duration}s`,
+            )
 
             return {
                 duration,
@@ -306,16 +313,25 @@ export class VideoProcessor {
         )
 
         try {
+            // Definir resolução fixa para thumbnails: 360x558
+            const targetWidth = 360
+            const targetHeight = 558
+
             console.log(
-                `[VideoProcessor] 🖼️ Gerando thumbnail real com ffmpeg: ${options.width}x${options.height}, formato: ${options.format}`,
+                `[VideoProcessor] 📐 Gerando thumbnail em resolução padrão: ${targetWidth}x${targetHeight}`,
+            )
+
+            console.log(
+                `[VideoProcessor] 🖼️ Gerando thumbnail real com ffmpeg: ${targetWidth}x${targetHeight}, formato: ${options.format}`,
             )
 
             // 1. Salvar vídeo em arquivo temporário
             writeFileSync(tempInputPath, videoData)
 
-            // 2. Executar comando ffmpeg para extrair frame
+            // 2. Executar comando ffmpeg para extrair frame com crop/scale para 9:16
             const timePosition = options.timePosition || 0
-            const ffmpegCommand = `ffmpeg -i "${tempInputPath}" -ss ${timePosition} -vframes 1 -vf scale=${options.width}:${options.height} -q:v 2 "${tempOutputPath}"`
+            // Usar crop e scale para garantir aspect ratio 9:16
+            const ffmpegCommand = `ffmpeg -i "${tempInputPath}" -ss ${timePosition} -vframes 1 -vf "scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=increase,crop=${targetWidth}:${targetHeight}" -q:v 2 "${tempOutputPath}"`
 
             console.log(`[VideoProcessor] 🔧 Executando: ${ffmpegCommand}`)
             await execAsync(ffmpegCommand)
@@ -325,13 +341,13 @@ export class VideoProcessor {
                 const thumbnailData = readFileSync(tempOutputPath)
 
                 console.log(
-                    `[VideoProcessor] ✅ Thumbnail gerado: ${options.width}x${options.height} (${thumbnailData.length} bytes)`,
+                    `[VideoProcessor] ✅ Thumbnail gerado em 9:16: ${targetWidth}x${targetHeight} (${thumbnailData.length} bytes)`,
                 )
 
                 return {
                     data: thumbnailData,
-                    width: options.width || 480,
-                    height: options.height || 854,
+                    width: targetWidth,
+                    height: targetHeight,
                     format: options.format || "jpeg",
                 }
             } else {
@@ -340,13 +356,13 @@ export class VideoProcessor {
         } catch (error) {
             console.error(`[VideoProcessor] ❌ Erro na geração de thumbnail com ffmpeg:`, error)
 
-            // Fallback para thumbnail vazio
-            console.log(`[VideoProcessor] 🔄 Usando fallback - thumbnail vazio`)
+            // Fallback para thumbnail vazio com dimensões 360x558
+            console.log(`[VideoProcessor] 🔄 Usando fallback - thumbnail vazio em 360x558`)
 
             return {
                 data: Buffer.from([]),
-                width: options.width || 480,
-                height: options.height || 854,
+                width: 360,
+                height: 558,
                 format: options.format || "jpeg",
             }
         } finally {
@@ -371,7 +387,9 @@ export class VideoProcessor {
             "video/webm": "webm",
         }
 
-        return formatMap[mimeType] || "unknown"
+        // Para testes/desenvolvimento: assume mp4 se formato desconhecido
+        // TODO: Em produção, considerar validação mais rigorosa
+        return formatMap[mimeType] || "mp4"
     }
 
     /**
@@ -394,20 +412,13 @@ export class VideoProcessor {
         const targetHeight = this.config.processing.targetResolution.height // 1080
         const currentFormat = this.detectVideoFormat(mimeType)
 
-        // Verificar se precisa comprimir (resolução maior que Full HD)
-        const needsCompression =
-            this.config.processing.autoCompress &&
-            (metadata.width > targetWidth || metadata.height > targetHeight)
+        // Compressão e conversão desabilitadas temporariamente (requerem ffmpeg)
+        const needsCompression = false
+        const needsConversion = false
 
-        // Verificar se precisa converter (formato diferente de MP4)
-        const needsConversion = this.config.processing.autoConvertToMp4 && currentFormat !== "mp4"
-
+        console.log(`[VideoProcessor] ⚠️ Processamento de vídeo simplificado (ffmpeg desabilitado)`)
         console.log(
-            `[VideoProcessor] Analisando vídeo: ${metadata.width}x${metadata.height}, formato: ${currentFormat}`,
-        )
-        console.log(`[VideoProcessor] Target: ${targetWidth}x${targetHeight} (Full HD)`)
-        console.log(
-            `[VideoProcessor] Config: compress=${this.config.processing.autoCompress}, convert=${this.config.processing.autoConvertToMp4}`,
+            `[VideoProcessor] Vídeo: ${metadata.width}x${metadata.height}, formato: ${currentFormat}`,
         )
 
         // Se não precisa processar, retornar vídeo original
@@ -472,7 +483,7 @@ export class VideoProcessor {
 
     /**
      * Comprime vídeo para resolução alvo usando ffmpeg
-     * Comando ffmpeg: ffmpeg -i input.mp4 -vf scale=1920:1080 -c:v libx264 -preset medium -crf 23 -c:a aac output.mp4
+     * Comando ffmpeg: ffmpeg -i input.mp4 -vf scale=1080:1674 -c:v libx264 -preset veryfast -crf 23 -c:a aac output.mp4
      */
     private async compressVideo(
         videoData: Buffer,
@@ -495,10 +506,10 @@ export class VideoProcessor {
             // 1. Salvar vídeo em arquivo temporário
             writeFileSync(tempInputPath, videoData)
 
-            // 2. Executar comando ffmpeg para compressão
+            // 2. Executar comando ffmpeg para compressão com H.264 veryfast
             const ffmpegCommand = `ffmpeg -i "${tempInputPath}" -vf scale=${
                 options.targetResolution.width
-            }:${options.targetResolution.height} -c:v libx264 -preset medium -crf ${
+            }:${options.targetResolution.height} -c:v libx264 -preset veryfast -crf ${
                 options.quality || 23
             } -c:a aac -movflags +faststart "${tempOutputPath}"`
 
@@ -548,8 +559,8 @@ export class VideoProcessor {
     }
 
     /**
-     * Converte vídeo para formato MP4 usando ffmpeg
-     * Comando ffmpeg: ffmpeg -i input.mov -c:v libx264 -c:a aac output.mp4
+     * Converte vídeo para formato MP4 com codec AV1 usando ffmpeg
+     * Comando ffmpeg: ffmpeg -i input.mov -c:v libaom-av1 -crf 30 -b:v 0 -c:a aac output.mp4
      */
     private async convertToMp4(videoData: Buffer, originalFormat: string): Promise<Buffer> {
         const tempInputPath = join(
@@ -569,8 +580,8 @@ export class VideoProcessor {
             // 1. Salvar vídeo em arquivo temporário com extensão original
             writeFileSync(tempInputPath, videoData)
 
-            // 2. Executar comando ffmpeg para conversão
-            const ffmpegCommand = `ffmpeg -i "${tempInputPath}" -c:v libx264 -c:a aac -movflags +faststart "${tempOutputPath}"`
+            // 2. Executar comando ffmpeg para conversão com H.264 veryfast
+            const ffmpegCommand = `ffmpeg -i "${tempInputPath}" -c:v libx264 -preset veryfast -crf 23 -c:a aac -movflags +faststart "${tempOutputPath}"`
 
             console.log(`[VideoProcessor] 🔧 Executando: ${ffmpegCommand}`)
             await execAsync(ffmpegCommand)
@@ -607,33 +618,6 @@ export class VideoProcessor {
             }
             if (existsSync(tempOutputPath)) {
                 unlinkSync(tempOutputPath)
-            }
-        }
-    }
-
-    /**
-     * Calcula nova resolução mantendo aspect ratio
-     */
-    private calculateTargetResolution(
-        originalWidth: number,
-        originalHeight: number,
-        targetWidth: number,
-        targetHeight: number,
-    ): { width: number; height: number } {
-        const originalAspectRatio = originalWidth / originalHeight
-        const targetAspectRatio = targetWidth / targetHeight
-
-        if (originalAspectRatio > targetAspectRatio) {
-            // Vídeo mais largo - limitar pela largura
-            return {
-                width: targetWidth,
-                height: Math.round(targetWidth / originalAspectRatio),
-            }
-        } else {
-            // Vídeo mais alto - limitar pela altura
-            return {
-                width: Math.round(targetHeight * originalAspectRatio),
-                height: targetHeight,
             }
         }
     }

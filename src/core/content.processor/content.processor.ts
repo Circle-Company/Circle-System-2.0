@@ -94,7 +94,7 @@ export class ContentProcessor {
             const videoResult = await this.videoProcessor.processVideo(processingRequest)
 
             if (!videoResult.success) {
-                throw new Error(videoResult.error || "Falha ao processar vídeo")
+                throw new Error(videoResult.error || "Error to process video")
             }
 
             // 2. Moderação de conteúdo (se disponível)
@@ -134,7 +134,7 @@ export class ContentProcessor {
                 // Se não aprovado, não fazer upload
                 if (!moderationResult.approved && !moderationResult.requiresReview) {
                     throw new Error(
-                        `Conteúdo bloqueado pela moderação: ${moderationResult.flags.join(", ")}`,
+                        `Content blocked by moderation: ${moderationResult.flags.join(", ")}`,
                     )
                 }
             }
@@ -159,7 +159,7 @@ export class ContentProcessor {
             })
 
             if (!videoUpload.success) {
-                throw new Error(videoUpload.error || "Falha ao fazer upload do vídeo")
+                throw new Error(videoUpload.error || "Error to upload video")
             }
 
             const thumbnailUpload = await this.storageAdapter.uploadThumbnail(
@@ -173,7 +173,7 @@ export class ContentProcessor {
             )
 
             if (!thumbnailUpload.success) {
-                throw new Error(thumbnailUpload.error || "Falha ao fazer upload do thumbnail")
+                throw new Error(thumbnailUpload.error || "Error to upload thumbnail")
             }
 
             // 4. Gerar URLs para diferentes qualidades
@@ -240,7 +240,7 @@ export class ContentProcessor {
                     confidence: 0,
                 },
                 processingTime,
-                error: error instanceof Error ? error.message : "Erro desconhecido",
+                error: error instanceof Error ? error.message : "Unknown error",
             }
         }
     }
@@ -250,7 +250,7 @@ export class ContentProcessor {
      */
     private async moderateContent(request: ContentDetectionRequest): Promise<any> {
         if (!this.moderationEngine) {
-            throw new Error("Motor de moderação não configurado")
+            throw new Error("Moderation engine not configured")
         }
 
         return await this.moderationEngine.moderateContent(request)
@@ -264,7 +264,7 @@ export class ContentProcessor {
             await this.storageAdapter.deleteVideo(videoKey)
             await this.storageAdapter.deleteThumbnail(thumbnailKey)
         } catch (error) {
-            console.error("Erro ao deletar conteúdo:", error)
+            console.error("Error to delete content:", error)
             throw error
         }
     }

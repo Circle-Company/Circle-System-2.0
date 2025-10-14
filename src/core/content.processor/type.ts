@@ -87,8 +87,9 @@ export interface StorageUploadResult {
     url: string
     bucket?: string
     region?: string
-    provider: "s3" | "gcs" | "azure" | "local"
+    provider: "s3" | "gcs" | "azure" | "local" | "mock" | "local-mock"
     error?: string
+    metadata?: Record<string, any>
 }
 
 export interface VideoCompressionOptions {
