@@ -49,7 +49,18 @@ export class UserFactory {
     static createMomentService(database: DatabaseAdapter): MomentService {
         const momentRepository = this.createMomentRepository(database)
         const metricsService = this.createMomentMetricsService(database)
-        return new MomentService(momentRepository, metricsService)
+
+        // Importar StorageAdapterFactory dinamicamente para evitar circular dependency
+        const { StorageAdapterFactory } = require("@/core/content.processor/storage.adapter")
+        const storageAdapter = StorageAdapterFactory.create("local")
+
+        return new MomentService(
+            momentRepository,
+            metricsService,
+            undefined, // config
+            storageAdapter, // storageAdapter
+            undefined, // moderationEngine (opcional)
+        )
     }
 
     /**
