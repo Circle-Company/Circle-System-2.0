@@ -1,6 +1,6 @@
 import { ErrorCode, ValidationError, jwtDecoder, jwtEncoder } from "@/shared"
 
-import { Device } from "@/domain/auth"
+import { Device } from "@/domain/authorization"
 import { IUserRepository } from "@/domain/user"
 
 export interface RefreshTokenInputDto {

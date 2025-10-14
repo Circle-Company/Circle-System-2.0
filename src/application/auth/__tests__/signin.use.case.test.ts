@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { AuthLogRepository, AuthLogStatus, AuthLogType, Device } from "../../../domain/auth"
+import { AuthLogRepository, AuthLogStatus, AuthLogType } from "../../../domain/auth"
 import { SecurityRisk, SignStatus } from "../../../domain/auth/auth.type"
+import { Device } from "../../../domain/authorization"
 import { IUserRepository, User, UserRole } from "../../../domain/user"
 import {
     InvalidCredentialsError,

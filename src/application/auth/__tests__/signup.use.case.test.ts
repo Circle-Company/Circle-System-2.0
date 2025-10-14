@@ -1,7 +1,8 @@
 import * as UserEntity from "../../../domain/user/entities/user.entity"
 
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { AuthLogRepository, AuthLogStatus, AuthLogType, Device } from "../../../domain/auth"
+import { AuthLogRepository, AuthLogStatus, AuthLogType } from "../../../domain/auth"
+import { Device } from "../../../domain/authorization"
 import { SecurityRisk, SignStatus } from "../../../domain/auth/auth.type"
 import { IUserRepository, User, UserRole } from "../../../domain/user"
 import {

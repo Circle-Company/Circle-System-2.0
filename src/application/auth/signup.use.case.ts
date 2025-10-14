@@ -1,6 +1,7 @@
-import { AuthLogRepository, AuthLogStatus, AuthLogType, Device } from "@/domain/auth"
+import { AuthLogRepository, AuthLogStatus, AuthLogType } from "@/domain/auth"
 import { SignRequest, SignUpInputDto, SignUpOutputDto } from "@/domain/auth/auth.dtos"
 import { SignStatus, SignType } from "@/domain/auth/auth.type"
+import { Device } from "@/domain/authorization"
 import {
     IUserRepository,
     User,
@@ -12,6 +13,7 @@ import {
 import {
     InvalidCoordinatesError,
     InvalidCredentialsError,
+    InvalidDeviceError,
     InvalidIpAddressError,
     InvalidMetadataError,
     InvalidTimezoneError,
@@ -23,6 +25,7 @@ import {
 } from "@/shared"
 import { ProcessSignRequest, ProcessSignRequestResponse } from "./process.sign.request"
 
+import { Level } from "@/domain/authorization"
 import { TimezoneCode } from "@/domain/user"
 import { UserMetrics } from "@/domain/user/entities/user.metrics.entity"
 import { logger } from "@/shared"
@@ -129,7 +132,7 @@ export class SignUpUseCase {
                 },
                 // Status ativo
                 status: {
-                    accessLevel: "user" as any, // Level.USER
+                    accessLevel: Level.USER, // Level.USER
                     verified: false,
                     deleted: false,
                     blocked: false,
@@ -200,7 +203,7 @@ export class SignUpUseCase {
             const token = await jwtEncoder({
                 userId: savedUser.id,
                 device: request.metadata?.device as Device, // Converter Device do auth para Device do authorization
-                level: savedUser.status?.accessLevel || "user",
+                level: savedUser.status?.accessLevel || Level.USER,
             })
             const expiresIn = Number(process.env.JWT_EXPIRES) || 3600 // 1 hora
 
@@ -306,7 +309,23 @@ export class SignUpUseCase {
             throw new InvalidMetadataError("Metadata is required")
         }
 
-        // 2. Validar ipAddress (obrigatório)
+        // 2. Validar device (obrigatório)
+        if (!metadata.device) {
+            throw new InvalidDeviceError("Device is required")
+        }
+
+        // Normalizar device para UPPERCASE antes de validar
+        const normalizedDevice = (metadata.device as string).toUpperCase() as Device
+        metadata.device = normalizedDevice
+
+        const validDevices = Object.values(Device)
+        if (!validDevices.includes(normalizedDevice)) {
+            throw new InvalidDeviceError(
+                `Invalid device type: ${metadata.device}. Valid types: ${validDevices.join(", ")}`,
+            )
+        }
+
+        // 3. Validar ipAddress (obrigatório)
         if (!metadata.ipAddress) {
             throw new InvalidIpAddressError()
         }
@@ -315,38 +334,38 @@ export class SignUpUseCase {
             throw new InvalidIpAddressError(metadata.ipAddress)
         }
 
-        // 3. Validar termsAccepted (obrigatório para signup)
+        // 4. Validar termsAccepted (obrigatório para signup)
         if (metadata.termsAccepted !== true) {
             throw new TermsNotAcceptedError()
         }
 
-        // 4. Validar timezone (opcional mas se fornecido deve ser válido)
+        // 5. Validar timezone (opcional mas se fornecido deve ser válido)
         if (metadata.timezone && !this.isValidTimezone(metadata.timezone)) {
             throw new InvalidTimezoneError(metadata.timezone)
         }
 
-        // 5. Validar coordenadas (opcional mas se fornecidas devem ser válidas)
+        // 6. Validar coordenadas (opcional mas se fornecidas devem ser válidas)
         if (metadata.latitude !== undefined || metadata.longitude !== undefined) {
             if (!this.areValidCoordinates(metadata.latitude, metadata.longitude)) {
                 throw new InvalidCoordinatesError(metadata.latitude, metadata.longitude)
             }
         }
 
-        // 6. Validar userAgent (opcional mas se fornecido deve ser string não vazia)
+        // 7. Validar userAgent (opcional mas se fornecido deve ser string não vazia)
         if (metadata.userAgent !== undefined) {
             if (typeof metadata.userAgent !== "string" || metadata.userAgent.trim().length === 0) {
                 throw new InvalidMetadataError("User agent must be a non-empty string")
             }
         }
 
-        // 7. Validar machineId (opcional mas se fornecido deve ser string válida)
+        // 8. Validar machineId (opcional mas se fornecido deve ser string válida)
         if (metadata.machineId !== undefined) {
             if (typeof metadata.machineId !== "string" || metadata.machineId.trim().length === 0) {
                 throw new InvalidMetadataError("Machine ID must be a non-empty string")
             }
         }
 
-        // 8. Validar language (opcional mas se fornecido deve ser código válido)
+        // 9. Validar language (opcional mas se fornecido deve ser código válido)
         if (metadata.language !== undefined) {
             if (!this.isValidLanguageCode(metadata.language)) {
                 throw new InvalidMetadataError(

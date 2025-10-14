@@ -1,5 +1,6 @@
-import { AuthLogRepository, AuthLogStatus, AuthLogType, Device } from "@/domain/auth"
+import { AuthLogRepository, AuthLogStatus, AuthLogType } from "@/domain/auth"
 import { SignInInputDto, SignInOutputDto, SignRequest } from "@/domain/auth/auth.dtos"
+import { Device } from "@/domain/authorization"
 import {
     IUserRepository,
     TimezoneCode,
@@ -25,6 +26,7 @@ import {
 import { ProcessSignRequest, ProcessSignRequestResponse } from "./process.sign.request"
 
 import { SignStatus } from "@/domain/auth/auth.type"
+import { Level } from "@/domain/authorization"
 import { SignType } from "@/infra/models/auth/sign.logs.model"
 import { Timezone } from "@/shared"
 
@@ -119,7 +121,7 @@ export class SignInUseCase {
         const token = await jwtEncoder({
             userId: user.id,
             device: request.metadata?.device as Device,
-            level: user.level,
+            level: user.level as Level,
         })
 
         await Promise.all([
@@ -236,8 +238,12 @@ export class SignInUseCase {
             throw new InvalidDeviceError("Device is required")
         }
 
+        // Normalizar device para UPPERCASE antes de validar
+        const normalizedDevice = (metadata.device as string).toUpperCase() as Device
+        metadata.device = normalizedDevice
+
         const validDevices = Object.values(Device)
-        if (!validDevices.includes(metadata.device)) {
+        if (!validDevices.includes(normalizedDevice)) {
             throw new InvalidDeviceError(
                 `Invalid device type: ${metadata.device}. Valid types: ${validDevices.join(", ")}`,
             )
