@@ -82,6 +82,20 @@ export const AUTHORIZATION_RULES: AuthorizationRule[] = [
         allowedDevices: [Device.MOBILE],
         description: "Atualizar próprias preferências",
     },
+
+    // Perfil público - usuários autenticados
+    {
+        permission: Permission.READ_PROFILE,
+        allowedLevels: [Level.SUDO, Level.ADMIN, Level.USER],
+        allowedDevices: [Device.WEB, Device.MOBILE],
+        description: "Ler perfil público",
+    },
+    {
+        permission: Permission.READ_PROFILE_MOMENTS,
+        allowedLevels: [Level.SUDO, Level.ADMIN, Level.USER],
+        allowedDevices: [Device.WEB, Device.MOBILE],
+        description: "Ler momentos do perfil público",
+    },
 ]
 
 /**

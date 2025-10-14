@@ -22,6 +22,9 @@ export enum Permission {
     DELETE_OWN_ACCOUNT = "delete:own_account",
     READ_OWN_SETTINGS = "read:own_settings",
     UPDATE_OWN_PREFERENCES = "update:own_preferences",
+
+    READ_PROFILE = "read:profile",
+    READ_PROFILE_MOMENTS = "read:profile_moments",
 }
 
 /**
