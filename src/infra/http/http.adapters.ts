@@ -254,11 +254,18 @@ export class FastifyAdapter implements HttpAdapter {
 
         return preHandlers.map((handler) => {
             return async (request: FastifyRequest, reply: FastifyReply) => {
+                // Se já enviou resposta, não fazer nada
                 if (reply.sent) return
 
                 const httpRequest = this.convertRequest(request)
                 const httpResponse = this.convertResponse(reply)
+
                 await handler(httpRequest, httpResponse)
+
+                // ✅ CRÍTICO: Copiar user de volta para o request original do Fastify
+                if (httpRequest.user) {
+                    ;(request as any).user = httpRequest.user
+                }
             }
         })
     }

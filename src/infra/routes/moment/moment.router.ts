@@ -13,6 +13,7 @@
  */
 
 import { createAuthMiddleware, requirePermission } from "@/infra/middlewares"
+import { ErrorCode, SystemError } from "@/shared/errors"
 import { HttpAdapter, HttpRequest, HttpResponse } from "../../http/http.type"
 import {
     MomentErrorSchemas,
@@ -22,15 +23,16 @@ import {
 } from "./moment.router.schemas"
 
 import { Permission } from "@/domain/authorization"
+import { MomentController } from "@/infra/controllers"
 import { DatabaseAdapter } from "@/infra/database/adapter"
 import { MomentFactory } from "@/infra/factories/moment.factory"
-import { ErrorCode, SystemError } from "@/shared/errors"
+import { AuthMiddleware } from "@/infra/middlewares"
 
 /**
  * Handler functions para encapsular lógica de rotas
  */
 class MomentRouteHandlers {
-    constructor(private momentController: any) {}
+    constructor(private momentController: MomentController) {}
 
     /**
      * Wrapper para criação de momento
@@ -220,6 +222,50 @@ class MomentRouteHandlers {
         }
     }
 
+    async getMomentsFromUser(request: HttpRequest, response: HttpResponse): Promise<void> {
+        try {
+            // Verificar se usuário está autenticado (middleware deveria garantir isso)
+            if (!request.user) {
+                return response.status(401).send({
+                    success: false,
+                    error: "User not authenticated",
+                    code: "AUTHENTICATION_REQUIRED",
+                })
+            }
+
+            // Parse dos query params
+            const limit = request.query.limit ? Number(request.query.limit) : 6
+            const page = request.query.page ? Number(request.query.page) : 1
+            const status = (request.query.status as string) || "published"
+
+            const result = await this.momentController.getUserMoments(
+                request.params.id,
+                request.user.id,
+                {
+                    limit,
+                    page,
+                    sortBy: "createdAt",
+                    status: status as any,
+                },
+            )
+
+            return response.status(200).send({
+                success: true,
+                moments: result,
+                pagination: {
+                    page,
+                    limit,
+                    total: result.length,
+                },
+            })
+        } catch (error: any) {
+            response.status(400).send({
+                success: false,
+                error: error.message || "Erro ao obter momentos do usuário",
+            })
+        }
+    }
+
     /**
      * Wrapper para obter momento específico
      */
@@ -386,7 +432,7 @@ class MomentRouteHandlers {
  */
 export class MomentRouter {
     private handlers: MomentRouteHandlers
-    private authMiddleware: any
+    private authMiddleware: AuthMiddleware
 
     constructor(private api: HttpAdapter, private databaseAdapter: DatabaseAdapter) {
         const controller = MomentFactory.getMomentController()
@@ -424,6 +470,15 @@ export class MomentRouter {
                     403: MomentErrorSchemas.default,
                 },
             },
+        })
+
+        // Obter momentos do usuário
+
+        this.api.get("/users/:id/moments", this.handlers.getMomentsFromUser.bind(this.handlers), {
+            preHandler: [
+                this.authMiddleware.execute.bind(this.authMiddleware),
+                requirePermission(Permission.READ_PROFILE_MOMENTS),
+            ],
         })
 
         // Obter momento

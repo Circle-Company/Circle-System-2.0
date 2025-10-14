@@ -6,12 +6,17 @@ import { SecurityInfo, SignInOutputDto, SignInputDto } from "@/domain/auth/auth.
  * @author Circle System Team
  * @version 1.0.0
  */
+import { RefreshTokenUseCase } from "@/application/auth/refresh.token.use.case"
 import { SignInUseCase } from "@/application/auth/signin.use.case"
 import { SignUpUseCase } from "@/application/auth/signup.use.case"
 import { z } from "zod"
 
-interface SignInRequest extends SignInputDto {}
-interface SignUpRequest extends SignInputDto {}
+export interface SignInRequest extends SignInputDto {}
+export interface SignUpRequest extends SignInputDto {}
+export interface RefreshTokenRequest {
+    token: string
+}
+
 interface AuthResponse {
     success: boolean
     session?: SignInOutputDto
@@ -23,6 +28,7 @@ export class AuthHandlers {
     constructor(
         private readonly signInUseCase: SignInUseCase,
         private readonly signUpUseCase: SignUpUseCase,
+        private readonly refreshTokenUseCase: RefreshTokenUseCase,
     ) {}
 
     /**
@@ -118,12 +124,27 @@ export class AuthHandlers {
     /**
      * Handler para refresh token
      */
-    async refreshToken(): Promise<{ success: boolean; token?: string; error?: string }> {
+    async refreshToken(request: RefreshTokenRequest): Promise<{
+        success: boolean
+        token?: string
+        expiresIn?: number
+        user?: {
+            id: string
+            username: string
+            level: string
+        }
+        error?: string
+    }> {
         try {
-            // TODO: Implementar refresh token
+            const result = await this.refreshTokenUseCase.execute({
+                token: request.token,
+            })
+
             return {
-                success: false,
-                error: "Refresh token not implemented",
+                success: true,
+                token: result.token,
+                expiresIn: result.expiresIn,
+                user: result.user,
             }
         } catch (error) {
             return {

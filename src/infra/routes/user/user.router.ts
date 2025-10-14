@@ -5,16 +5,17 @@
  * @version 1.0.0
  */
 
+import { AuthMiddleware, createAuthMiddleware, requirePermission } from "@/infra/middlewares"
+import { ErrorCode, SystemError } from "@/shared/errors"
+import { HttpAdapter, HttpRequest, HttpResponse } from "../../http/http.type"
+
 import { Permission } from "@/domain/authorization"
 import { UserController } from "@/infra/controllers/user.controller"
 import { DatabaseAdapter } from "@/infra/database/adapter"
 import { UserFactory } from "@/infra/factories/user.factory"
-import { createAuthMiddleware, requirePermission } from "@/infra/middlewares"
-import { ErrorCode, SystemError } from "@/shared/errors"
-import { HttpAdapter, HttpRequest, HttpResponse } from "../../http/http.type"
 
 export class UserRouter {
-    private authMiddleware: any
+    private authMiddleware: AuthMiddleware
     private userController: UserController
 
     constructor(private api: HttpAdapter, private databaseAdapter: DatabaseAdapter) {
@@ -27,6 +28,7 @@ export class UserRouter {
      */
     register(): void {
         this.registerAccountRoutes()
+        this.registerProfileRoutes()
     }
 
     /**
@@ -38,13 +40,8 @@ export class UserRouter {
             "/account",
             async (request: HttpRequest, response: HttpResponse) => {
                 try {
-                    console.log("=== GET ACCOUNT HANDLER ===")
-                    console.log("User authenticated:", !!request.user)
-                    console.log("User data:", request.user)
-
                     // Verificar autenticação
                     if (!request.user) {
-                        console.error("❌ User not authenticated in handler")
                         return response.status(401).send({
                             success: false,
                             error: "Usuário não autenticado",
@@ -53,9 +50,10 @@ export class UserRouter {
                         })
                     }
 
-                    // Buscar dados completos do usuário
-                    const userId = request.user.id
-                    const userData = await this.userController.getUserById(userId)
+                    const userData = await this.userController.getAccount(
+                        request.user.id,
+                        request.user.id,
+                    )
 
                     if (!userData) {
                         return response.status(404).send({
@@ -72,7 +70,6 @@ export class UserRouter {
                         timestamp: new Date().toISOString(),
                     })
                 } catch (error) {
-                    console.error("Error in getAccount:", error)
                     response.status(500).send({
                         success: false,
                         error: error instanceof Error ? error.message : "Erro interno do servidor",
@@ -86,29 +83,47 @@ export class UserRouter {
                     this.authMiddleware.execute.bind(this.authMiddleware),
                     requirePermission(Permission.READ_OWN_ACCOUNT),
                 ],
-                schema: {
-                    tags: ["Account"],
-                    summary: "Get user account data",
-                    description: "Returns the authenticated user's account data",
-                    response: {
-                        200: {
-                            type: "object",
-                            properties: {
-                                success: { type: "boolean" },
-                                user: { type: "object" },
-                                timestamp: { type: "string" },
-                            },
-                        },
-                        401: {
-                            type: "object",
-                            properties: {
-                                success: { type: "boolean" },
-                                error: { type: "string" },
-                                code: { type: "string" },
-                            },
-                        },
-                    },
-                },
+            },
+        )
+    }
+
+    private registerProfileRoutes(): void {
+        // GET /users/:id - Obter perfil público do usuário
+        this.api.get(
+            "/users/:id",
+            async (request: HttpRequest, response: HttpResponse) => {
+                try {
+                    // Verificar se usuário está autenticado (middleware deveria garantir isso)
+                    if (!request.user) {
+                        return response.status(401).send({
+                            success: false,
+                            error: "User not authenticated",
+                            code: "AUTHENTICATION_REQUIRED",
+                        })
+                    }
+
+                    const responseData = await this.userController.getPublicProfile(
+                        request.params.id,
+                        request.user.id,
+                    )
+                    return response.status(200).send({
+                        success: true,
+                        profile: responseData,
+                    })
+                } catch (error) {
+                    console.error("Error getting user profile:", error)
+                    return response.status(500).send({
+                        success: false,
+                        error: error instanceof Error ? error.message : "Internal server error",
+                        code: "INTERNAL_ERROR",
+                    })
+                }
+            },
+            {
+                preHandler: [
+                    this.authMiddleware.execute.bind(this.authMiddleware),
+                    requirePermission(Permission.READ_PROFILE),
+                ],
             },
         )
     }
