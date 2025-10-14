@@ -89,8 +89,12 @@ function createJwtPayload(
  */
 export async function jwtEncoder({ userId, device, level }: JwtEncoderParams): Promise<string> {
     try {
+        // Normalizar device e level para UPPERCASE
+        const normalizedDevice = (device as string).toUpperCase() as Device
+        const normalizedLevel = (level as string).toUpperCase()
+
         // Validação prévia do dispositivo (sem I/O)
-        validateDevice(device)
+        validateDevice(normalizedDevice)
 
         // Obter configurações primeiro (com validação)
         const config = getJwtConfig()
@@ -114,8 +118,8 @@ export async function jwtEncoder({ userId, device, level }: JwtEncoderParams): P
             })
         }
 
-        // Criar payload com level do usuário
-        const payload = createJwtPayload(userId, device, level, config)
+        // Criar payload com level e device normalizados
+        const payload = createJwtPayload(userId, normalizedDevice, normalizedLevel, config)
         const now = Math.floor(Date.now() / 1000)
 
         // Gerar token com JOSE (mais seguro que jsonwebtoken)

@@ -1,6 +1,6 @@
 import { ErrorCode, ValidationError } from "@/shared/errors"
 
-import { Device } from "@/domain/auth"
+import { Device, Level } from "@/domain/authorization"
 import { jwtVerify } from "jose"
 
 interface JwtConfig {
@@ -54,10 +54,14 @@ export async function jwtDecoder(token: string): Promise<JwtPayload> {
             })
         }
 
+        // Normalizar device e level para UPPERCASE
+        const normalizedDevice = (payload.device as string).toUpperCase() as Device
+        const normalizedLevel = (payload.level as string).toUpperCase() as Level
+
         return {
             sub: payload.sub as string,
-            device: payload.device as Device,
-            level: payload.level as string,
+            device: normalizedDevice,
+            level: normalizedLevel,
             iat: payload.iat,
             exp: payload.exp,
             iss: payload.iss as string,
