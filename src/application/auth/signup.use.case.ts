@@ -1,5 +1,14 @@
 import { AuthLogRepository, AuthLogStatus, AuthLogType, Device } from "@/domain/auth"
-import { IUserRepository, User } from "@/domain/user"
+import { SignRequest, SignUpInputDto, SignUpOutputDto } from "@/domain/auth/auth.dtos"
+import { SignStatus, SignType } from "@/domain/auth/auth.type"
+import {
+    IUserRepository,
+    User,
+    UserPreferences,
+    UserPublicProfile,
+    UserStatus,
+    UserTerm,
+} from "@/domain/user"
 import {
     InvalidCoordinatesError,
     InvalidCredentialsError,
@@ -9,17 +18,15 @@ import {
     SecurityRiskError,
     TermsNotAcceptedError,
     UserAlreadyExistsError,
-    circleTextLibrary,
     jwtEncoder,
+    textLib,
 } from "@/shared"
 import { ProcessSignRequest, ProcessSignRequestResponse } from "./process.sign.request"
-import { SignRequest, SignUpInputDto, SignUpOutputDto } from "@/domain/auth/auth.dtos"
-import { SignStatus, SignType } from "@/domain/auth/auth.type"
-import { Timezone, TimezoneCodes } from "circle-text-library"
 
 import { TimezoneCode } from "@/domain/user"
 import { UserMetrics } from "@/domain/user/entities/user.metrics.entity"
 import { logger } from "@/shared"
+import { Timezone } from "circle-text-library"
 
 export class SignUpUseCase {
     constructor(
@@ -60,10 +67,9 @@ export class SignUpUseCase {
 
             // Verificar se há atividade suspeita que requer atenção
             if (securityResult && securityResult.status === SignStatus.SUSPICIOUS) {
-                throw new SecurityRiskError(
-                    securityResult.reason || "Request rejected by security system",
-                    securityResult.securityRisk,
-                )
+                /**
+                 * @TODO: Implementar lógica para atividade suspeita (envio de email para o usuário)
+                 */
             }
         }
         return securityResult
@@ -78,7 +84,8 @@ export class SignUpUseCase {
             this.validateMetadata(request.metadata)
 
             // ✅ Inicializar timezone usando circle-text-library
-            const timezone = new Timezone(request.metadata?.timezone as TimezoneCodes)
+            const timezone = new Timezone()
+            timezone.setLocalTimezone(request.metadata?.timezone as TimezoneCode)
 
             const [securityResult, userExists] = await Promise.all([
                 this.processSecurityRisk(request),
@@ -104,7 +111,7 @@ export class SignUpUseCase {
             }
 
             // ✅ Obter timezone offset do objeto Timezone
-            const timezoneOffset = timezone.getTimezoneOffset()
+            const timezoneOffset = timezone.getOffset()
 
             // Criar novo usuário usando o método estático que encripta a senha automaticamente
             const newUser = await User.create({
@@ -143,7 +150,7 @@ export class SignUpUseCase {
                 preferences: {
                     appLanguage: request.metadata?.language || "en",
                     appTimezone: timezoneOffset,
-                    timezoneCode: timezone.getCurrentTimezoneCode() as unknown as TimezoneCode,
+                    timezoneCode: timezone.getCode(),
                     disableAutoplay: false,
                     disableHaptics: false,
                     disableTranslation: false,
@@ -193,7 +200,7 @@ export class SignUpUseCase {
             const token = await jwtEncoder({
                 userId: savedUser.id,
                 device: request.metadata?.device as Device, // Converter Device do auth para Device do authorization
-                role: savedUser.role || "user",
+                level: savedUser.status?.accessLevel || "user",
             })
             const expiresIn = Number(process.env.JWT_EXPIRES) || 3600 // 1 hora
 
@@ -215,28 +222,18 @@ export class SignUpUseCase {
             logger.info("User registered successfully", {
                 userId: savedUser.id,
                 username: savedUser.username,
-                timezone: timezone.getCurrentTimezoneCode(),
+                timezone: timezone.getCode(),
                 timezoneOffset: timezoneOffset,
             })
 
             return {
                 token,
                 expiresIn,
-                user: {
-                    id: savedUser.id,
-                    username: savedUser.username,
-                    name: savedUser.name || null,
-                    role: savedUser.role || "user",
-                    status: "active",
-                    lastLogin: timezone.UTCToLocal(new Date()),
-                },
-                preferences: {
-                    timezone: timezoneOffset,
-                    language: {
-                        appLanguage: savedUser.preferences?.appLanguage || "pt",
-                        translationLanguage: savedUser.preferences?.translationLanguage || "pt",
-                    },
-                },
+                user: savedUser.getPublicProfile() as UserPublicProfile,
+                metrics: savedUser.metrics as UserMetrics,
+                status: savedUser.status as UserStatus,
+                terms: savedUser.terms as UserTerm,
+                preferences: savedUser.preferences as UserPreferences,
                 securityInfo: securityResult
                     ? {
                           riskLevel: securityResult.securityRisk,
@@ -293,11 +290,11 @@ export class SignUpUseCase {
     }
 
     private isValidUsername(username: string): boolean {
-        return circleTextLibrary.validate.username(username).isValid
+        return textLib.validator.username(username).isValid
     }
 
     private isValidPassword(password: string): boolean {
-        return circleTextLibrary.validate.password(password).isValid
+        return textLib.validator.password(password).isValid
     }
 
     /**
@@ -377,13 +374,8 @@ export class SignUpUseCase {
      * Valida se é um timezone válido
      */
     private isValidTimezone(timezone: string): boolean {
-        try {
-            // Tenta criar um formatter com o timezone para validar
-            Intl.DateTimeFormat(undefined, { timeZone: timezone })
-            return true
-        } catch {
-            return false
-        }
+        const codes = Object.values(TimezoneCode)
+        return codes.includes(timezone as TimezoneCode)
     }
 
     /**

@@ -1,4 +1,5 @@
 import { AuthLogRepository, AuthLogStatus, AuthLogType, Device } from "@/domain/auth"
+import { SignInInputDto, SignInOutputDto, SignRequest } from "@/domain/auth/auth.dtos"
 import {
     IUserRepository,
     TimezoneCode,
@@ -22,11 +23,10 @@ import {
     logger,
 } from "@/shared"
 import { ProcessSignRequest, ProcessSignRequestResponse } from "./process.sign.request"
-import { SignInInputDto, SignInOutputDto, SignRequest } from "@/domain/auth/auth.dtos"
-import { Timezone, TimezoneCodes } from "circle-text-library"
 
 import { SignStatus } from "@/domain/auth/auth.type"
 import { SignType } from "@/infra/models/auth/sign.logs.model"
+import { Timezone } from "@/shared"
 
 export class SignInUseCase {
     constructor(
@@ -77,10 +77,13 @@ export class SignInUseCase {
             throw new UserInactiveError(user.id)
         }
 
-        const timezone = new Timezone(request.metadata?.timezone as TimezoneCodes)
+        const tz = new Timezone()
+
+        tz.setLocalTimezone(request.metadata?.timezone as TimezoneCode)
+
         // ✅ Atualizar timezone do usuário se for diferente atual
         if (request.metadata?.timezone && user.preferences) {
-            const timezoneOffset = timezone.getTimezoneOffset()
+            const timezoneOffset = tz.getOffset()
             const currentTimezone = user.preferences.appTimezone
 
             // Apenas atualizar se mudou
@@ -88,7 +91,7 @@ export class SignInUseCase {
                 user.updatePreferences({
                     ...user.preferences,
                     appTimezone: timezoneOffset,
-                    timezoneCode: timezone.getCurrentTimezoneCode() as unknown as TimezoneCode,
+                    timezoneCode: tz.getCode(),
                     updatedAt: new Date(),
                 })
             }
@@ -116,7 +119,7 @@ export class SignInUseCase {
         const token = await jwtEncoder({
             userId: user.id,
             device: request.metadata?.device as Device,
-            role: user.role,
+            level: user.level,
         })
 
         await Promise.all([

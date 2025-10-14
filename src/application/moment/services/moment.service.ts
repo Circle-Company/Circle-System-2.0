@@ -1,6 +1,6 @@
 import { ContentProcessor, StorageAdapter } from "@/core/content.processor"
 import { Moment, MomentStatusEnum, MomentVisibilityEnum } from "@/domain/moment"
-import { circleTextLibrary, generateId } from "@/shared"
+import { generateId, textLib } from "@/shared"
 
 import { ModerationEngine } from "@/core/content.moderation"
 import { IMomentRepository } from "@/domain/moment/repositories/moment.repository"
@@ -1390,14 +1390,14 @@ export class MomentService {
             throw new Error("Cannot use the same hashtag more than once")
         }
 
-        circleTextLibrary.validate.description(data.description || "")
+        textLib.validator.description(data.description || "")
 
         data.mentions?.forEach((mention) => {
-            circleTextLibrary.validate.username(mention)
+            textLib.validator.username(mention)
         })
 
         data.hashtags?.forEach((hashtag) => {
-            circleTextLibrary.validate.hashtag(hashtag)
+            textLib.validator.hashtag(hashtag)
         })
     }
 

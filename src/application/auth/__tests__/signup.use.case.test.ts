@@ -27,9 +27,9 @@ vi.mock("../../../domain/user/entities/user.entity", () => ({
     },
 }))
 
-// Mock do circleTextLibrary
+// Mock do textLib
 vi.mock("@/shared/circle.text.library", () => ({
-    circleTextLibrary: {
+    textLib: {
         validate: {
             username: vi.fn().mockReturnValue({ isValid: true }),
         },
