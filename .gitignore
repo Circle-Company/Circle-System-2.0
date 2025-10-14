@@ -1,8 +1,45 @@
-node_modules
+# Dependencies
+node_modules/
+package-lock.json
+
+# Environment
 .env
-.bash
-build
-dist
-seeders
-tsconfig.tsbuildinfo
-/src/generated/prisma
+.env.*
+!.env.example
+
+# Build
+dist/
+build/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+coverage/
+.nyc_output/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Hugging Face Models (muito grandes para Git)
+models/
+models/huggingface/
+
+# Database
+*.sqlite
+*.db
