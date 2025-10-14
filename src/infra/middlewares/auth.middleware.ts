@@ -58,16 +58,11 @@ export class AuthServiceImpl implements AuthService {
             }
 
             // Retornar dados do usuário autenticado
-            // Usar level do JWT (que já foi validado e é mais confiável)
-            // Normalizar para lowercase para compatibilidade com enums Level e Device
-            const rawLevel = payload.level || user.status?.accessLevel || "user"
-            const normalizedLevel = (rawLevel as string).toLowerCase()
-            const normalizedDevice = (payload.device as string).toLowerCase()
-
+            // jwtDecoder já retorna level e device normalizados em UPPERCASE
             const authenticatedUser: AuthenticatedUser = {
                 id: payload.sub, // Manter como string para compatibilidade
-                device: normalizedDevice as unknown as Device,
-                level: normalizedLevel as unknown as Level,
+                device: payload.device,
+                level: payload.level,
             }
 
             return authenticatedUser

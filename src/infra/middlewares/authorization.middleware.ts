@@ -23,14 +23,12 @@ export function requirePermission(permission: Permission) {
                 return
             }
 
-            // Normalizar level para lowercase (compatibilidade com enum Level)
-            const normalizedLevel = (user.level as string).toLowerCase() as Level
-
             // Criar contexto de autorização
+            // Normalizar level e device para UPPERCASE
             const context: AuthorizationContext = {
                 user: {
-                    level: normalizedLevel,
-                    device: user.device as unknown as Device,
+                    level: (user.level as string).toUpperCase() as Level,
+                    device: (user.device as string).toUpperCase() as Device,
                 },
                 route: {
                     path: request.url,
@@ -44,8 +42,8 @@ export function requirePermission(permission: Permission) {
             if (!result.allowed) {
                 console.error(`❌ Authorization failed: ${result.reason}`, {
                     permission,
-                    userLevel: normalizedLevel,
-                    userDevice: user.device,
+                    userLevel: user.level as Level,
+                    userDevice: user.device as Device,
                     requiredLevels: result.requiredLevels,
                     requiredDevices: result.requiredDevices,
                 })
@@ -55,7 +53,7 @@ export function requirePermission(permission: Permission) {
                     code: "INSUFFICIENT_PERMISSION",
                     context: {
                         requiredPermission: permission,
-                        userLevel: normalizedLevel,
+                        userLevel: user.level,
                         requiredLevels: result.requiredLevels,
                         requiredDevices: result.requiredDevices,
                     },
@@ -93,8 +91,8 @@ export function requireRole(allowedLevels: Level[]) {
                 return
             }
 
-            // Normalizar level para lowercase (compatibilidade com enum Level)
-            const normalizedLevel = (user.level as string).toLowerCase() as Level
+            // Normalizar level para UPPERCASE (compatibilidade com enum Level)
+            const normalizedLevel = (user.level as string).toUpperCase() as Level
 
             if (!allowedLevels.includes(normalizedLevel)) {
                 console.error(`❌ Authorization failed: Insufficient level`, {
