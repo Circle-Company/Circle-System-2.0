@@ -206,19 +206,19 @@ export class MomentController {
             })
 
             if (!result.success || !result.moment) {
-                throw new Error(result.error || "Erro ao criar momento")
+                throw new Error(result.error || "Error to create moment")
             }
 
-            return this.mapToResponse(result.moment)
+            return result.moment as any
         } catch (error) {
             if (error instanceof z.ZodError) {
                 throw new Error(
-                    `Erro de validação: ${error.issues.map((e) => e.message).join(", ")}`,
+                    `Validation error: ${error.issues.map((e) => e.message).join(", ")}`,
                 )
             }
             throw new Error(
-                `Erro ao criar momento: ${
-                    error instanceof Error ? error.message : "Erro desconhecido"
+                `Error to create moment: ${
+                    error instanceof Error ? error.message : "Unknown error"
                 }`,
             )
         }
@@ -240,9 +240,7 @@ export class MomentController {
                 return null
             }
             throw new Error(
-                `Erro ao buscar momento: ${
-                    error instanceof Error ? error.message : "Erro desconhecido"
-                }`,
+                `Error to get moment: ${error instanceof Error ? error.message : "Unknown error"}`,
             )
         }
     }
@@ -258,14 +256,14 @@ export class MomentController {
             })
         } catch (error) {
             if (error instanceof Error && error.message === "Moment not found") {
-                throw new Error("Momento não encontrado")
+                throw new Error("Moment not found")
             }
             if (error instanceof Error && error.message === "Unauthorized") {
-                throw new Error("Não autorizado")
+                throw new Error("Unauthorized")
             }
             throw new Error(
-                `Erro ao deletar momento: ${
-                    error instanceof Error ? error.message : "Erro desconhecido"
+                `Error to delete moment: ${
+                    error instanceof Error ? error.message : "Unknown error"
                 }`,
             )
         }
@@ -284,14 +282,14 @@ export class MomentController {
             return this.mapToResponse(result)
         } catch (error) {
             if (error instanceof Error && error.message === "Moment not found") {
-                throw new Error("Momento não encontrado")
+                throw new Error("Moment not found")
             }
             if (error instanceof Error && error.message === "Unauthorized") {
-                throw new Error("Não autorizado")
+                throw new Error("Unauthorized")
             }
             throw new Error(
-                `Erro ao publicar momento: ${
-                    error instanceof Error ? error.message : "Erro desconhecido"
+                `Error to publish moment: ${
+                    error instanceof Error ? error.message : "Unknown error"
                 }`,
             )
         }
@@ -316,19 +314,19 @@ export class MomentController {
             })
 
             if (!result.success || !result.moments) {
-                throw new Error(result.error || "Erro ao listar momentos")
+                throw new Error(result.error || "Error to list moments")
             }
 
             return result.moments.map((moment) => this.mapToResponse(moment))
         } catch (error) {
             if (error instanceof z.ZodError) {
                 throw new Error(
-                    `Erro de validação: ${error.issues.map((e) => e.message).join(", ")}`,
+                    `Validation error: ${error.issues.map((e) => e.message).join(", ")}`,
                 )
             }
             throw new Error(
-                `Erro ao listar momentos: ${
-                    error instanceof Error ? error.message : "Erro desconhecido"
+                `Error to list moments: ${
+                    error instanceof Error ? error.message : "Unknown error"
                 }`,
             )
         }
@@ -357,19 +355,19 @@ export class MomentController {
             })
 
             if (!result.success || !result.moments) {
-                throw new Error(result.error || "Erro ao listar momentos do usuário")
+                throw new Error(result.error || "Error to list moments of user")
             }
 
             return result.moments.map((moment) => this.mapToResponse(moment))
         } catch (error) {
             if (error instanceof z.ZodError) {
                 throw new Error(
-                    `Erro de validação: ${error.issues.map((e) => e.message).join(", ")}`,
+                    `Validation error: ${error.issues.map((e) => e.message).join(", ")}`,
                 )
             }
             throw new Error(
-                `Erro ao listar momentos do usuário: ${
-                    error instanceof Error ? error.message : "Erro desconhecido"
+                `Error to list moments of user: ${
+                    error instanceof Error ? error.message : "Unknown error"
                 }`,
             )
         }
@@ -390,12 +388,10 @@ export class MomentController {
             return this.mapToResponse(result)
         } catch (error) {
             if (error instanceof Error && error.message === "Moment not found") {
-                throw new Error("Momento não encontrado")
+                throw new Error("Moment not found")
             }
             throw new Error(
-                `Erro ao curtir momento: ${
-                    error instanceof Error ? error.message : "Erro desconhecido"
-                }`,
+                `Error to like moment: ${error instanceof Error ? error.message : "Unknown error"}`,
             )
         }
     }
@@ -413,11 +409,11 @@ export class MomentController {
             return this.mapToResponse(result)
         } catch (error) {
             if (error instanceof Error && error.message === "Moment not found") {
-                throw new Error("Momento não encontrado")
+                throw new Error("Moment not found")
             }
             throw new Error(
-                `Erro ao descurtir momento: ${
-                    error instanceof Error ? error.message : "Erro desconhecido"
+                `Error to unlike moment: ${
+                    error instanceof Error ? error.message : "Unknown error"
                 }`,
             )
         }
@@ -438,19 +434,19 @@ export class MomentController {
             })
 
             if (!result.success || !result.moments) {
-                throw new Error(result.error || "Erro ao listar momentos curtidos")
+                throw new Error(result.error || "Error to list liked moments")
             }
 
             return result.moments.map((moment) => this.mapToResponse(moment))
         } catch (error) {
             if (error instanceof z.ZodError) {
                 throw new Error(
-                    `Erro de validação: ${error.issues.map((e) => e.message).join(", ")}`,
+                    `Validation error: ${error.issues.map((e) => e.message).join(", ")}`,
                 )
             }
             throw new Error(
-                `Erro ao listar momentos curtidos: ${
-                    error instanceof Error ? error.message : "Erro desconhecido"
+                `Error to list liked moments: ${
+                    error instanceof Error ? error.message : "Unknown error"
                 }`,
             )
         }
@@ -478,27 +474,27 @@ export class MomentController {
             })
 
             if (!result.success) {
-                throw new Error(result.error || "Erro ao reportar momento")
+                throw new Error(result.error || "Error to report moment")
             }
 
             // Retornar o momento reportado
             const moment = await this.getMoment(momentId, userId)
             if (!moment) {
-                throw new Error("Momento não encontrado")
+                throw new Error("Moment not found")
             }
             return moment
         } catch (error) {
             if (error instanceof z.ZodError) {
                 throw new Error(
-                    `Erro de validação: ${error.issues.map((e) => e.message).join(", ")}`,
+                    `Validation error: ${error.issues.map((e) => e.message).join(", ")}`,
                 )
             }
             if (error instanceof Error && error.message === "Moment not found") {
-                throw new Error("Momento não encontrado")
+                throw new Error("Moment not found")
             }
             throw new Error(
-                `Erro ao reportar momento: ${
-                    error instanceof Error ? error.message : "Erro desconhecido"
+                `Error to report moment: ${
+                    error instanceof Error ? error.message : "Unknown error"
                 }`,
             )
         }
@@ -524,7 +520,7 @@ export class MomentController {
             })
 
             if (!result.success) {
-                throw new Error(result.error || "Erro ao listar reports do momento")
+                throw new Error(result.error || "Error to list reports of moment")
             }
 
             // Retornar array vazio por enquanto, pois este use case retorna reports, não momentos
@@ -532,18 +528,18 @@ export class MomentController {
         } catch (error) {
             if (error instanceof z.ZodError) {
                 throw new Error(
-                    `Erro de validação: ${error.issues.map((e) => e.message).join(", ")}`,
+                    `Validation error: ${error.issues.map((e) => e.message).join(", ")}`,
                 )
             }
             if (error instanceof Error && error.message === "Moment not found") {
-                throw new Error("Momento não encontrado")
+                throw new Error("Moment not found")
             }
             if (error instanceof Error && error.message === "Unauthorized") {
-                throw new Error("Não autorizado")
+                throw new Error("Unauthorized")
             }
             throw new Error(
-                `Erro ao listar reports do momento: ${
-                    error instanceof Error ? error.message : "Erro desconhecido"
+                `Error to list reports of moment: ${
+                    error instanceof Error ? error.message : "Unknown error"
                 }`,
             )
         }
@@ -567,7 +563,7 @@ export class MomentController {
             })
 
             if (!result.success) {
-                throw new Error(result.error || "Erro ao listar reports dos momentos do usuário")
+                throw new Error(result.error || "Error to list reports of user's moments")
             }
 
             // Retornar array vazio por enquanto, pois este use case retorna reports, não momentos
@@ -575,15 +571,15 @@ export class MomentController {
         } catch (error) {
             if (error instanceof z.ZodError) {
                 throw new Error(
-                    `Erro de validação: ${error.issues.map((e) => e.message).join(", ")}`,
+                    `Validation error: ${error.issues.map((e) => e.message).join(", ")}`,
                 )
             }
             if (error instanceof Error && error.message === "Unauthorized") {
-                throw new Error("Não autorizado")
+                throw new Error("Unauthorized")
             }
             throw new Error(
-                `Erro ao listar reports dos momentos do usuário: ${
-                    error instanceof Error ? error.message : "Erro desconhecido"
+                `Error to list reports of user's moments: ${
+                    error instanceof Error ? error.message : "Unknown error"
                 }`,
             )
         }
@@ -608,7 +604,7 @@ export class MomentController {
             })
 
             if (!result.success) {
-                throw new Error(result.error || "Erro ao listar momentos reportados pelo usuário")
+                throw new Error(result.error || "Error to list reported moments of user")
             }
 
             // Retornar array vazio por enquanto, pois este use case retorna reports, não momentos
@@ -616,22 +612,22 @@ export class MomentController {
         } catch (error) {
             if (error instanceof z.ZodError) {
                 throw new Error(
-                    `Erro de validação: ${error.issues.map((e) => e.message).join(", ")}`,
+                    `Validation error: ${error.issues.map((e) => e.message).join(", ")}`,
                 )
             }
             if (error instanceof Error && error.message === "Unauthorized") {
-                throw new Error("Não autorizado")
+                throw new Error("Unauthorized")
             }
             throw new Error(
-                `Erro ao listar momentos reportados pelo usuário: ${
-                    error instanceof Error ? error.message : "Erro desconhecido"
+                `Error to list reported moments of user: ${
+                    error instanceof Error ? error.message : "Unknown error"
                 }`,
             )
         }
     }
 
     /**
-     * Mapeia entidade Moment para MomentResponse
+     * Map entity Moment to MomentResponse
      */
     private mapToResponse(moment: any): MomentResponse {
         const momentData = moment.toEntity ? moment.toEntity() : moment
