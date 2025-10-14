@@ -124,8 +124,11 @@ export class AuthorizationServiceImpl implements AuthorizationService {
             }
         }
 
+        // Normalizar level para UPPERCASE
+        const userLevel = (context.user.level as string).toUpperCase() as Level
+
         // Check role
-        if (!rule.allowedLevels.includes(context.user.level)) {
+        if (!rule.allowedLevels.includes(userLevel)) {
             return {
                 allowed: false,
                 reason: "Insufficient access level",
@@ -134,8 +137,11 @@ export class AuthorizationServiceImpl implements AuthorizationService {
             }
         }
 
+        // Normalizar device para UPPERCASE
+        const userDevice = (context.user.device as string).toUpperCase() as Device
+
         // Check device
-        if (!rule.allowedDevices.includes(context.user.device)) {
+        if (!rule.allowedDevices.includes(userDevice)) {
             return {
                 allowed: false,
                 reason: "Device not allowed",
