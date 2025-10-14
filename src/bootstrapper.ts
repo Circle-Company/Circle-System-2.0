@@ -1,9 +1,13 @@
 import { api } from "@/infra/api"
 import { DatabaseAdapterFactory } from "@/infra/database"
+import { MomentFactory } from "@/infra/factories/moment.factory"
+import { EmbeddingsWorker } from "@/infra/queue/embeddings.worker"
 import { initialize as initializeRoutes } from "@/infra/routes"
 import { setupSwagger } from "@/infra/swagger"
 import { resetSwaggerRegistration } from "@/infra/swagger/swagger.config"
 import { logger } from "@/shared/logger"
+import fastifyStatic from "@fastify/static"
+import path from "path"
 
 /**
  * Configurações de ambiente da aplicação
@@ -73,6 +77,7 @@ export class ApplicationBootstrapper {
     private healthCheckInterval?: NodeJS.Timeout
     private shutdownTimeout?: NodeJS.Timeout
     private isShuttingDown = false
+    private embeddingsWorker?: EmbeddingsWorker
 
     constructor() {
         this.config = this.loadConfiguration()
@@ -264,9 +269,13 @@ export class ApplicationBootstrapper {
             // Etapas do boot
             await this.executeBootStep("Database Connection", () => this.connectDatabase())
             await this.executeBootStep("Multipart Configuration", () => this.configureMultipart())
+            await this.executeBootStep("Static Files Setup", () => this.setupStaticFiles())
             await this.executeBootStep("Routes Setup", () => this.setupRoutes())
             await this.executeBootStep("Swagger Setup", () => this.setupSwagger())
             await this.executeBootStep("Server Startup", () => this.startServer())
+            await this.executeBootStep("Embeddings Worker Startup", () =>
+                this.startEmbeddingsWorker(),
+            )
             await this.executeBootStep("Graceful Shutdown Setup", () =>
                 this.setupGracefulShutdown(),
             )
@@ -353,6 +362,36 @@ export class ApplicationBootstrapper {
     }
 
     /**
+     * Configura servir arquivos estáticos (uploads)
+     */
+    private async setupStaticFiles(): Promise<void> {
+        try {
+            const fastifyInstance = (api as any).getFastifyInstance?.()
+
+            if (!fastifyInstance) {
+                throw new Error("Fastify instance not available")
+            }
+
+            // Registrar plugin para servir arquivos estáticos
+            await fastifyInstance.register(fastifyStatic, {
+                root: path.join(process.cwd(), "uploads"),
+                prefix: "/uploads/",
+                constraints: {},
+            })
+
+            this.log("info", "Static files configured", {
+                root: path.join(process.cwd(), "uploads"),
+                prefix: "/uploads/",
+            })
+        } catch (error) {
+            this.log("error", "Failed to configure static files", {
+                error: (error as Error).message,
+            })
+            throw error
+        }
+    }
+
+    /**
      * Configura as rotas da aplicação
      */
     private async setupRoutes(): Promise<void> {
@@ -416,6 +455,26 @@ export class ApplicationBootstrapper {
             environment: this.config.environment,
             url: `http://localhost:${this.config.port}`,
         })
+    }
+
+    /**
+     * Inicia o worker de embeddings
+     */
+    private async startEmbeddingsWorker(): Promise<void> {
+        try {
+            const momentRepository = MomentFactory.createMomentRepository(this.databaseAdapter)
+            this.embeddingsWorker = new EmbeddingsWorker(momentRepository)
+            this.embeddingsWorker.start()
+
+            this.log("info", "Embeddings worker started successfully", {
+                scheduleTime: process.env.EMBEDDINGS_SCHEDULE_TIME || "01:00",
+            })
+        } catch (error) {
+            this.log("error", "Failed to start embeddings worker", {
+                error: (error as Error).message,
+            })
+            // Não throw error - worker é opcional
+        }
     }
 
     /**
@@ -538,6 +597,12 @@ export class ApplicationBootstrapper {
             if (this.healthCheckInterval) {
                 clearInterval(this.healthCheckInterval)
                 this.log("info", "Health check stopped")
+            }
+
+            // Parar embeddings worker
+            if (this.embeddingsWorker) {
+                await this.embeddingsWorker.stop()
+                this.log("info", "Embeddings worker stopped")
             }
 
             // Desconectar do banco
