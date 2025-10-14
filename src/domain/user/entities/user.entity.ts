@@ -1,4 +1,4 @@
-import { Encrypt, generateId } from "@/shared"
+import { Encrypt, generateId, textLib } from "@/shared"
 import {
     UserEmbedding,
     UserInterctionsSummary,
@@ -148,7 +148,7 @@ export class User {
         return this._updatedAt
     }
 
-    get role(): string {
+    get level(): string {
         return this._status?.accessLevel || "user"
     }
 
@@ -567,12 +567,130 @@ export class User {
         return this.isActive() && !this.isBlocked() && !this.isDeleted()
     }
 
+    /**
+     * Verifica se o perfil do usuário pode ser visualizado publicamente
+     */
+    public isPublicProfile(): boolean {
+        return this.isActive() && !this.isDeleted()
+    }
+
+    /**
+     * Verifica se o usuário pode visualizar outro perfil
+     * Considera status, bloqueios e configurações de privacidade
+     */
+    public canViewProfile(targetUser: User, isFollowing: boolean = false): boolean {
+        // Não pode ver perfis deletados
+        if (targetUser.isDeleted()) {
+            return false
+        }
+
+        // Não pode ver perfis bloqueados (a menos que seja admin)
+        if (targetUser.isBlocked() && !this.canAccessAdminFeatures()) {
+            return false
+        }
+
+        // Usuário deletado não pode ver nada
+        if (this.isDeleted()) {
+            return false
+        }
+
+        // Usuário bloqueado tem acesso limitado
+        if (this.isBlocked() && !this.canAccessAdminFeatures()) {
+            return false
+        }
+
+        // Se o perfil for público, qualquer um pode ver
+        const defaultVisibility = targetUser.getDefaultMomentVisibility()
+        if (defaultVisibility === "public") {
+            return true
+        }
+
+        // Se o perfil for privado (followers_only), precisa estar seguindo
+        if (defaultVisibility === "followers_only") {
+            return isFollowing
+        }
+
+        // Se o perfil for privado, não pode ver
+        if (defaultVisibility === "private") {
+            return false
+        }
+
+        return true
+    }
+
+    /**
+     * Verifica se o usuário tem restrições de visualização
+     */
+    public hasViewingRestrictions(): boolean {
+        return this.isBlocked() || this.isDeleted() || this.isMuted()
+    }
+
+    /**
+     * Obtém nível de acesso que outro usuário tem a este perfil
+     */
+    public getAccessLevel(
+        requestingUser: User | null,
+        isFollowing: boolean = false,
+    ): "full" | "limited" | "none" {
+        // Sem usuário solicitante - acesso público básico
+        if (!requestingUser) {
+            if (this.isDeleted() || this.isBlocked()) {
+                return "none"
+            }
+            const visibility = this.getDefaultMomentVisibility()
+            if (visibility === "public") {
+                return "limited"
+            }
+            return "none"
+        }
+
+        // Próprio usuário - acesso completo
+        if (requestingUser.id === this.id) {
+            return "full"
+        }
+
+        // Admin sempre tem acesso completo
+        if (requestingUser.canAccessAdminFeatures()) {
+            return "full"
+        }
+
+        // Usuário deletado ou bloqueado não tem acesso
+        if (requestingUser.isDeleted() || requestingUser.isBlocked()) {
+            return "none"
+        }
+
+        // Perfil alvo deletado - sem acesso
+        if (this.isDeleted()) {
+            return "none"
+        }
+
+        // Perfil alvo bloqueado - sem acesso (exceto admin)
+        if (this.isBlocked()) {
+            return "none"
+        }
+
+        // Verificar visibilidade
+        const visibility = this.getDefaultMomentVisibility()
+        if (visibility === "public") {
+            return "limited"
+        }
+
+        if (visibility === "followers_only" && isFollowing) {
+            return "limited"
+        }
+
+        return "none"
+    }
+
     public getPublicProfile(): UserPublicProfile {
         return {
             id: this._id,
             username: this._username,
             name: this._name,
             description: this._description,
+            richDescription: this._description
+                ? textLib.rich.formatToEnriched(this._description)
+                : null,
             isVerified: this.isVerified(),
             isActive: this.isActive(),
             profilePicture: this._profilePicture,

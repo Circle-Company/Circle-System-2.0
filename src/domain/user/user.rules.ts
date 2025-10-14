@@ -4,7 +4,7 @@
  * Retorna os valores das regras utilizadas em cada função de validação
  */
 
-import { circleTextLibrary } from "@/shared"
+import { textLib } from "@/shared"
 
 export function userRules() {
     return {
@@ -135,13 +135,13 @@ export function userRules() {
 export function validateUsername(username: string): boolean {
     const rules = userRules()
     if (!username) return !rules.username.required
-    return circleTextLibrary.validate.username(username).isValid
+    return textLib.validator.username(username).isValid
 }
 
 export function validateName(name: string | null): boolean {
     const rules = userRules()
     if (!name) return !rules.name.required
-    return circleTextLibrary.validate.name(name).isValid
+    return textLib.validator.name(name).isValid
 }
 
 export function validateSearchMatchTerm(searchTerm: string): boolean {
@@ -155,7 +155,7 @@ export function validateSearchMatchTerm(searchTerm: string): boolean {
 export function validateDescription(description: string | null): boolean {
     const rules = userRules()
     if (!description) return !rules.description.required
-    return circleTextLibrary.validate.description(description).isValid
+    return textLib.validator.description(description).isValid
 }
 
 export function validatePassword(password: string): boolean {
