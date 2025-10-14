@@ -337,13 +337,18 @@ export class MomentController {
     /**
      * Lista momentos de um usuário específico
      */
-    async getUserMoments(userId: string, query: ListMomentsQuery): Promise<MomentResponse[]> {
+    async getUserMoments(
+        userId: string,
+        requestingUserId: string,
+        query: ListMomentsQuery,
+    ): Promise<MomentResponse[]> {
         try {
             // Validação com Zod
             const validatedQuery = ListMomentsQuerySchema.parse(query)
 
             const result = await this.getUserMomentsUseCase.execute({
                 userId: userId,
+                requestingUserId: requestingUserId,
                 limit: validatedQuery.limit,
                 offset: (validatedQuery.page - 1) * validatedQuery.limit,
                 sortBy: validatedQuery.sortBy,

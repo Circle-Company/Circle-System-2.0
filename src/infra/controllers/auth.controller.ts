@@ -5,7 +5,12 @@
  * @version 2.0.0
  */
 
-import { AuthHandlers, SignInRequest, SignUpRequest } from "@/infra/http/handlers/auth.handlers"
+import {
+    AuthHandlers,
+    RefreshTokenRequest,
+    SignInRequest,
+    SignUpRequest,
+} from "@/infra/handlers/auth.handlers"
 
 export class AuthController {
     constructor(private readonly authHandlers: AuthHandlers) {}
@@ -34,7 +39,7 @@ export class AuthController {
     /**
      * Renova o token de acesso
      */
-    async refreshToken() {
-        return await this.authHandlers.refreshToken()
+    async refreshToken(request: RefreshTokenRequest) {
+        return await this.authHandlers.refreshToken(request)
     }
 }
