@@ -1,3 +1,8 @@
+import { IUserRepository, User } from "@/domain/user"
+import {
+    ViewRecord,
+    ViewTrackingService,
+} from "../../../application/moment/services/view.tracking.service"
 import {
     MomentProcessingRulesFactory,
     MomentProcessingValidator,
@@ -17,6 +22,7 @@ import {
     MomentThumbnail,
     MomentVisibility,
     MomentVisibilityEnum,
+    ViewabilityResult,
 } from "../types"
 import type {
     MomentMetrics as MomentMetricsDomain,
@@ -436,9 +442,9 @@ export class Moment {
      */
     async isInteractable(
         userWhoWantsToInteract: string,
-        userRepository?: import("@/domain/user").IUserRepository,
-        ownerUser?: import("@/domain/user").User,
-        interactingUser?: import("@/domain/user").User,
+        userRepository?: IUserRepository,
+        ownerUser?: User,
+        interactingUser?: User,
         isFollowing?: boolean,
         isBlocked?: boolean,
     ): Promise<boolean> {
@@ -478,6 +484,423 @@ export class Moment {
     }
 
     /**
+     * Verifica se um momento pode ser visualizado por um usuário específico
+     * Esta função implementa uma lógica robusta de visualização com múltiplas camadas de validação
+     */
+    async isViewable(
+        interactingUser: User,
+        userRepository?: IUserRepository,
+    ): Promise<ViewabilityResult> {
+        try {
+            // 1. Verificar se o momento está ativo e não deletado
+            if (!this._isActive() || this._status.current === MomentStatusEnum.DELETED) {
+                return this._createViewabilityResult(
+                    false,
+                    "MOMENT_NOT_ACTIVE",
+                    "Momento não está ativo ou foi deletado",
+                )
+            }
+
+            // 2. Verificar se o momento não está bloqueado
+            if (this._status.current === MomentStatusEnum.BLOCKED) {
+                return this._createViewabilityResult(
+                    false,
+                    "MOMENT_BLOCKED",
+                    "Momento foi bloqueado",
+                )
+            }
+
+            // 3. Verificar se o momento está publicado ou em revisão (para o próprio autor)
+            if (this._status.current === MomentStatusEnum.UNDER_REVIEW) {
+                if (interactingUser.id !== this._ownerId) {
+                    return this._createViewabilityResult(
+                        false,
+                        "MOMENT_UNDER_REVIEW",
+                        "Momento está em revisão",
+                    )
+                }
+            }
+
+            const isFollowing =
+                (await userRepository?.isFollowing(interactingUser.id, this._ownerId)) ?? false
+            const isBlocked =
+                (await userRepository?.isBlocked(interactingUser.id, this._ownerId)) ?? false
+
+            // 4. Verificação de visibilidade baseada no nível
+            const visibilityCheck = await this._checkVisibilityLevel(interactingUser, isFollowing)
+            if (!visibilityCheck.allowed) {
+                return visibilityCheck
+            }
+
+            // 5. Verificação de restrições de conteúdo
+            const contentRestrictionCheck = this._checkContentRestrictions(interactingUser)
+            if (!contentRestrictionCheck.allowed) {
+                return contentRestrictionCheck
+            }
+
+            // 6. Verificação de bloqueios entre usuários
+            if (isBlocked) {
+                return this._createViewabilityResult(
+                    false,
+                    "USER_BLOCKED",
+                    "Usuário está bloqueado pelo autor",
+                )
+            }
+
+            // 7. Verificação final de permissões
+            const finalPermissionCheck = await this._checkFinalPermissions(interactingUser)
+            if (!finalPermissionCheck.allowed) {
+                return finalPermissionCheck
+            }
+
+            // 8. Se chegou até aqui, pode visualizar
+            return this._createViewabilityResult(true, "VIEWABLE", "Momento pode ser visualizado", {
+                requiresAgeVerification: this._visibility.ageRestriction,
+                hasContentWarning: this._visibility.contentWarning,
+                visibilityLevel: this._visibility.level,
+            })
+        } catch (error) {
+            console.error(`Erro ao verificar visualização do moment ${this._id}:`, error)
+            return this._createViewabilityResult(false, "SYSTEM_ERROR", "Erro interno do sistema")
+        }
+    }
+
+    /**
+     * Verifica o nível de visibilidade do momento
+     */
+    private async _checkVisibilityLevel(
+        interactingUser: User,
+        isFollowing: boolean,
+    ): Promise<ViewabilityResult> {
+        switch (this._visibility.level) {
+            case MomentVisibilityEnum.PUBLIC:
+                // Público: qualquer um pode ver
+                return this._createViewabilityResult(true, "PUBLIC_VISIBLE", "Momento público")
+
+            case MomentVisibilityEnum.UNLISTED:
+                // Unlisted: pode ser visto por quem tem o link (qualquer usuário logado)
+                return this._createViewabilityResult(true, "UNLISTED_VISIBLE", "Momento unlisted")
+
+            case MomentVisibilityEnum.FOLLOWERS_ONLY:
+                // Apenas seguidores
+                if (interactingUser.id === this._ownerId) {
+                    return this._createViewabilityResult(true, "OWNER_VISIBLE", "Autor do momento")
+                }
+
+                if (isFollowing === true) {
+                    return this._createViewabilityResult(
+                        true,
+                        "FOLLOWER_VISIBLE",
+                        "Usuário é seguidor",
+                    )
+                }
+
+                // Verificar se está na lista de usuários permitidos
+                if (this._visibility.allowedUsers.includes(interactingUser.id)) {
+                    return this._createViewabilityResult(
+                        true,
+                        "ALLOWED_USER_VISIBLE",
+                        "Usuário na lista de permitidos",
+                    )
+                }
+
+                return this._createViewabilityResult(
+                    false,
+                    "FOLLOWERS_ONLY_RESTRICTED",
+                    "Apenas seguidores podem visualizar",
+                )
+
+            case MomentVisibilityEnum.PRIVATE:
+                // Privado: apenas usuários específicos
+                if (interactingUser.id === this._ownerId) {
+                    return this._createViewabilityResult(true, "OWNER_VISIBLE", "Autor do momento")
+                }
+
+                if (this._visibility.allowedUsers.includes(interactingUser.id)) {
+                    return this._createViewabilityResult(
+                        true,
+                        "ALLOWED_USER_VISIBLE",
+                        "Usuário autorizado",
+                    )
+                }
+
+                return this._createViewabilityResult(
+                    false,
+                    "PRIVATE_RESTRICTED",
+                    "Momento privado - usuário não autorizado",
+                )
+
+            default:
+                return this._createViewabilityResult(
+                    false,
+                    "UNKNOWN_VISIBILITY",
+                    "Nível de visibilidade desconhecido",
+                )
+        }
+    }
+
+    /**
+     * Verifica restrições de conteúdo (idade, warnings, etc.)
+     */
+    private _checkContentRestrictions(interactingUser: User): ViewabilityResult {
+        // Verificar se há restrição de idade
+        if (this._visibility.ageRestriction) {
+            if (!interactingUser.hasViewingRestrictions()) {
+                return this._createViewabilityResult(
+                    false,
+                    "AGE_RESTRICTED",
+                    "Conteúdo restrito por idade",
+                )
+            }
+        }
+
+        // Verificar se há warning de conteúdo
+        if (this._visibility.contentWarning) {
+            // Em uma implementação real, você pode querer verificar preferências do usuário
+            // Por agora, apenas informamos que há warning
+            return this._createViewabilityResult(true, "CONTENT_WARNING", "Conteúdo com aviso", {
+                hasContentWarning: true,
+            })
+        }
+
+        return this._createViewabilityResult(true, "NO_RESTRICTIONS", "Sem restrições de conteúdo")
+    }
+
+    /**
+     * Verificação final de permissões
+     */
+    private async _checkFinalPermissions(interactingUser: User): Promise<ViewabilityResult> {
+        // Verificar se o usuário que quer visualizar está ativo
+        if (interactingUser && (!interactingUser.isActive() || !interactingUser.canViewMoments())) {
+            return this._createViewabilityResult(
+                false,
+                "USER_INACTIVE",
+                "Usuário não pode visualizar momentos",
+            )
+        }
+
+        // Verificar se o usuário não está na lista de bloqueados
+        if (this._visibility.blockedUsers.includes(interactingUser.id)) {
+            return this._createViewabilityResult(
+                false,
+                "USER_BLOCKED_FROM_MOMENT",
+                "Usuário bloqueado deste momento",
+            )
+        }
+
+        return this._createViewabilityResult(true, "PERMISSIONS_OK", "Permissões verificadas")
+    }
+
+    /**
+     * Cria um resultado de visualização padronizado
+     */
+    private _createViewabilityResult(
+        allowed: boolean,
+        reason: string,
+        message: string,
+        metadata?: any,
+    ): ViewabilityResult {
+        return {
+            allowed,
+            reason,
+            message,
+            metadata: metadata || {},
+            timestamp: new Date(),
+            momentId: this._id,
+        }
+    }
+
+    /**
+     * Verifica se o momento está ativo (não deletado, não bloqueado, etc.)
+     */
+    private _isActive(): boolean {
+        return (
+            this._status.current !== MomentStatusEnum.DELETED &&
+            this._status.current !== MomentStatusEnum.BLOCKED
+        )
+    }
+
+    /**
+     * Registra uma visualização do momento (para métricas)
+     */
+    async recordView(viewerId: string, viewDuration?: number, viewSource?: string): Promise<void> {
+        try {
+            // Calcular se é visualização completa
+            const videoDuration = this._content.duration || 0
+            const isComplete =
+                videoDuration > 0 && viewDuration && viewDuration >= videoDuration * 0.8
+
+            // Registrar no sistema de tracking
+            const viewTrackingService = ViewTrackingService.getInstance()
+            await viewTrackingService.recordView({
+                viewerId,
+                momentId: this._id,
+                viewDuration,
+                viewSource,
+                isComplete: isComplete || false,
+            })
+
+            // Atualizar métricas do momento (se existirem métodos apropriados)
+            if (this._metrics) {
+                // Incrementar contador de visualizações
+                this._metrics.views.totalViews++
+
+                // Se é visualização única (não é repeat view)
+                const hasRecent = await this.hasRecentView(viewerId, 5)
+                if (!hasRecent) {
+                    this._metrics.views.uniqueViews++
+                }
+
+                // Se há duração, calcular métricas adicionais
+                if (viewDuration && viewDuration > 0) {
+                    // Atualizar tempo médio de visualização
+                    const currentAvg = this._metrics.views.averageWatchTime
+                    const totalViews = this._metrics.views.totalViews
+                    this._metrics.views.averageWatchTime =
+                        (currentAvg * (totalViews - 1) + viewDuration) / totalViews
+
+                    // Se é visualização completa
+                    if (isComplete) {
+                        this._metrics.views.completionViews++
+                    }
+
+                    // Atualizar taxa de conclusão
+                    this._metrics.views.averageCompletionRate =
+                        (this._metrics.views.completionViews / this._metrics.views.totalViews) * 100
+                }
+
+                // Atualizar timestamp da última atualização
+                this._metrics.lastMetricsUpdate = new Date()
+            }
+        } catch (error) {
+            console.error(`Erro ao registrar visualização do moment ${this._id}:`, error)
+            // Não falhar a visualização por causa de erro nas métricas
+        }
+    }
+
+    /**
+     * Verifica se um usuário já visualizou este momento recentemente
+     */
+    async hasRecentView(viewerId: string, maxAgeInMinutes: number = 5): Promise<boolean> {
+        try {
+            const viewTrackingService = ViewTrackingService.getInstance()
+            return await viewTrackingService.hasRecentView(this._id, viewerId, maxAgeInMinutes)
+        } catch (error) {
+            console.error(`Erro ao verificar visualização recente do moment ${this._id}:`, error)
+            return false
+        }
+    }
+
+    /**
+     * Obtém estatísticas de visualização do momento
+     */
+    async getViewStatistics(): Promise<{
+        totalViews: number
+        uniqueViews: number
+        averageViewDuration: number
+        completeViewRate: number
+        lastViewedAt: Date | null
+    }> {
+        try {
+            const viewTrackingService = ViewTrackingService.getInstance()
+            const recentStats = await viewTrackingService.getRecentViewStats(this._id, 60) // Última hora
+
+            if (!this._metrics) {
+                return {
+                    totalViews: recentStats.totalViews,
+                    uniqueViews: recentStats.uniqueViews,
+                    averageViewDuration: recentStats.averageDuration,
+                    completeViewRate:
+                        recentStats.totalViews > 0
+                            ? (recentStats.completeViews / recentStats.totalViews) * 100
+                            : 0,
+                    lastViewedAt: null,
+                }
+            }
+
+            return {
+                totalViews: this._metrics.views.totalViews,
+                uniqueViews: this._metrics.views.uniqueViews,
+                averageViewDuration: this._metrics.views.averageWatchTime,
+                completeViewRate: this._metrics.views.averageCompletionRate,
+                lastViewedAt: this._metrics.lastMetricsUpdate,
+            }
+        } catch (error) {
+            console.error(`Erro ao obter estatísticas do moment ${this._id}:`, error)
+            return {
+                totalViews: 0,
+                uniqueViews: 0,
+                averageViewDuration: 0,
+                completeViewRate: 0,
+                lastViewedAt: null,
+            }
+        }
+    }
+
+    /**
+     * Verifica se o momento tem visualizações suficientes para ser considerado popular
+     */
+    async isPopular(minViews: number = 1000, minCompleteViewRate: number = 60): Promise<boolean> {
+        const stats = await this.getViewStatistics()
+        return stats.totalViews >= minViews && stats.completeViewRate >= minCompleteViewRate
+    }
+
+    /**
+     * Obtém informações detalhadas sobre visualizações recentes
+     */
+    async getRecentViewDetails(maxAgeInMinutes: number = 60): Promise<{
+        totalViews: number
+        uniqueViews: number
+        completeViews: number
+        averageDuration: number
+        viewsBySource: Record<string, number>
+        recentViews: ViewRecord[]
+    }> {
+        try {
+            const viewTrackingService = ViewTrackingService.getInstance()
+            const stats = await viewTrackingService.getRecentViewStats(this._id, maxAgeInMinutes)
+            const recentViews = viewTrackingService.getRecentViewsForMoment(
+                this._id,
+                maxAgeInMinutes,
+            )
+
+            return {
+                ...stats,
+                recentViews,
+            }
+        } catch (error) {
+            console.error(
+                `Erro ao obter detalhes de visualizações recentes do moment ${this._id}:`,
+                error,
+            )
+            return {
+                totalViews: 0,
+                uniqueViews: 0,
+                completeViews: 0,
+                averageDuration: 0,
+                viewsBySource: {},
+                recentViews: [],
+            }
+        }
+    }
+
+    /**
+     * Obtém informações sobre uma visualização específica de um usuário
+     */
+    getUserViewDetails(viewerId: string): ViewRecord | null {
+        try {
+            const viewTrackingService = ViewTrackingService.getInstance()
+            return viewTrackingService.getRecentView(this._id, viewerId)
+        } catch (error) {
+            console.error(
+                `Erro ao obter detalhes de visualização do usuário ${viewerId} para moment ${this._id}:`,
+                error,
+            )
+            return null
+        }
+    }
+
+    /**
      * Validação básica apenas com visibilidade (fallback)
      */
     private _validateBasicVisibility(userWhoWantsToInteract: string): boolean {
@@ -495,8 +918,8 @@ export class Moment {
      * Validação com entidades de usuário em memória (síncrona)
      */
     private _validateWithUserEntities(
-        ownerUser: import("@/domain/user").User,
-        interactingUser: import("@/domain/user").User,
+        ownerUser: User,
+        interactingUser: User,
         isFollowing: boolean,
         isBlocked: boolean,
     ): boolean {
@@ -774,8 +1197,10 @@ export class Moment {
                 totalLikes: defaultMetrics.engagement.totalLikes,
                 totalComments: defaultMetrics.engagement.totalComments,
                 totalReports: defaultMetrics.engagement.totalReports,
+                totalClicks: defaultMetrics.engagement.totalClicks,
                 likeRate: defaultMetrics.engagement.likeRate,
                 commentRate: defaultMetrics.engagement.commentRate,
+                clickRate: defaultMetrics.engagement.clickRate,
                 reportRate: defaultMetrics.engagement.reportRate,
                 averageCommentLength: defaultMetrics.engagement.averageCommentLength,
                 topCommenters: defaultMetrics.engagement.topCommenters,
@@ -865,8 +1290,10 @@ export class Moment {
                 totalLikes: entityMetrics.engagement.totalLikes,
                 totalComments: entityMetrics.engagement.totalComments,
                 totalReports: entityMetrics.engagement.totalReports,
+                totalClicks: entityMetrics.engagement.totalClicks,
                 likeRate: entityMetrics.engagement.likeRate,
                 commentRate: entityMetrics.engagement.commentRate,
+                clickRate: entityMetrics.engagement.clickRate,
                 reportRate: entityMetrics.engagement.reportRate,
                 averageCommentLength: entityMetrics.engagement.averageCommentLength,
                 topCommenters: entityMetrics.engagement.topCommenters,
@@ -959,8 +1386,10 @@ export class Moment {
                 totalLikes: domainMetrics.engagement.totalLikes,
                 totalComments: domainMetrics.engagement.totalComments,
                 totalReports: domainMetrics.engagement.totalReports,
+                totalClicks: domainMetrics.engagement.totalClicks,
                 likeRate: domainMetrics.engagement.likeRate,
                 commentRate: domainMetrics.engagement.commentRate,
+                clickRate: domainMetrics.engagement.clickRate,
                 reportRate: domainMetrics.engagement.reportRate,
                 averageCommentLength: domainMetrics.engagement.averageCommentLength,
                 topCommenters: domainMetrics.engagement.topCommenters,

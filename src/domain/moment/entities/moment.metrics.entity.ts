@@ -34,11 +34,13 @@ export interface EngagementMetrics {
     totalLikes: number
     totalComments: number
     totalReports: number
+    totalClicks: number
 
     // Engajamento qualitativo
     likeRate: number // likes / views
     commentRate: number // comments / views
     reportRate: number // reports / views
+    clickRate: number // clicks / views
 
     // Análise de comentários
     positiveComments: number
@@ -546,9 +548,11 @@ export const DEFAULT_ENGAGEMENT_METRICS: EngagementMetrics = {
     totalLikes: 0,
     totalComments: 0,
     totalReports: 0,
+    totalClicks: 0,
     likeRate: 0,
     commentRate: 0,
     reportRate: 0,
+    clickRate: 0,
     positiveComments: 0,
     negativeComments: 0,
     neutralComments: 0,

@@ -213,6 +213,16 @@ export interface MomentEmbedding {
     updatedAt: Date
 }
 
+// ===== TIPOS PARA VISUALIZAÇÃO =====
+export interface ViewabilityResult {
+    allowed: boolean
+    reason: string
+    message: string
+    metadata?: any
+    timestamp: Date
+    momentId: string
+}
+
 // ===== IMPORT METRICS =====
 // Importar métricas robustas do arquivo separado
 import { MomentMetrics } from "./moment.metrics.type"
