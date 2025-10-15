@@ -376,6 +376,8 @@ export class MomentRepositoryImpl implements IMomentRepository {
                 { model: this.database.getConnection().models.MomentStatus, as: "status" },
                 { model: this.database.getConnection().models.MomentVisibility, as: "visibility" },
                 { model: this.database.getConnection().models.MomentMetrics, as: "metrics" },
+                { model: this.database.getConnection().models.MomentMedia, as: "media" },
+                { model: this.database.getConnection().models.MomentThumbnail, as: "thumbnail" },
             ],
         })
 
@@ -1567,39 +1569,57 @@ export class MomentRepositoryImpl implements IMomentRepository {
             }
         }
 
-        // Mapear mídia
+        // Mapear mídia (com fallback)
         if (momentData.media) {
             momentEntity.media = {
                 urls: {
-                    low: momentData.media.lowUrl,
-                    medium: momentData.media.mediumUrl,
-                    high: momentData.media.highUrl,
+                    low: momentData.media.lowUrl || null,
+                    medium: momentData.media.mediumUrl || null,
+                    high: momentData.media.highUrl || null,
                 },
                 storage: {
-                    provider: momentData.media.storageProvider,
-                    bucket: momentData.media.bucket,
-                    key: momentData.media.key,
-                    region: momentData.media.region,
+                    provider: momentData.media.storageProvider || "unknown",
+                    bucket: momentData.media.bucket || "",
+                    key: momentData.media.key || "",
+                    region: momentData.media.region || "",
                 },
-                createdAt: momentData.media.createdAt,
-                updatedAt: momentData.media.updatedAt,
+                createdAt: momentData.media.createdAt || new Date(),
+                updatedAt: momentData.media.updatedAt || new Date(),
+            }
+        } else {
+            // Fallback se media não existir
+            momentEntity.media = {
+                urls: { low: null, medium: null, high: null },
+                storage: { provider: "unknown", bucket: "", key: "", region: "" },
+                createdAt: new Date(),
+                updatedAt: new Date(),
             }
         }
 
-        // Mapear thumbnail
+        // Mapear thumbnail (com fallback)
         if (momentData.thumbnail) {
             momentEntity.thumbnail = {
-                url: momentData.thumbnail.url,
-                width: momentData.thumbnail.width,
-                height: momentData.thumbnail.height,
+                url: momentData.thumbnail.url || "",
+                width: momentData.thumbnail.width || 0,
+                height: momentData.thumbnail.height || 0,
                 storage: {
-                    provider: momentData.thumbnail.storageProvider,
-                    bucket: momentData.thumbnail.bucket,
-                    key: momentData.thumbnail.key,
-                    region: momentData.thumbnail.region,
+                    provider: momentData.thumbnail.storageProvider || "unknown",
+                    bucket: momentData.thumbnail.bucket || "",
+                    key: momentData.thumbnail.key || "",
+                    region: momentData.thumbnail.region || "",
                 },
-                createdAt: momentData.thumbnail.createdAt,
-                updatedAt: momentData.thumbnail.updatedAt,
+                createdAt: momentData.thumbnail.createdAt || new Date(),
+                updatedAt: momentData.thumbnail.updatedAt || new Date(),
+            }
+        } else {
+            // Fallback se thumbnail não existir
+            momentEntity.thumbnail = {
+                url: "",
+                width: 0,
+                height: 0,
+                storage: { provider: "unknown", bucket: "", key: "", region: "" },
+                createdAt: new Date(),
+                updatedAt: new Date(),
             }
         }
 
