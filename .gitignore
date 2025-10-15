@@ -37,7 +37,6 @@ temp/
 *.tmp
 
 # Hugging Face Models (muito grandes para Git)
-models/
 models/huggingface/
 
 # Database
