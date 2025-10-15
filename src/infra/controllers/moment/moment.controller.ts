@@ -14,7 +14,8 @@ import {
     ReportMomentUseCase,
     UnlikeMomentUseCase,
 } from "@/application/moment/use.cases"
-
+import { GetUserMomentsResponse } from "@/application/moment/use.cases/get.user.moments.use.case"
+import { AuthenticatedUser } from "@/infra/middlewares"
 import { z } from "zod"
 
 // Interfaces de Request
@@ -122,16 +123,6 @@ export interface MomentResponse {
     createdAt: Date
     updatedAt: Date
 }
-
-// Schemas de validação
-const CreateMomentRequestSchema = z.object({
-    description: z.string().min(1).max(500).optional(),
-    hashtags: z.array(z.string()).max(10).optional(),
-    mentions: z.array(z.string()).max(10).optional(),
-    visibility: z.enum(["public", "followers_only", "private", "unlisted"]).optional(),
-    ageRestriction: z.boolean().optional(),
-    contentWarning: z.boolean().optional(),
-})
 
 const ReportSchema = z.object({
     reason: z.enum([
@@ -337,16 +328,16 @@ export class MomentController {
      */
     async getUserMoments(
         userId: string,
-        requestingUserId: string,
+        requestingUser: AuthenticatedUser,
         query: ListMomentsQuery,
-    ): Promise<MomentResponse[]> {
+    ): Promise<GetUserMomentsResponse> {
         try {
             // Validação com Zod
             const validatedQuery = ListMomentsQuerySchema.parse(query)
 
             const result = await this.getUserMomentsUseCase.execute({
                 userId: userId,
-                requestingUserId: requestingUserId,
+                requestingUser: requestingUser,
                 limit: validatedQuery.limit,
                 offset: (validatedQuery.page - 1) * validatedQuery.limit,
                 sortBy: validatedQuery.sortBy,
@@ -358,7 +349,7 @@ export class MomentController {
                 throw new Error(result.error || "Error to list moments of user")
             }
 
-            return result.moments.map((moment) => this.mapToResponse(moment))
+            return result
         } catch (error) {
             if (error instanceof z.ZodError) {
                 throw new Error(
