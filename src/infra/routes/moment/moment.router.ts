@@ -24,6 +24,7 @@ import {
 
 import { Permission } from "@/domain/authorization"
 import { MomentProcessingStatusEnum } from "@/domain/moment/types"
+import { MomentController } from "@/infra/controllers"
 import { DatabaseAdapter } from "@/infra/database/adapter"
 import { MomentFactory } from "@/infra/factories/moment.factory"
 import { AuthMiddleware } from "@/infra/middlewares"
@@ -32,7 +33,7 @@ import { AuthMiddleware } from "@/infra/middlewares"
  * Handler functions para encapsular lógica de rotas
  */
 class MomentRouteHandlers {
-    constructor(private momentController: any) {}
+    constructor(private momentController: MomentController) {}
 
     /**
      * Wrapper para criação de momento
@@ -240,7 +241,7 @@ class MomentRouteHandlers {
 
             const result = await this.momentController.getUserMoments(
                 request.params.id,
-                request.user.id,
+                request.user,
                 {
                     limit,
                     page,
@@ -249,15 +250,7 @@ class MomentRouteHandlers {
                 },
             )
 
-            return response.status(200).send({
-                success: true,
-                moments: result,
-                pagination: {
-                    page,
-                    limit,
-                    total: result.length,
-                },
-            })
+            return response.status(200).send(result)
         } catch (error: any) {
             response.status(400).send({
                 success: false,
