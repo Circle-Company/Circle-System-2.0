@@ -1,9 +1,9 @@
-import { logger } from "@/shared/logger"
-import { DataTypes, Model, Op, Optional } from "sequelize"
+import { generateId, logger } from "@/shared"
+import { DataTypes, Model, Op, Sequelize } from "sequelize"
+
 import databaseManager from "../../database"
 
-// ===== INTERFACE PARA VIEW RECORD =====
-export interface MomentViewAttributes {
+interface MomentViewAttributes {
     id: bigint
     momentId: string
     viewerId: string
@@ -11,16 +11,16 @@ export interface MomentViewAttributes {
     viewDuration?: number
     viewSource?: string
     isComplete: boolean
-
     createdAt: Date
     updatedAt: Date
 }
 
-export interface MomentViewCreationAttributes
-    extends Optional<MomentViewAttributes, "id" | "createdAt" | "updatedAt"> {}
+interface MomentViewCreationAttributes
+    extends Omit<MomentViewAttributes, "id" | "createdAt" | "updatedAt"> {
+    id?: bigint
+}
 
-// ===== MODELO SEQUELIZE =====
-export class MomentViewModel
+export default class MomentView
     extends Model<MomentViewAttributes, MomentViewCreationAttributes>
     implements MomentViewAttributes
 {
@@ -33,109 +33,109 @@ export class MomentViewModel
     public isComplete!: boolean
     public readonly createdAt!: Date
     public readonly updatedAt!: Date
-}
 
-// ===== DEFINIÇÃO DO MODELO =====
-export const initMomentViewModel = (sequelize: any) => {
-    MomentViewModel.init(
-        {
-            id: {
-                type: DataTypes.BIGINT,
-                primaryKey: true,
-                autoIncrement: true,
-                allowNull: false,
-            },
-            momentId: {
-                type: DataTypes.STRING(50),
-                allowNull: false,
-                field: "moment_id",
-                comment: "ID do momento visualizado",
-            },
-            viewerId: {
-                type: DataTypes.STRING(50),
-                allowNull: false,
-                field: "viewer_id",
-                comment: "ID do usuário que visualizou",
-            },
-            viewTimestamp: {
-                type: DataTypes.DATE,
-                allowNull: false,
-                field: "view_timestamp",
-                defaultValue: DataTypes.NOW,
-                comment: "Timestamp da visualização",
-            },
-            viewDuration: {
-                type: DataTypes.INTEGER,
-                allowNull: true,
-                field: "view_duration",
-                comment: "Duração da visualização em segundos",
-            },
-            viewSource: {
-                type: DataTypes.STRING(100),
-                allowNull: true,
-                field: "view_source",
-                comment: "Fonte da visualização (feed, search, profile, etc.)",
-            },
-            isComplete: {
-                type: DataTypes.BOOLEAN,
-                allowNull: false,
-                defaultValue: false,
-                field: "is_complete",
-                comment: "Se a visualização foi completa (80%+ do vídeo)",
-            },
-            createdAt: {
-                type: DataTypes.DATE,
-                allowNull: false,
-                field: "created_at",
-                defaultValue: DataTypes.NOW,
-            },
-            updatedAt: {
-                type: DataTypes.DATE,
-                allowNull: false,
-                field: "updated_at",
-                defaultValue: DataTypes.NOW,
-            },
-        },
-        {
-            sequelize,
-            tableName: "moment_views",
-            timestamps: true,
-            createdAt: "created_at",
-            updatedAt: "updated_at",
-            indexes: [
-                {
-                    name: "idx_moment_views_moment_id",
-                    fields: ["moment_id"],
+    static initialize(sequelize: Sequelize): void {
+        MomentView.init(
+            {
+                id: {
+                    type: DataTypes.BIGINT,
+                    primaryKey: true,
+                    allowNull: false,
+                    defaultValue: () => generateId(),
                 },
-                {
-                    name: "idx_moment_views_viewer_id",
-                    fields: ["viewer_id"],
+                momentId: {
+                    type: DataTypes.STRING(50),
+                    allowNull: false,
+                    field: "moment_id",
+                    comment: "ID do momento visualizado",
                 },
-                {
-                    name: "idx_moment_views_timestamp",
-                    fields: ["view_timestamp"],
+                viewerId: {
+                    type: DataTypes.STRING(50),
+                    allowNull: false,
+                    field: "viewer_id",
+                    comment: "ID do usuário que visualizou",
                 },
-                {
-                    name: "idx_moment_views_moment_viewer",
-                    fields: ["moment_id", "viewer_id"],
+                viewTimestamp: {
+                    type: DataTypes.DATE,
+                    allowNull: false,
+                    field: "view_timestamp",
+                    defaultValue: DataTypes.NOW,
+                    comment: "Timestamp da visualização",
                 },
-                {
-                    name: "idx_moment_views_complete",
-                    fields: ["is_complete"],
+                viewDuration: {
+                    type: DataTypes.INTEGER,
+                    allowNull: true,
+                    field: "view_duration",
+                    comment: "Duração da visualização em segundos",
                 },
-            ],
-            comment: "Tabela para armazenar visualizações de momentos",
-        },
-    )
+                viewSource: {
+                    type: DataTypes.STRING(100),
+                    allowNull: true,
+                    field: "view_source",
+                    comment: "Fonte da visualização (feed, search, profile, etc.)",
+                },
+                isComplete: {
+                    type: DataTypes.BOOLEAN,
+                    allowNull: false,
+                    defaultValue: false,
+                    field: "is_complete",
+                    comment: "Se a visualização foi completa (80%+ do vídeo)",
+                },
+                createdAt: {
+                    type: DataTypes.DATE,
+                    allowNull: false,
+                    field: "created_at",
+                },
+                updatedAt: {
+                    type: DataTypes.DATE,
+                    allowNull: false,
+                    field: "updated_at",
+                },
+            },
+            {
+                sequelize,
+                tableName: "moment_views",
+                timestamps: true,
+                underscored: true,
+                indexes: [
+                    {
+                        fields: ["moment_id"],
+                    },
+                    {
+                        fields: ["viewer_id"],
+                    },
+                    {
+                        fields: ["view_timestamp"],
+                    },
+                    {
+                        fields: ["moment_id", "viewer_id"],
+                    },
+                    {
+                        fields: ["is_complete"],
+                    },
+                ],
+            },
+        )
+    }
+
+    static associate(models: any): void {
+        // Associação com Moment
+        if (models.Moment) {
+            MomentView.belongsTo(models.Moment, {
+                foreignKey: "moment_id",
+                as: "moment",
+            })
+        }
+    }
 }
 
 // ===== SERVIÇO DE PERSISTÊNCIA =====
 export class MomentViewPersistenceService {
-    private model: typeof MomentViewModel
+    private model: typeof MomentView
 
     constructor() {
         const sequelize = databaseManager.getSequelize()
-        this.model = sequelize.models.MomentView as typeof MomentViewModel
+        this.model = sequelize.models.MomentView as typeof MomentView
     }
 
     /**
