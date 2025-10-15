@@ -138,13 +138,13 @@ export class MomentFactory {
         return {
             // CRUD Operations
             createMoment: new CreateMomentUseCase(momentService, userRepository),
-            getMoment: new GetMomentUseCase(momentRepository, momentService),
+            getMoment: new GetMomentUseCase(userRepository, momentRepository, momentService),
             deleteMoment: new DeleteMomentUseCase(momentRepository, momentService),
             publishMoment: new PublishMomentUseCase(momentRepository, momentService),
 
             // Listing and Search
             listMoments: new ListMomentsUseCase(momentRepository, momentService),
-            getUserMoments: new GetUserMomentsUseCase(momentRepository, momentService),
+            getUserMoments: new GetUserMomentsUseCase(momentRepository),
 
             // User Actions
             likeMoment: new LikeMomentUseCase(momentRepository, momentService, userRepository),
