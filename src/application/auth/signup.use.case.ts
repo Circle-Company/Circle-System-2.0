@@ -199,11 +199,12 @@ export class SignUpUseCase {
             // Salvar atualizações
             await this.userRepository.update(savedUser)
 
-            // Gerar token
+            // Gerar token com timezone
             const token = await jwtEncoder({
                 userId: savedUser.id,
                 device: request.metadata?.device as Device, // Converter Device do auth para Device do authorization
                 level: savedUser.status?.accessLevel || Level.USER,
+                timezone: savedUser.preferences?.appTimezone || 0, // Usar timezone do usuário
             })
             const expiresIn = Number(process.env.JWT_EXPIRES) || 3600 // 1 hora
 

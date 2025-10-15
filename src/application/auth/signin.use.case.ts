@@ -117,11 +117,12 @@ export class SignInUseCase {
             userAgent: request.metadata?.userAgent,
         })
 
-        // Gerar token
+        // Gerar token com timezone
         const token = await jwtEncoder({
             userId: user.id,
             device: request.metadata?.device as Device,
             level: user.level as Level,
+            timezone: user.preferences?.appTimezone || 0, // Usar timezone do usuário
         })
 
         await Promise.all([
@@ -317,13 +318,8 @@ export class SignInUseCase {
      * Valida se é um timezone válido
      */
     private isValidTimezone(timezone: string): boolean {
-        try {
-            // Tenta criar um formatter com o timezone para validar
-            Intl.DateTimeFormat(undefined, { timeZone: timezone })
-            return true
-        } catch {
-            return false
-        }
+        const codes = Object.values(TimezoneCode)
+        return codes.includes(timezone as TimezoneCode)
     }
 
     /**
