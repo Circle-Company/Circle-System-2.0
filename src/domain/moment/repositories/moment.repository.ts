@@ -1,3 +1,4 @@
+import { IUserRepository } from "@/domain/user"
 import { Moment } from "../entities/moment.entity"
 
 export interface IMomentRepository {
@@ -250,7 +251,7 @@ export abstract class BaseMomentRepository implements IMomentRepository {
     async isInteractable(
         momentId: string,
         userWhoWantsToInteract: string,
-        userRepository: import("@/domain/user").IUserRepository,
+        userRepository: IUserRepository,
     ): Promise<boolean> {
         try {
             // Buscar o moment pelo ID
