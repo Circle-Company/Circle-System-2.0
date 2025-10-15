@@ -15,6 +15,7 @@ import MomentProcessingStep from "../models/moment/moment.processing.step.model"
 import MomentResolution from "../models/moment/moment.resolution.model"
 import MomentStatus from "../models/moment/moment.status.model"
 import MomentThumbnail from "../models/moment/moment.thumbnail.model"
+import { MomentViewModel } from "../models/moment/moment.view.model"
 import MomentVisibility from "../models/moment/moment.visibility.model"
 import InteractionEvent from "../models/swipe.engine/interaction.event.model"
 import PostCluster from "../models/swipe.engine/post.cluster.model"
@@ -80,6 +81,7 @@ export class DatabaseManager {
         MomentMedia,
         MomentThumbnail,
         MomentResolution,
+        MomentViewModel,
 
         // Swipe Engine models
         InteractionEvent,
