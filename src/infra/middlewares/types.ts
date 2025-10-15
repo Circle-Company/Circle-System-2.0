@@ -6,6 +6,7 @@ export interface AuthenticatedUser {
     id: string
     device: Device
     level: Level
+    timezone: number // Timezone offset em horas (ex: -3, 0, +5)
 }
 
 export interface AuthenticatedRequest extends HttpRequest {

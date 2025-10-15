@@ -58,11 +58,12 @@ export class AuthServiceImpl implements AuthService {
             }
 
             // Retornar dados do usuário autenticado
-            // jwtDecoder já retorna level e device normalizados em UPPERCASE
+            // jwtDecoder já retorna level, device e timezone normalizados
             const authenticatedUser: AuthenticatedUser = {
                 id: payload.sub, // Manter como string para compatibilidade
                 device: payload.device,
-                level: payload.level,
+                level: payload.level as Level,
+                timezone: payload.tz, // Timezone offset em horas
             }
 
             return authenticatedUser
@@ -175,6 +176,7 @@ export function authMiddleware(
                 id: payload.sub,
                 device: payload.device as unknown as Device,
                 level: user.status?.accessLevel as unknown as Level,
+                timezone: payload.tz, // Timezone offset em horas
             }
 
             request.user = authenticatedUser
