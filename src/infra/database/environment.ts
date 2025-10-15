@@ -68,7 +68,7 @@ export const CONFIGS = {
         username: process.env.DB_USERNAME || "admin",
         password: process.env.DB_PASSWORD || "admin",
         database: process.env.DB_NAME || "circle_db",
-        port: parseInt(process.env.DB_PORT || "5432"),
+        port: parseInt(process.env.DB_PORT || "5422"),
         logging:
             process.env.ENABLE_LOGGING === "true"
                 ? (sql: string, timing?: number) => {
@@ -91,7 +91,7 @@ export const CONFIGS = {
         username: process.env.DB_USERNAME || "admin",
         password: process.env.DB_PASSWORD || "admin",
         database: process.env.DB_NAME || "circle_db",
-        port: parseInt(process.env.DB_PORT || "5432"),
+        port: parseInt(process.env.DB_PORT || "5422"),
         logging: false,
         pool: {
             max: 20, // Máximo de conexões para produção
@@ -120,7 +120,7 @@ export const CONFIGS = {
         username: process.env.DB_USERNAME || "admin",
         password: process.env.DB_PASSWORD || "admin",
         database: process.env.DB_NAME || "circle_db_test",
-        port: parseInt(process.env.DB_PORT || "5432"),
+        port: parseInt(process.env.DB_PORT || "5422"),
         logging: false,
         pool: {
             max: 1,

@@ -1,10 +1,9 @@
 version: "3.8" # Use a versão 3.8 para suporte completo a recursos avançados
 services:
-    postgres_db:
-        container_name: postgres_db
-        image: postgres:alpine
+    postgres:
+        image: postgres:16-alpine
         ports:
-            - "5432:5432"
+            - "5422:5432"
         environment:
             POSTGRES_USER: admin
             POSTGRES_PASSWORD: admin
@@ -14,8 +13,7 @@ services:
         restart: unless-stopped
 
     redis:
-        container_name: redis_circle
-        image: redis:7-alpine
+        image: redis:8.2.2-alpine
         ports:
             - "6379:6379"
         volumes:
@@ -28,7 +26,7 @@ services:
             timeout: 3s
             retries: 5
 
-    circle-system:
+    api:
         container_name: circle-system
         build:
             context: . # Diretório onde está o Dockerfile
@@ -55,7 +53,7 @@ services:
             - ./.env:/app/.env # Monta o .env corretamente dentro do container
         command: npm run build
         depends_on:
-            - postgres_db
+            - postgres
 
 volumes:
     postgres_data:
