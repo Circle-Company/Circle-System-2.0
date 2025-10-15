@@ -203,7 +203,9 @@ export class EmbeddingsWorker {
 
             if (moment) {
                 moment.processing.status = status
-                moment.processing.updatedAt = new Date()
+                if (status === MomentProcessingStatusEnum.EMBEDDINGS_PROCESSED) {
+                    moment.processing.completedAt = new Date()
+                }
 
                 await this.momentRepository.update(moment)
             }
