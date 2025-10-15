@@ -1,7 +1,7 @@
 import { ErrorCode, NotFoundError, ValidationError } from "@/shared/errors"
 import { JWTPayload, SignJWT } from "jose"
 
-import { Device } from "@/domain/authorization/authorization.type"
+import { Device, Level } from "@/domain/authorization/authorization.type"
 import UserModel from "@/infra/models/user/user.model"
 
 interface JwtConfig {
@@ -14,13 +14,15 @@ interface JwtConfig {
 interface JwtPayload extends JWTPayload {
     sub: string
     device: Device
-    level: string
+    level: Level
+    tz: number // Timezone offset em horas (ex: -3, 0, +5)
 }
 
 interface JwtEncoderParams {
     userId: string
     device: Device
     level: string
+    timezone?: number // Timezone offset em horas (opcional)
 }
 
 let jwtConfig: JwtConfig | null = null
@@ -62,7 +64,8 @@ function validateDevice(device: Device): void {
 function createJwtPayload(
     userId: string,
     device: Device,
-    level: string,
+    level: Level,
+    timezone: number,
     config: JwtConfig,
 ): JwtPayload {
     const now = Math.floor(Date.now() / 1000)
@@ -71,6 +74,7 @@ function createJwtPayload(
         sub: userId,
         device,
         level,
+        tz: timezone,
         iat: now,
         exp: now + config.expiresIn,
         iss: config.issuer,
@@ -87,11 +91,16 @@ function createJwtPayload(
  * @throws {ValidationError} - Quando usuário não encontrado ou dispositivo inválido
  * @throws {Error} - Quando há erro na geração do token
  */
-export async function jwtEncoder({ userId, device, level }: JwtEncoderParams): Promise<string> {
+export async function jwtEncoder({
+    userId,
+    device,
+    level,
+    timezone = 0,
+}: JwtEncoderParams): Promise<string> {
     try {
         // Normalizar device e level para UPPERCASE
         const normalizedDevice = (device as string).toUpperCase() as Device
-        const normalizedLevel = (level as string).toUpperCase()
+        const normalizedLevel = (level as string).toUpperCase() as Level
 
         // Validação prévia do dispositivo (sem I/O)
         validateDevice(normalizedDevice)
@@ -99,7 +108,7 @@ export async function jwtEncoder({ userId, device, level }: JwtEncoderParams): P
         // Obter configurações primeiro (com validação)
         const config = getJwtConfig()
 
-        // Verificação assíncrona do usuário (única consulta ao banco)
+        // Verificação assíncrona do usuário (busca apenas o ID)
         const user = await UserModel.findByPk(userId, {
             attributes: ["id"], // Busca apenas o ID
         })
@@ -118,8 +127,20 @@ export async function jwtEncoder({ userId, device, level }: JwtEncoderParams): P
             })
         }
 
-        // Criar payload com level e device normalizados
-        const payload = createJwtPayload(userId, normalizedDevice, normalizedLevel, config)
+        // Obter timezone do usuário ou usar o fornecido
+        let userTimezone = timezone
+        if (user && (user as any).preferences?.appTimezone !== undefined) {
+            userTimezone = (user as any).preferences.appTimezone
+        }
+
+        // Criar payload com level, device e timezone normalizados
+        const payload = createJwtPayload(
+            userId,
+            normalizedDevice,
+            normalizedLevel,
+            userTimezone,
+            config,
+        )
         const now = Math.floor(Date.now() / 1000)
 
         // Gerar token com JOSE (mais seguro que jsonwebtoken)

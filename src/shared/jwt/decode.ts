@@ -12,7 +12,8 @@ interface JwtConfig {
 interface JwtPayload {
     sub: string
     device: Device
-    level: string
+    level: Level
+    tz: number // Timezone offset em horas
     iat?: number
     exp?: number
     iss?: string
@@ -62,6 +63,7 @@ export async function jwtDecoder(token: string): Promise<JwtPayload> {
             sub: payload.sub as string,
             device: normalizedDevice,
             level: normalizedLevel,
+            tz: (payload.tz as number) || 0, // Fallback para 0 se não existir
             iat: payload.iat,
             exp: payload.exp,
             iss: payload.iss as string,
