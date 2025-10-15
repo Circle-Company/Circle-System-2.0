@@ -907,11 +907,9 @@ export class MomentService {
         ownerId: string,
         limit: number = 20,
         offset: number = 0,
-        filters?: any,
     ): Promise<{ moments: Moment[]; total: number }> {
         const moments = await this.repository.findByOwnerId(ownerId, limit, offset)
         const total = await this.repository.countByOwnerId(ownerId)
-
         return {
             moments,
             total,
@@ -976,46 +974,6 @@ export class MomentService {
     }
 
     /**
-     * Busca momentos reportados por um usuário
-     */
-    async getUserReportedMoments(
-        userId: string,
-        limit: number = 20,
-        offset: number = 0,
-        status?: string,
-    ): Promise<{
-        reportedMoments: Array<{
-            momentId: string
-            moment: {
-                id: string
-                description: string
-                ownerId: string
-                createdAt: Date
-                status: { current: string }
-            }
-            report: {
-                id: string
-                reason: string
-                description?: string
-                status: string
-                createdAt: Date
-            }
-        }>
-        total: number
-    }> {
-        if (!userId) {
-            return { reportedMoments: [], total: 0 }
-        }
-
-        // TODO: Implementar busca real de momentos reportados no banco de dados
-        // Por enquanto, retorna lista vazia como mock
-        return {
-            reportedMoments: [],
-            total: 0,
-        }
-    }
-
-    /**
      * Busca reports dos momentos de um usuário
      */
     async getUserMomentReports(
@@ -1029,8 +987,7 @@ export class MomentService {
             momentId: string
             moment: {
                 id: string
-                description: string
-                createdAt: Date
+                publishedAt: Date
                 status: { current: string }
             }
             reports: Array<{
@@ -1040,9 +997,7 @@ export class MomentService {
                 status: string
                 createdAt: Date
             }>
-            totalReports: number
-            pendingReports: number
-            resolvedReports: number
+            total: number
         }>
         total: number
     }> {
@@ -1136,55 +1091,6 @@ export class MomentService {
             topMentions: [],
         }
     }
-
-    /**
-     * Busca momentos com filtros avançados
-     */
-    async searchMoments(options: {
-        filters?: any
-        limit?: number
-        offset?: number
-        sortBy?: string
-        sortOrder?: string
-    }): Promise<{
-        moments: Moment[]
-        total: number
-        page: number
-        limit: number
-        hasNext: boolean
-        hasPrev: boolean
-    }> {
-        const {
-            filters = {},
-            limit = 20,
-            offset = 0,
-            sortBy = "createdAt",
-            sortOrder = "desc",
-        } = options
-
-        // Validar parâmetros
-        if (limit <= 0 || limit > 100) {
-            throw new Error("Limit must be between 1 and 100")
-        }
-
-        if (offset < 0) {
-            throw new Error("Offset cannot be negative")
-        }
-
-        // TODO: Implementar busca com filtros reais no banco de dados
-        // Por enquanto, usa busca paginada básica
-        const result = await this.repository.findPaginated(Math.floor(offset / limit) + 1, limit)
-
-        return {
-            moments: result.moments,
-            total: result.total,
-            page: result.page,
-            limit: result.limit,
-            hasNext: result.page < result.totalPages,
-            hasPrev: result.page > 1,
-        }
-    }
-
     /**
      * Bloqueia um momento (admin use case)
      */
