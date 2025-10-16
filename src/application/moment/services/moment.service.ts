@@ -248,7 +248,11 @@ export class MomentService {
             hashtags: data.hashtags || [],
             mentions: data.mentions || [],
             media: {
-                url: processingResult.videoUrl, // Vídeo em qualidade original
+                urls: {
+                    low: processingResult.videoUrl,    // Mesma URL por enquanto
+                    medium: processingResult.videoUrl, // Mesma URL por enquanto
+                    high: processingResult.videoUrl,   // Mesma URL por enquanto
+                },
                 storage: {
                     provider: processingResult.storage.provider as any,
                     bucket: processingResult.storage.bucket || "",
