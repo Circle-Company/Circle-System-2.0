@@ -121,20 +121,9 @@ export class VideoCompressionWorker {
                 throw new Error(`Moment ${momentId} not found`)
             }
 
-            // Atualizar media.url para apontar para o vídeo comprimido
-            if (moment.media.urls) {
-                // Se já tem urls múltiplas, manter estrutura mas atualizar
-                moment.media.urls.high = uploadResult.url || ""
-                moment.media.urls.medium = uploadResult.url || ""
-                moment.media.urls.low = uploadResult.url || ""
-            } else {
-                // Se não tem urls, criar estrutura
-                moment.media.urls = {
-                    high: uploadResult.url || "",
-                    medium: uploadResult.url || "",
-                    low: uploadResult.url || "",
-                }
-            }
+            // Atualizar media.url para apontar para o vídeo comprimido usando media.url
+            moment.media.url = uploadResult.url  // Versão comprimida
+            // remove low medium e high
 
             // Atualizar metadados do vídeo com informações de compressão
             if (moment.media.storage) {

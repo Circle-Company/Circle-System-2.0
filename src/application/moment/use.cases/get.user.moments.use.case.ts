@@ -123,7 +123,11 @@ export class GetUserMomentsUseCase {
             id: moment.id,
             description: moment.description,
             video: {
-                urls: moment.media.urls,
+                urls: {
+                    low: moment.media.url,
+                    medium: moment.media.url,
+                    high: moment.media.url,
+                },
             },
             thumbnail: {
                 url: moment.thumbnail.url,

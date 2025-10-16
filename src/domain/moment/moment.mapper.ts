@@ -788,9 +788,9 @@ export class MomentMapper {
 
         return {
             momentId: this.convertToBigInt(momentData.id),
-            lowUrl: momentData.media.urls.low,
-            mediumUrl: momentData.media.urls.medium,
-            highUrl: momentData.media.urls.high,
+            lowUrl: momentData.media.url,
+            mediumUrl: momentData.media.url,
+            highUrl: momentData.media.url,
             storageProvider: momentData.media.storage.provider,
             bucket: momentData.media.storage.bucket,
             key: momentData.media.storage.key,

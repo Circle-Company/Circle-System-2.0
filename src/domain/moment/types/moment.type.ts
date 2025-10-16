@@ -115,16 +115,10 @@ export interface MomentResolution {
 
 // ===== MEDIA TYPES =====
 export interface MomentMedia {
-    urls: MomentProcessedUrls
+    url: string
     storage: MomentStorage
     createdAt: Date
     updatedAt: Date
-}
-
-export interface MomentProcessedUrls {
-    low: string | null
-    medium: string | null
-    high: string | null
 }
 
 export interface MomentStorage {
