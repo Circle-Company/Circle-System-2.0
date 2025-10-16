@@ -20,7 +20,7 @@ module.exports = {
                 onDelete: "CASCADE",
             },
             duration: {
-                type: Sequelize.INTEGER,
+                type: Sequelize.FLOAT,
                 allowNull: false,
                 comment: "Duração em segundos",
             },

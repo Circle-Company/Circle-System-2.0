@@ -28,7 +28,7 @@ module.exports = {
                     comment: "Timestamp da visualização",
                 },
                 view_duration: {
-                    type: Sequelize.INTEGER,
+                    type: Sequelize.FLOAT,
                     allowNull: true,
                     comment: "Duração da visualização em segundos",
                 },
@@ -101,4 +101,3 @@ module.exports = {
         await queryInterface.dropTable("moment_views")
     },
 }
-
