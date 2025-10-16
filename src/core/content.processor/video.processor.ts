@@ -3,6 +3,7 @@
  * Processa vídeos para extração de metadados e geração de thumbnails
  */
 
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from "fs"
 import {
     ContentProcessorConfig,
     ProcessedVideoResult,
@@ -13,13 +14,12 @@ import {
     VideoProcessingRequest,
     VideoProcessingResult,
 } from "./type"
-import { existsSync, readFileSync, unlinkSync, writeFileSync } from "fs"
 
 import { VideoCompressionOptions as WorkerVideoCompressionOptions } from "@/infra/queue/types/video.compression.job.types"
 import { exec } from "child_process"
+import { tmpdir } from "os"
 import { join } from "path"
 import { promisify } from "util"
-import { tmpdir } from "os"
 
 const execAsync = promisify(exec)
 
@@ -182,22 +182,13 @@ export class VideoProcessor {
         const originalAspectRatio = metadata.width / metadata.height
 
         console.log(
-            `[VideoProcessor] 📐 Processando vídeo: ${metadata.width}x${metadata.height} (AR: ${originalAspectRatio.toFixed(3)}) → Target AR: ${targetAspectRatio.toFixed(3)}`,
+            `[VideoProcessor] 📐 Processando vídeo: ${metadata.width}x${
+                metadata.height
+            } (AR: ${originalAspectRatio.toFixed(3)}) → Target AR: ${targetAspectRatio.toFixed(3)}`,
         )
 
-        // Se o vídeo já está na proporção correta, não precisa processar
-        if (Math.abs(originalAspectRatio - targetAspectRatio) < 0.01) {
-            console.log(`[VideoProcessor] ✅ Vídeo já está na proporção correta`)
-            return {
-                data: videoData,
-                finalWidth: metadata.width,
-                finalHeight: metadata.height,
-                wasProcessed: false,
-            }
-        }
-
-        // Se precisa cortar para a proporção padrão
-        console.log(`[VideoProcessor] 🔄 Cortando vídeo para proporção padrão do sistema`)
+        // SEMPRE processar vídeo para proporção padrão do sistema (1080x1674)
+        console.log(`[VideoProcessor] 🔄 Forçando processamento para proporção padrão do sistema (1080x1674)`)
 
         try {
             const processedData = await this.cropVideoToAspectRatio(
@@ -745,8 +736,8 @@ export class VideoProcessor {
     }
 
     /**
-     * Corta vídeo para proporção padrão (1080x1674) mantendo resolução original
-     * Comando ffmpeg: ffmpeg -i input.mp4 -vf "crop=1080:1674:(iw-1080)/2:(ih-1674)/2" -c:v libx264 -preset fast -crf 18 -c:a aac output.mp4
+     * Força vídeo para proporção padrão (1080x1674) usando scale + crop
+     * Comando ffmpeg: ffmpeg -i input.mp4 -vf "scale=1080:1674:force_original_aspect_ratio=increase,crop=1080:1674" -c:v libx264 -preset fast -crf 18 -c:a aac output.mp4
      */
     private async cropVideoToAspectRatio(
         videoData: Buffer,
@@ -771,12 +762,9 @@ export class VideoProcessor {
             // 1. Salvar vídeo em arquivo temporário
             writeFileSync(tempInputPath, videoData)
 
-            // 2. Calcular posição do crop (centralizado)
-            const cropX = Math.max(0, Math.floor((metadata.width - targetWidth) / 2))
-            const cropY = Math.max(0, Math.floor((metadata.height - targetHeight) / 2))
-
-            // 3. Executar comando ffmpeg para crop centralizado
-            const ffmpegCommand = `ffmpeg -i "${tempInputPath}" -vf "crop=${targetWidth}:${targetHeight}:${cropX}:${cropY}" -c:v libx264 -preset fast -crf 18 -c:a aac -movflags +faststart "${tempOutputPath}"`
+            // 2. Executar comando ffmpeg para sempre forçar escala + crop para 1080x1674
+            // SEMPRE usar scale + crop para garantir proporção exata 1080x1674
+            const ffmpegCommand = `ffmpeg -i "${tempInputPath}" -vf "scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=increase,crop=${targetWidth}:${targetHeight}" -c:v libx264 -preset fast -crf 18 -c:a aac -movflags +faststart "${tempOutputPath}"`
 
             console.log(`[VideoProcessor] 🔧 Executando: ${ffmpegCommand}`)
             await execAsync(ffmpegCommand)
