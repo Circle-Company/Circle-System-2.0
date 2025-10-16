@@ -1,3 +1,12 @@
+import {
+    ContentEmbeddingGenerator,
+    EngagementCalculator,
+    TextEmbeddingAdapter,
+    TranscriptionAdapter,
+    VisualEmbeddingAdapter,
+    getEmbeddingConfig,
+} from "@/core/new.swipe.engine"
+// NEW SWIPE ENGINE - Arquitetura desacoplada
 import { ContentProcessor, StorageAdapter } from "@/core/content.processor"
 import {
     Moment,
@@ -7,30 +16,17 @@ import {
 } from "@/domain/moment"
 import { generateId, textLib } from "@/shared"
 
-import { ModerationEngine } from "@/core/content.moderation"
-import { IMomentRepository } from "@/domain/moment/repositories/moment.repository"
-import { TimezoneCode } from "@/domain/user"
-import { MomentMetricsService } from "./moment.metrics.service"
-
-// NEW SWIPE ENGINE - Arquitetura desacoplada
-import {
-    ContentEmbeddingGenerator,
-    EngagementCalculator,
-    TextEmbeddingAdapter,
-    TranscriptionAdapter,
-    VisualEmbeddingAdapter,
-    getEmbeddingConfig,
-} from "@/core/new.swipe.engine"
-
 // Audio extractor (mantido do old system)
 import { AudioExtractor } from "@/core/content.processor/audio.extractor"
-
-// Fallback para old system se necessário
-import { PostEmbeddingService } from "@/core/swipe.engine/core/embeddings/post"
-
-// Redis Queue para processamento assíncrono
+import { IMomentRepository } from "@/domain/moment/repositories/moment.repository"
 import { EmbeddingsQueue } from "@/infra/queue/embeddings.queue"
 import { EmbeddingJobPriority } from "@/infra/queue/types/embedding.job.types"
+// Redis Queue para processamento assíncrono
+import { ModerationEngine } from "@/core/content.moderation"
+import { MomentMetricsService } from "./moment.metrics.service"
+// Fallback para old system se necessário
+import { PostEmbeddingService } from "@/core/swipe.engine/core/embeddings/post"
+import { TimezoneCode } from "@/domain/user"
 
 export interface CreateMomentData {
     ownerId: string
@@ -247,11 +243,7 @@ export class MomentService {
             hashtags: data.hashtags || [],
             mentions: data.mentions || [],
             media: {
-                urls: {
-                    low: processingResult.videoUrls.low,
-                    medium: processingResult.videoUrls.medium,
-                    high: processingResult.videoUrls.high,
-                },
+                url: processingResult.videoUrl, // Vídeo em qualidade original
                 storage: {
                     provider: processingResult.storage.provider as any,
                     bucket: processingResult.storage.bucket || "",
@@ -377,7 +369,7 @@ export class MomentService {
             await this.embeddingsQueue.scheduleFor(
                 {
                     momentId: createdMoment.id,
-                    videoUrl: processingResult.videoUrls.high, // Usar alta qualidade
+                    videoUrl: processingResult.videoUrl, // Usar vídeo original
                     thumbnailUrl: processingResult.thumbnailUrl,
                     description: data.description || "",
                     hashtags: data.hashtags || [],
