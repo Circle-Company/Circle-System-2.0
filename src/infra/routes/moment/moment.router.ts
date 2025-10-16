@@ -95,10 +95,18 @@ class MomentRouteHandlers {
             let location: { latitude: number; longitude: number } | undefined
             if (body.location) {
                 try {
-                    location =
+                    const parsedLocation =
                         typeof body.location === "string"
                             ? JSON.parse(body.location)
                             : body.location
+
+                    // Garantir que latitude e longitude sejam números
+                    if (parsedLocation && parsedLocation.latitude && parsedLocation.longitude) {
+                        location = {
+                            latitude: Number(parsedLocation.latitude),
+                            longitude: Number(parsedLocation.longitude),
+                        }
+                    }
                 } catch (e) {
                     console.warn("Erro ao processar location:", e)
                 }
@@ -452,17 +460,6 @@ export class MomentRouter {
                 this.authMiddleware.execute.bind(this.authMiddleware),
                 requirePermission(Permission.CREATE_MOMENT),
             ],
-            schema: {
-                tags: ["Moments"],
-                summary: "Criar momento",
-                description: "Cria um novo momento (vlog) com validação completa",
-                response: {
-                    201: MomentResponseSchemas.momentCreated,
-                    400: MomentErrorSchemas.default,
-                    401: MomentErrorSchemas.default,
-                    403: MomentErrorSchemas.default,
-                },
-            },
         })
 
         // Obter momentos do usuário
