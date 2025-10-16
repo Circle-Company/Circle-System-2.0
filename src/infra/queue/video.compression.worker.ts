@@ -95,10 +95,10 @@ export class VideoCompressionWorker {
             // 3. Fazer upload do vídeo comprimido
             console.log(`[VideoCompressionWorker] 📤 Fazendo upload do vídeo comprimido...`)
             const uploadResult = await this.storageAdapter.uploadVideo(
-                `videos/compressed/${momentId}.mp4`,
+                `${momentId}.mp4`, // key simples
                 compressedVideoData,
                 {
-                    filename: `${momentId}.mp4`,
+                    filename: `${momentId}_compressed.mp4`,
                     mimeType: "video/mp4",
                     metadata: {
                         ownerId: momentId,
@@ -195,7 +195,7 @@ export class VideoCompressionWorker {
     private async downloadVideo(url: string): Promise<Buffer> {
         try {
             // Se for URL local (localhost)
-            if (url.includes("localhost") || url.startsWith("/uploads/")) {
+            if (url && (url.includes("localhost") || url.startsWith("/uploads/"))) {
                 const fs = await import("fs")
                 const path = await import("path")
 
@@ -206,16 +206,27 @@ export class VideoCompressionWorker {
 
                 const fullPath = path.join(process.cwd(), "uploads", filePath)
 
-                return fs.readFileSync(fullPath)
+                // Verificar se arquivo existe
+                if (fs.existsSync(fullPath)) {
+                    return fs.readFileSync(fullPath)
+                } else {
+                    console.warn(`[VideoCompressionWorker] ⚠️ Arquivo não encontrado: ${fullPath}`)
+                    throw new Error(`Video file not found: ${fullPath}`)
+                }
             }
 
             // URL externa (S3, CDN, etc)
-            const response = await axios.get(url, {
-                responseType: "arraybuffer",
-                timeout: 60000, // 60s
-            })
+            if (url && url.startsWith("http")) {
+                const response = await axios.get(url, {
+                    responseType: "arraybuffer",
+                    timeout: 60000, // 60s
+                })
 
-            return Buffer.from(response.data)
+                return Buffer.from(response.data)
+            }
+
+            // URL inválida ou vazia
+            throw new Error(`Invalid or empty video URL: ${url}`)
         } catch (error) {
             console.error(`[VideoCompressionWorker] ❌ Erro ao baixar vídeo: ${url}`, error)
             throw new Error(`Failed to download video: ${error}`)
@@ -227,28 +238,15 @@ export class VideoCompressionWorker {
      */
     private async deleteOriginalVideo(originalUrl: string): Promise<void> {
         try {
-            // Se for URL local (localhost)
-            if (originalUrl.includes("localhost") || originalUrl.startsWith("/uploads/")) {
-                const fs = await import("fs")
-                const path = await import("path")
-
-                // Extrair path do arquivo
-                const filePath = originalUrl.includes("localhost")
-                    ? originalUrl.split("/uploads/")[1]
-                    : originalUrl.replace("/uploads/", "")
-
-                const fullPath = path.join(process.cwd(), "uploads", filePath)
-
-                if (fs.existsSync(fullPath)) {
-                    fs.unlinkSync(fullPath)
-                    console.log(`[VideoCompressionWorker] ✅ Vídeo original deletado: ${filePath}`)
-                }
+            // Extrair key do storage a partir da URL
+            const key = this.extractKeyFromUrl(originalUrl)
+            
+            if (key) {
+                // Usar storage adapter para deletar
+                await this.storageAdapter.deleteVideo(key)
+                console.log(`[VideoCompressionWorker] ✅ Vídeo original deletado: ${key}`)
             } else {
-                // Para URLs externas, usar storage adapter
-                const key = this.extractKeyFromUrl(originalUrl)
-                if (key) {
-                    await this.storageAdapter.deleteVideo(key)
-                }
+                console.warn(`[VideoCompressionWorker] ⚠️ Não foi possível extrair key da URL: ${originalUrl}`)
             }
         } catch (error) {
             console.error(`[VideoCompressionWorker] ⚠️ Erro ao deletar vídeo original:`, error)
@@ -261,14 +259,21 @@ export class VideoCompressionWorker {
      */
     private extractKeyFromUrl(url: string): string | null {
         try {
+            if (!url) return null
+
             // Para URLs locais, extrair path após /uploads/
             if (url.includes("/uploads/")) {
                 return url.split("/uploads/")[1]
             }
 
             // Para URLs externas, tentar extrair key do path
-            const urlObj = new URL(url)
-            return urlObj.pathname.substring(1) // Remove leading slash
+            if (url.startsWith("http")) {
+                const urlObj = new URL(url)
+                return urlObj.pathname.substring(1) // Remove leading slash
+            }
+
+            // Se não for URL válida, retornar null
+            return null
         } catch {
             return null
         }

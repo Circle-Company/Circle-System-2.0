@@ -2,12 +2,13 @@
  * Testes de integração para VideoCompressionWorker
  */
 
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
+
 import { Moment } from "@/domain/moment"
 import { IMomentRepository } from "@/domain/moment/repositories/moment.repository"
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
+import { EmbeddingJobPriority } from "../types/embedding.job.types"
 import { VideoCompressionQueue } from "../video.compression.queue"
 import { VideoCompressionWorker } from "../video.compression.worker"
-import { EmbeddingJobPriority } from "../types/embedding.job.types"
 
 // Mock do repository
 class MockMomentRepository implements Partial<IMomentRepository> {

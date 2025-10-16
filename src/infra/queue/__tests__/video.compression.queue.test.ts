@@ -3,8 +3,9 @@
  */
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
-import { VideoCompressionQueue } from "../video.compression.queue"
+
 import { EmbeddingJobPriority } from "../types/embedding.job.types"
+import { VideoCompressionQueue } from "../video.compression.queue"
 
 describe("VideoCompressionQueue - Integração", () => {
     let queue: VideoCompressionQueue
