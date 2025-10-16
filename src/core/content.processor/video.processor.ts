@@ -188,7 +188,9 @@ export class VideoProcessor {
         )
 
         // SEMPRE processar vídeo para proporção padrão do sistema (1080x1674)
-        console.log(`[VideoProcessor] 🔄 Forçando processamento para proporção padrão do sistema (1080x1674)`)
+        console.log(
+            `[VideoProcessor] 🔄 Forçando processamento para proporção padrão do sistema (1080x1674)`,
+        )
 
         try {
             const processedData = await this.cropVideoToAspectRatio(
