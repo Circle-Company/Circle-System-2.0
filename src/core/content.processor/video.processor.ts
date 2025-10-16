@@ -15,6 +15,7 @@ import {
     VideoProcessingResult,
 } from "./type"
 
+import { VideoCompressionOptions as WorkerVideoCompressionOptions } from "@/infra/queue/types/video.compression.job.types"
 import { exec } from "child_process"
 import { tmpdir } from "os"
 import { join } from "path"
@@ -741,6 +742,86 @@ export class VideoProcessor {
             }
         } catch (error) {
             console.error(`[VideoProcessor] ❌ Erro na compressão com ffmpeg:`, error)
+
+            // Fallback para vídeo original
+            console.log(`[VideoProcessor] 🔄 Usando fallback - vídeo original`)
+            return videoData
+        } finally {
+            // 4. Deletar arquivos temporários
+            if (existsSync(tempInputPath)) {
+                unlinkSync(tempInputPath)
+            }
+            if (existsSync(tempOutputPath)) {
+                unlinkSync(tempOutputPath)
+            }
+        }
+    }
+
+    /**
+     * Comprime vídeo com H.264 usando preset slow para máxima compressão
+     * Comando ffmpeg: ffmpeg -i input.mp4 -c:v libx264 -preset slow -crf 28 -b:v 300k -maxrate 500k -bufsize 600k -c:a aac -b:a 64k output.mp4
+     */
+    async compressVideoSlow(
+        videoData: Buffer,
+        options: WorkerVideoCompressionOptions = {
+            preset: "slow",
+            crf: 28,
+            targetBitrate: 300,
+            maxBitrate: 500,
+            bufferSize: 600,
+            audioBitrate: 64,
+        },
+    ): Promise<Buffer> {
+        const tempInputPath = join(
+            tmpdir(),
+            `input_slow_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.mp4`,
+        )
+        const tempOutputPath = join(
+            tmpdir(),
+            `compressed_slow_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.mp4`,
+        )
+
+        try {
+            console.log(
+                `[VideoProcessor] 🐌 Iniciando compressão H.264 SLOW (preset: ${options.preset}, CRF: ${options.crf})`,
+            )
+
+            // 1. Salvar vídeo em arquivo temporário
+            writeFileSync(tempInputPath, videoData)
+
+            // 2. Executar comando ffmpeg para compressão lenta mas eficiente
+            const ffmpegCommand = `ffmpeg -i "${tempInputPath}" -c:v libx264 -preset ${options.preset} -crf ${options.crf} -b:v ${options.targetBitrate}k -maxrate ${options.maxBitrate}k -bufsize ${options.bufferSize}k -c:a aac -b:a ${options.audioBitrate}k -movflags +faststart "${tempOutputPath}"`
+
+            console.log(`[VideoProcessor] 🔧 Executando: ${ffmpegCommand}`)
+            await execAsync(ffmpegCommand)
+
+            // 3. Ler arquivo comprimido
+            if (existsSync(tempOutputPath)) {
+                const compressedData = readFileSync(tempOutputPath)
+
+                const originalSize = videoData.length
+                const compressedSize = compressedData.length
+                const compressionRatio = (
+                    ((originalSize - compressedSize) / originalSize) *
+                    100
+                ).toFixed(1)
+
+                console.log(
+                    `[VideoProcessor] ✅ Compressão SLOW concluída: ${(
+                        originalSize /
+                        1024 /
+                        1024
+                    ).toFixed(2)}MB → ${(compressedSize / 1024 / 1024).toFixed(
+                        2,
+                    )}MB (${compressionRatio}% menor)`,
+                )
+
+                return compressedData
+            } else {
+                throw new Error("Arquivo comprimido não foi criado")
+            }
+        } catch (error) {
+            console.error(`[VideoProcessor] ❌ Erro na compressão SLOW:`, error)
 
             // Fallback para vídeo original
             console.log(`[VideoProcessor] 🔄 Usando fallback - vídeo original`)

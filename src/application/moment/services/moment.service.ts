@@ -27,6 +27,7 @@ import { MomentMetricsService } from "./moment.metrics.service"
 // Fallback para old system se necessário
 import { PostEmbeddingService } from "@/core/swipe.engine/core/embeddings/post"
 import { TimezoneCode } from "@/domain/user"
+import { VideoCompressionQueue } from "@/infra/queue/video.compression.queue"
 
 export interface CreateMomentData {
     ownerId: string
@@ -121,6 +122,7 @@ export class MomentService {
 
     // Redis queue para processamento assíncrono
     private embeddingsQueue: EmbeddingsQueue
+    private videoCompressionQueue: VideoCompressionQueue
 
     constructor(
         private repository: IMomentRepository,
@@ -178,6 +180,9 @@ export class MomentService {
 
         // Redis queue para embeddings assíncronos
         this.embeddingsQueue = EmbeddingsQueue.getInstance()
+
+        // Redis queue para compressão de vídeo assíncrona
+        this.videoCompressionQueue = VideoCompressionQueue.getInstance()
 
         console.log(
             "[MomentService] ✅ Inicializado com NEW Swipe Engine (modelos REAIS) + Redis Queue",
@@ -360,7 +365,34 @@ export class MomentService {
         // 4. Salvar no repositório IMEDIATAMENTE (sem aguardar embeddings)
         const createdMoment = await this.repository.create(moment)
 
-        // 5. Enfileirar job de embeddings para processamento às 01h da manhã
+        // 5. Enfileirar job de compressão de vídeo imediatamente
+        try {
+            console.log(`[MomentService] 🐌 Enfileirando compressão de vídeo...`)
+
+            await this.videoCompressionQueue.addJob(
+                {
+                    momentId: createdMoment.id,
+                    originalVideoUrl: processingResult.videoUrl,
+                    videoMetadata: {
+                        width: processingResult.videoMetadata.width,
+                        height: processingResult.videoMetadata.height,
+                        duration: processingResult.videoMetadata.duration,
+                        codec: processingResult.videoMetadata.codec,
+                        hasAudio: processingResult.videoMetadata.hasAudio,
+                        size: processingResult.videoMetadata.size,
+                    },
+                    priority: EmbeddingJobPriority.HIGH,
+                },
+                EmbeddingJobPriority.HIGH,
+            )
+
+            console.log(`[MomentService] ✅ Job de compressão enfileirado`)
+        } catch (error) {
+            console.error(`[MomentService] ⚠️ Erro ao enfileirar compressão:`, error)
+            // Não falhar a criação do moment por causa disso
+        }
+
+        // 6. Enfileirar job de embeddings para processamento às 01h da manhã
         try {
             const scheduleTime = process.env.EMBEDDINGS_SCHEDULE_TIME || "01:00"
 
@@ -369,7 +401,7 @@ export class MomentService {
             await this.embeddingsQueue.scheduleFor(
                 {
                     momentId: createdMoment.id,
-                    videoUrl: processingResult.videoUrl, // Usar vídeo original
+                    videoUrl: processingResult.videoUrl, // Usar vídeo original (será atualizado após compressão)
                     thumbnailUrl: processingResult.thumbnailUrl,
                     description: data.description || "",
                     hashtags: data.hashtags || [],

@@ -2,6 +2,7 @@ import { api } from "@/infra/api"
 import { DatabaseAdapterFactory } from "@/infra/database"
 import { MomentFactory } from "@/infra/factories/moment.factory"
 import { EmbeddingsWorker } from "@/infra/queue/embeddings.worker"
+import { VideoCompressionWorker } from "@/infra/queue/video.compression.worker"
 import { initialize as initializeRoutes } from "@/infra/routes"
 import { setupSwagger } from "@/infra/swagger"
 import { resetSwaggerRegistration } from "@/infra/swagger/swagger.config"
@@ -78,6 +79,7 @@ export class ApplicationBootstrapper {
     private shutdownTimeout?: NodeJS.Timeout
     private isShuttingDown = false
     private embeddingsWorker?: EmbeddingsWorker
+    private videoCompressionWorker?: VideoCompressionWorker
 
     constructor() {
         this.config = this.loadConfiguration()
@@ -275,6 +277,9 @@ export class ApplicationBootstrapper {
             await this.executeBootStep("Server Startup", () => this.startServer())
             await this.executeBootStep("Embeddings Worker Startup", () =>
                 this.startEmbeddingsWorker(),
+            )
+            await this.executeBootStep("Video Compression Worker Startup", () =>
+                this.startVideoCompressionWorker(),
             )
             await this.executeBootStep("Graceful Shutdown Setup", () =>
                 this.setupGracefulShutdown(),
@@ -478,6 +483,24 @@ export class ApplicationBootstrapper {
     }
 
     /**
+     * Inicia o worker de compressão de vídeo
+     */
+    private async startVideoCompressionWorker(): Promise<void> {
+        try {
+            const momentRepository = MomentFactory.createMomentRepository(this.databaseAdapter)
+            this.videoCompressionWorker = new VideoCompressionWorker(momentRepository)
+            this.videoCompressionWorker.start()
+
+            this.log("info", "Video compression worker started successfully")
+        } catch (error) {
+            this.log("error", "Failed to start video compression worker", {
+                error: (error as Error).message,
+            })
+            // Não throw error - worker é opcional
+        }
+    }
+
+    /**
      * Configura graceful shutdown e tratamento de erros
      */
     private async setupGracefulShutdown(): Promise<void> {
@@ -603,6 +626,12 @@ export class ApplicationBootstrapper {
             if (this.embeddingsWorker) {
                 await this.embeddingsWorker.stop()
                 this.log("info", "Embeddings worker stopped")
+            }
+
+            // Parar video compression worker
+            if (this.videoCompressionWorker) {
+                await this.videoCompressionWorker.stop()
+                this.log("info", "Video compression worker stopped")
             }
 
             // Desconectar do banco
