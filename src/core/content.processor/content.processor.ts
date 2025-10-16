@@ -26,11 +26,7 @@ export interface ContentProcessingResult {
     success: boolean
     contentId: string
     enrichedDescription: string
-    videoUrls: {
-        low: string
-        medium: string
-        high: string
-    }
+    videoUrl: string // Vídeo em qualidade original
     thumbnailUrl: string
     storage: {
         videoKey: string
@@ -88,6 +84,8 @@ export class ContentProcessor {
             const processingRequest: VideoProcessingRequest = {
                 contentId,
                 videoData: request.videoData,
+                videoKey: `videos/${request.ownerId}/${contentId}`,
+                thumbnailKey: `thumbnails/${request.ownerId}/${contentId}`,
                 metadata: request.metadata,
             }
 
@@ -139,51 +137,55 @@ export class ContentProcessor {
                 }
             }
 
-            // 3. Upload para storage
-            // Usar vídeo processado se disponível, senão usar original
-            const finalVideoData = videoResult.processedVideo
-                ? videoResult.processedVideo.data
-                : request.videoData
+            // 3. Upload para storage em múltiplas resoluções
+            const baseVideoKey = `videos/${request.ownerId}/${contentId}`
+            const baseThumbnailKey = `thumbnails/${request.ownerId}/${contentId}`
 
-            const videoKey = `videos/${request.ownerId}/${contentId}.mp4`
-            const thumbnailKey = `thumbnails/${request.ownerId}/${contentId}.jpg`
+            // Upload do vídeo original (sem compressão)
+            let videoUrl = ""
+            if (videoResult.processedVideo) {
+                const videoKey = `${baseVideoKey}.mp4`
+                const uploadResult = await this.storageAdapter.uploadVideo(
+                    videoKey,
+                    videoResult.processedVideo.data,
+                    {
+                        contentType: "video/mp4",
+                        ownerId: request.ownerId,
+                        contentId,
+                        duration: videoResult.videoMetadata.duration,
+                        wasProcessed: false, // Vídeo original - worker fará compressão
+                    },
+                )
 
-            const videoUpload = await this.storageAdapter.uploadVideo(videoKey, finalVideoData, {
-                contentType: "video/mp4", // Sempre MP4 após processamento
-                ownerId: request.ownerId,
-                contentId,
-                duration: videoResult.videoMetadata.duration,
-                wasProcessed: !!videoResult.processedVideo,
-                wasCompressed: videoResult.processedVideo?.wasCompressed || false,
-                wasConverted: videoResult.processedVideo?.wasConverted || false,
-            })
+                if (!uploadResult.success) {
+                    throw new Error(uploadResult.error || "Error to upload video")
+                }
 
-            if (!videoUpload.success) {
-                throw new Error(videoUpload.error || "Error to upload video")
+                videoUrl = uploadResult.url || ""
+                console.log(`✅ Upload vídeo original concluído`)
             }
 
-            const thumbnailUpload = await this.storageAdapter.uploadThumbnail(
-                thumbnailKey,
-                videoResult.thumbnail.data,
-                {
-                    contentType: `image/${videoResult.thumbnail.format}`,
-                    ownerId: request.ownerId,
-                    contentId,
-                },
-            )
+            // Upload de thumbnail única
+            let thumbnailUrl = ""
+            if (videoResult.thumbnail) {
+                const thumbnailKey = `${baseThumbnailKey}.jpg`
+                const uploadResult = await this.storageAdapter.uploadThumbnail(
+                    thumbnailKey,
+                    videoResult.thumbnail.data,
+                    {
+                        contentType: `image/${videoResult.thumbnail.format}`,
+                        ownerId: request.ownerId,
+                        contentId,
+                    },
+                )
 
-            if (!thumbnailUpload.success) {
-                throw new Error(thumbnailUpload.error || "Error to upload thumbnail")
+                if (!uploadResult.success) {
+                    throw new Error(uploadResult.error || "Error to upload thumbnail")
+                }
+
+                thumbnailUrl = uploadResult.url || ""
+                console.log(`✅ Upload thumbnail única concluído`)
             }
-
-            // 4. Gerar URLs para diferentes qualidades
-            const videoUrls = {
-                low: await this.storageAdapter.getVideoUrl(videoKey, "low"),
-                medium: await this.storageAdapter.getVideoUrl(videoKey, "medium"),
-                high: await this.storageAdapter.getVideoUrl(videoKey, "high"),
-            }
-
-            const thumbnailUrl = await this.storageAdapter.getThumbnailUrl(thumbnailKey)
 
             const processingTime = Date.now() - startTime
             const enrichedDescription = textLib.rich.formatToEnriched(request.description)
@@ -192,14 +194,14 @@ export class ContentProcessor {
                 success: true,
                 contentId,
                 enrichedDescription,
-                videoUrls,
+                videoUrl,
                 thumbnailUrl,
                 storage: {
-                    videoKey,
-                    thumbnailKey,
-                    bucket: videoUpload.bucket,
-                    region: videoUpload.region,
-                    provider: videoUpload.provider,
+                    videoKey: `${baseVideoKey}.mp4`,
+                    thumbnailKey: `${baseThumbnailKey}.jpg`,
+                    bucket: videoUrl ? "local" : undefined,
+                    region: videoUrl ? "local" : undefined,
+                    provider: "local",
                 },
                 videoMetadata: videoResult.videoMetadata,
                 moderation: moderationResult,
@@ -212,11 +214,7 @@ export class ContentProcessor {
                 success: false,
                 contentId,
                 enrichedDescription: "",
-                videoUrls: {
-                    low: "",
-                    medium: "",
-                    high: "",
-                },
+                videoUrl: "",
                 thumbnailUrl: "",
                 storage: {
                     videoKey: "",

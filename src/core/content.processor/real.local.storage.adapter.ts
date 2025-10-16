@@ -3,10 +3,11 @@
  * Implementação REAL de storage local (salva arquivos em disco)
  */
 
-import { generateId } from "@/shared"
 import { existsSync, mkdirSync, writeFileSync } from "fs"
-import { join } from "path"
 import { StorageAdapter, StorageUploadResult } from "./type"
+
+import { generateId } from "@/shared"
+import { join } from "path"
 
 interface StorageUploadOptions {
     filename: string
@@ -30,6 +31,7 @@ export class RealLocalStorageAdapter implements StorageAdapter {
      * Upload de vídeo
      */
     async uploadVideo(
+        key: string,
         videoData: Buffer,
         options: StorageUploadOptions,
     ): Promise<StorageUploadResult> {
@@ -58,7 +60,6 @@ export class RealLocalStorageAdapter implements StorageAdapter {
                 key: `videos/${filename}`,
                 provider: "local",
                 bucket: "uploads",
-                size: videoData.length,
                 metadata: {
                     path: filePath,
                     filename,
@@ -123,7 +124,6 @@ export class RealLocalStorageAdapter implements StorageAdapter {
                 key: `thumbnails/${filename}`,
                 provider: "local",
                 bucket: "uploads",
-                size: imageData.length,
                 metadata: {
                     path: filePath,
                     filename,

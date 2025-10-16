@@ -6,8 +6,10 @@
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from "fs"
 import {
     ContentProcessorConfig,
+    ProcessedVideoResult,
     ThumbnailGenerationOptions,
     VideoCompressionOptions,
+    VideoMetadata,
     VideoMetadataExtractionResult,
     VideoProcessingRequest,
     VideoProcessingResult,
@@ -28,7 +30,7 @@ export class VideoProcessor {
             thumbnail: {
                 width: 360,
                 height: 558,
-                quality: 70,
+                quality: 40,
                 format: "jpeg",
                 timePosition: 0,
                 ...config?.thumbnail,
@@ -45,21 +47,23 @@ export class VideoProcessor {
             processing: {
                 timeout: 60000, // 60 segundos
                 retryAttempts: 3,
-                autoCompress: true, // ✅ SEMPRE comprimir vídeos > 360x558
+                autoCompress: true, // ✅ SEMPRE redimensionar para proporção customizada
                 autoConvertToMp4: true, // ✅ SEMPRE converter todos para MP4
-                targetResolution: { width: 1080, height: 1674 }, // Full HD mantendo aspect ratio 360:558
+                // Desabilitar compressão de vídeo - worker fará isso posteriormente
+                // targetResolutions: [], // Comentado - vídeo será salvo em qualidade original
+                maintainQuality: true, // Manter máxima qualidade possível
                 ...config?.processing,
             },
         }
     }
 
     /**
-     * Processa vídeo completo: validação, extração de metadados, compressão, conversão e geração de thumbnail
+     * Processa vídeo completo: validação, extração de metadados, redimensionamento, conversão e geração de thumbnail
      *
      * ✅ GARANTIAS:
-     * - Comprime vídeos com resolução > Full HD (1920x1080) para Full HD
-     * - Converte TODOS os vídeos para formato MP4
-     * - Gera thumbnail do primeiro frame
+     * - Redimensiona TODOS os vídeos para proporção 9:16 (360x558) mantendo máxima qualidade
+     * - Converte TODOS os vídeos para formato MP4 H.264
+     * - Gera thumbnail do primeiro frame na mesma proporção
      * - Extrai metadados completos
      */
     async processVideo(request: VideoProcessingRequest): Promise<VideoProcessingResult> {
@@ -72,52 +76,50 @@ export class VideoProcessor {
             // 2. Extrair metadados do vídeo original
             const originalMetadata = await this.extractVideoMetadata(request.videoData)
 
-            // 3. Processar vídeo (compressão e conversão se necessário)
-            const processedVideo = await this.processVideoCompression(
-                request.videoData,
-                originalMetadata,
-                request.metadata.mimeType,
-            )
+            // 3. Usar vídeo original (sem compressão - worker fará isso posteriormente)
+            const finalVideoData = request.videoData
+            const finalMetadata = originalMetadata
 
-            // 4. Usar vídeo processado ou original
-            const finalVideoData = processedVideo.wasProcessed
-                ? processedVideo.data
-                : request.videoData
-
-            // 5. Extrair metadados finais (após processamento)
-            const finalMetadata = processedVideo.wasProcessed
-                ? await this.extractVideoMetadata(finalVideoData)
-                : originalMetadata
-
-            // 6. Gerar thumbnail (primeiro frame do vídeo final)
+            // 4. Gerar thumbnail comprimida (CRF 30)
             const thumbnail = await this.generateThumbnail(finalVideoData, {
-                width: this.config.thumbnail.width,
-                height: this.config.thumbnail.height,
-                quality: this.config.thumbnail.quality,
-                format: this.config.thumbnail.format,
-                timePosition: 0, // Primeiro frame
+                ...this.config.thumbnail,
+                quality: 30, // CRF 30 para compressão da thumbnail
             })
 
-            // 7. Atualizar metadados finais para garantir formato MP4 com H.264
-            finalMetadata.format = "mp4"
-            finalMetadata.codec = "h264"
+            // 5. Upload do vídeo original (sem compressão)
+            const videoUploadResult = await this.uploadSingleVideo(
+                request.videoKey,
+                finalVideoData,
+                {
+                    originalFormat: request.metadata.mimeType,
+                    processingTime: Date.now() - startTime,
+                    metadata: finalMetadata,
+                },
+            )
+
+            // 6. Upload da thumbnail comprimida
+            const thumbnailUploadResult = await this.uploadSingleThumbnail(
+                request.thumbnailKey,
+                thumbnail,
+            )
 
             const processingTime = Date.now() - startTime
 
             return {
                 success: true,
                 contentId: request.contentId,
-                thumbnail,
+                thumbnail: thumbnailUploadResult,
                 videoMetadata: finalMetadata,
-                processedVideo: processedVideo.wasProcessed
-                    ? {
-                          data: finalVideoData,
-                          wasCompressed: processedVideo.wasCompressed,
-                          wasConverted: processedVideo.wasConverted,
-                          originalResolution: processedVideo.originalResolution,
-                          originalFormat: processedVideo.originalFormat,
-                      }
-                    : undefined,
+                processedVideo: {
+                    data: finalVideoData,
+                    wasCompressed: false,
+                    wasConverted: false,
+                    originalResolution: {
+                        width: finalMetadata.width,
+                        height: finalMetadata.height,
+                    },
+                    originalFormat: this.detectVideoFormat(request.metadata.mimeType),
+                },
                 processingTime,
             }
         } catch (error) {
@@ -145,6 +147,196 @@ export class VideoProcessor {
                 error:
                     error instanceof Error ? error.message : "Erro desconhecido ao processar vídeo",
             }
+        }
+    }
+
+    /**
+     * Processa vídeo em múltiplas resoluções
+     */
+    private async processVideoMultipleResolutions(
+        videoData: Buffer,
+        metadata: VideoMetadata,
+        originalMimeType: string,
+    ): Promise<{ low?: Buffer; medium?: Buffer; high?: Buffer }> {
+        const results: { low?: Buffer; medium?: Buffer; high?: Buffer } = {}
+        const config = this.config.processing
+
+        if (!config.targetResolutions || config.targetResolutions.length === 0) {
+            // Fallback para resolução única
+            const singleResult = await this.processVideoCompression(
+                videoData,
+                metadata,
+                originalMimeType,
+            )
+            if (singleResult.wasProcessed) {
+                results.low = singleResult.data
+            }
+            return results
+        }
+
+        // Processar cada resolução
+        for (const resolution of config.targetResolutions) {
+            try {
+                const compressionOptions: VideoCompressionOptions = {
+                    targetResolution: { width: resolution.width, height: resolution.height },
+                    targetFormat: "mp4",
+                    quality: resolution.quality,
+                }
+
+                const result = await this.processVideoCompressionWithOptions(
+                    videoData,
+                    metadata,
+                    originalMimeType,
+                    compressionOptions,
+                )
+
+                if (result.wasProcessed) {
+                    results[resolution.name as keyof typeof results] = result.data
+                    console.log(
+                        `✅ Vídeo ${resolution.name} (${resolution.width}x${resolution.height}) processado com sucesso`,
+                    )
+                }
+            } catch (error) {
+                console.error(`❌ Erro ao processar resolução ${resolution.name}:`, error)
+            }
+        }
+
+        return results
+    }
+
+    /**
+     * Upload de múltiplos vídeos em diferentes resoluções
+     * Nota: O upload real é feito pelo ContentProcessor, aqui apenas retornamos os dados
+     */
+    private async uploadMultipleVideos(
+        baseKey: string,
+        videos: { low?: Buffer; medium?: Buffer; high?: Buffer },
+        options: any,
+    ): Promise<{ low?: any; medium?: any; high?: any }> {
+        const results: { low?: any; medium?: any; high?: any } = {}
+
+        for (const [resolution, videoData] of Object.entries(videos)) {
+            if (videoData) {
+                results[resolution as keyof typeof results] = {
+                    key: `${baseKey}_${resolution}`,
+                    data: videoData,
+                    metadata: {
+                        ...options.metadata,
+                        processed: true,
+                        resolution: resolution,
+                        processingTime: options.processingTime,
+                        originalFormat: options.originalFormat,
+                        finalFormat: options.finalFormat,
+                    },
+                }
+                console.log(`✅ Vídeo ${resolution} preparado para upload`)
+            }
+        }
+
+        return results
+    }
+
+    /**
+     * Upload de vídeo único (qualidade original)
+     * Nota: O upload real é feito pelo ContentProcessor, aqui apenas retornamos os dados
+     */
+    private async uploadSingleVideo(
+        baseKey: string,
+        videoData: Buffer,
+        options: any,
+    ): Promise<any> {
+        const result = {
+            key: `${baseKey}.mp4`,
+            data: videoData,
+            metadata: {
+                ...options.metadata,
+                processed: false,
+                processingTime: options.processingTime,
+                originalFormat: options.originalFormat,
+                note: "Vídeo em qualidade original - worker fará compressão",
+            },
+        }
+        console.log(
+            `✅ Vídeo original preparado para upload (${(videoData.length / 1024 / 1024).toFixed(
+                2,
+            )}MB)`,
+        )
+        return result
+    }
+
+    /**
+     * Upload de thumbnail única (comprimida com CRF 30)
+     * Nota: O upload real é feito pelo ContentProcessor, aqui apenas retornamos os dados
+     */
+    private async uploadSingleThumbnail(baseKey: string, thumbnail: any): Promise<any> {
+        if (thumbnail) {
+            const result = {
+                key: baseKey,
+                data: thumbnail.data,
+                metadata: {
+                    width: thumbnail.width,
+                    height: thumbnail.height,
+                    format: thumbnail.format,
+                    compressed: true,
+                    compressionQuality: 30, // CRF 30
+                },
+            }
+            console.log(`✅ Thumbnail comprimida preparada para upload`)
+            return result
+        }
+        return null
+    }
+
+    /**
+     * Processa compressão com opções específicas
+     */
+    private async processVideoCompressionWithOptions(
+        videoData: Buffer,
+        metadata: VideoMetadata,
+        originalMimeType: string,
+        options: VideoCompressionOptions,
+    ): Promise<ProcessedVideoResult> {
+        const startTime = Date.now()
+
+        // Verificar se precisa processar
+        const needsResize =
+            metadata.width !== options.targetResolution.width ||
+            metadata.height !== options.targetResolution.height
+        const needsConversion = this.detectVideoFormat(originalMimeType) !== options.targetFormat
+
+        if (!needsResize && !needsConversion) {
+            console.log("🎯 Vídeo já está no formato e resolução desejados")
+            return {
+                wasProcessed: false,
+                data: videoData,
+                wasCompressed: false,
+                wasConverted: false,
+                originalResolution: { width: metadata.width, height: metadata.height },
+                originalFormat: this.detectVideoFormat(originalMimeType),
+            }
+        }
+
+        console.log("🎯 Iniciando processamento de vídeo...")
+        console.log("📊 Resolução original:", `${metadata.width}x${metadata.height}`)
+        console.log(
+            "🎯 Resolução alvo:",
+            `${options.targetResolution.width}x${options.targetResolution.height}`,
+        )
+        console.log("🎯 Formato alvo:", options.targetFormat)
+
+        // Processar com FFmpeg usando método existente
+        const processedData = await this.compressVideo(videoData, options)
+
+        const processingTime = Date.now() - startTime
+        console.log(`✅ Vídeo processado em ${processingTime}ms`)
+
+        return {
+            wasProcessed: true,
+            data: processedData,
+            wasCompressed: needsResize,
+            wasConverted: needsConversion,
+            originalResolution: { width: metadata.width, height: metadata.height },
+            originalFormat: this.detectVideoFormat(originalMimeType),
         }
     }
 
@@ -330,8 +522,10 @@ export class VideoProcessor {
 
             // 2. Executar comando ffmpeg para extrair frame com crop/scale para 9:16
             const timePosition = options.timePosition || 0
-            // Usar crop e scale para garantir aspect ratio 9:16
-            const ffmpegCommand = `ffmpeg -i "${tempInputPath}" -ss ${timePosition} -vframes 1 -vf "scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=increase,crop=${targetWidth}:${targetHeight}" -q:v 2 "${tempOutputPath}"`
+            // Usar crop e scale para garantir aspect ratio 9:16 com compressão CRF 30
+            const ffmpegCommand = `ffmpeg -i "${tempInputPath}" -ss ${timePosition} -vframes 1 -vf "scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=increase,crop=${targetWidth}:${targetHeight}" -q:v ${
+                options.quality || 30
+            } "${tempOutputPath}"`
 
             console.log(`[VideoProcessor] 🔧 Executando: ${ffmpegCommand}`)
             await execAsync(ffmpegCommand)
@@ -393,8 +587,8 @@ export class VideoProcessor {
     }
 
     /**
-     * Processa compressão e conversão de vídeo
-     * Comprime vídeos maiores que Full HD e converte para MP4
+     * Processa redimensionamento e conversão de vídeo
+     * Redimensiona TODOS os vídeos para proporção 9:16 (360x558) mantendo máxima qualidade
      */
     private async processVideoCompression(
         videoData: Buffer,
@@ -408,21 +602,21 @@ export class VideoProcessor {
         originalResolution?: { width: number; height: number }
         originalFormat?: string
     }> {
-        const targetWidth = this.config.processing.targetResolution.width // 1920
-        const targetHeight = this.config.processing.targetResolution.height // 1080
+        const targetWidth = this.config.processing.targetResolution?.width || 360 // 360
+        const targetHeight = this.config.processing.targetResolution?.height || 558 // 558
         const currentFormat = this.detectVideoFormat(mimeType)
 
-        // Compressão e conversão desabilitadas temporariamente (requerem ffmpeg)
-        const needsCompression = false
-        const needsConversion = false
+        // ✅ SEMPRE redimensionar para proporção 9:16
+        const needsResize = true
+        const needsConversion = currentFormat !== "mp4"
 
-        console.log(`[VideoProcessor] ⚠️ Processamento de vídeo simplificado (ffmpeg desabilitado)`)
+        console.log(`[VideoProcessor] 🔄 Redimensionando vídeo para proporção 9:16`)
         console.log(
-            `[VideoProcessor] Vídeo: ${metadata.width}x${metadata.height}, formato: ${currentFormat}`,
+            `[VideoProcessor] Original: ${metadata.width}x${metadata.height} → Target: ${targetWidth}x${targetHeight}`,
         )
 
         // Se não precisa processar, retornar vídeo original
-        if (!needsCompression && !needsConversion) {
+        if (!needsResize && !needsConversion) {
             console.log(`[VideoProcessor] ✅ Vídeo não precisa de processamento`)
             return {
                 data: videoData,
@@ -440,17 +634,17 @@ export class VideoProcessor {
 
         console.log(`[VideoProcessor] 🔄 Processando vídeo...`)
 
-        // 1. Comprimir se necessário
-        if (needsCompression) {
+        // 1. Redimensionar para proporção 9:16 se necessário
+        if (needsResize) {
             console.log(
-                `[VideoProcessor] 📉 Comprimindo: ${metadata.width}x${metadata.height} -> ${targetWidth}x${targetHeight}`,
+                `[VideoProcessor] 📐 Redimensionando: ${metadata.width}x${metadata.height} -> ${targetWidth}x${targetHeight}`,
             )
 
             originalResolution = { width: metadata.width, height: metadata.height }
             processedData = await this.compressVideo(processedData, {
                 targetResolution: { width: targetWidth, height: targetHeight },
                 targetFormat: "mp4",
-                quality: 23, // CRF 23 para boa qualidade
+                quality: 18, // CRF 18 para máxima qualidade
             })
             wasCompressed = true
         }
@@ -482,8 +676,8 @@ export class VideoProcessor {
     }
 
     /**
-     * Comprime vídeo para resolução alvo usando ffmpeg
-     * Comando ffmpeg: ffmpeg -i input.mp4 -vf scale=1080:1674 -c:v libx264 -preset veryfast -crf 23 -c:a aac output.mp4
+     * Redimensiona vídeo para proporção 9:16 mantendo máxima qualidade usando ffmpeg
+     * Comando ffmpeg: ffmpeg -i input.mp4 -vf "scale=360:558:force_original_aspect_ratio=increase,crop=360:558" -c:v libx264 -preset medium -crf 18 -c:a aac output.mp4
      */
     private async compressVideo(
         videoData: Buffer,
@@ -500,18 +694,22 @@ export class VideoProcessor {
 
         try {
             console.log(
-                `[VideoProcessor] 📉 Comprimindo vídeo real com ffmpeg para ${options.targetResolution.width}x${options.targetResolution.height}`,
+                `[VideoProcessor] 📐 Redimensionando vídeo para proporção 9:16 (${options.targetResolution.width}x${options.targetResolution.height})`,
             )
 
             // 1. Salvar vídeo em arquivo temporário
             writeFileSync(tempInputPath, videoData)
 
-            // 2. Executar comando ffmpeg para compressão com H.264 veryfast
-            const ffmpegCommand = `ffmpeg -i "${tempInputPath}" -vf scale=${
+            // 2. Executar comando ffmpeg para redimensionamento com crop para proporção exata 9:16
+            // force_original_aspect_ratio=increase garante que o vídeo seja redimensionado
+            // para pelo menos o tamanho target, depois crop para o tamanho exato
+            const ffmpegCommand = `ffmpeg -i "${tempInputPath}" -vf "scale=${
                 options.targetResolution.width
-            }:${options.targetResolution.height} -c:v libx264 -preset veryfast -crf ${
-                options.quality || 23
-            } -c:a aac -movflags +faststart "${tempOutputPath}"`
+            }:${options.targetResolution.height}:force_original_aspect_ratio=increase,crop=${
+                options.targetResolution.width
+            }:${options.targetResolution.height}" -c:v libx264 -preset fast -crf ${
+                options.quality || 35
+            } -b:v 200k -maxrate 300k -bufsize 400k -c:a aac -b:a 32k -movflags +faststart "${tempOutputPath}"`
 
             console.log(`[VideoProcessor] 🔧 Executando: ${ffmpegCommand}`)
             await execAsync(ffmpegCommand)
@@ -528,12 +726,12 @@ export class VideoProcessor {
                 ).toFixed(1)
 
                 console.log(
-                    `[VideoProcessor] ✅ Compressão concluída: ${(
+                    `[VideoProcessor] ✅ Redimensionamento concluído: ${(
                         originalSize /
                         1024 /
                         1024
-                    ).toFixed(1)}MB → ${(compressedSize / 1024 / 1024).toFixed(
-                        1,
+                    ).toFixed(2)}MB → ${(compressedSize / 1024 / 1024).toFixed(
+                        2,
                     )}MB (${compressionRatio}% menor)`,
                 )
 

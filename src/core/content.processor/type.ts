@@ -6,6 +6,8 @@
 export interface VideoProcessingRequest {
     contentId: string
     videoData: Buffer
+    videoKey: string
+    thumbnailKey: string
     metadata: {
         filename: string
         mimeType: string
@@ -99,6 +101,34 @@ export interface VideoCompressionOptions {
     quality?: number
 }
 
+export interface VideoResolution {
+    width: number
+    height: number
+    quality: number
+    name: string
+}
+
+export interface VideoMetadata {
+    duration: number
+    width: number
+    height: number
+    format: string
+    codec: string
+    hasAudio: boolean
+    size: number
+    bitrate?: number
+    fps?: number
+}
+
+export interface ProcessedVideoResult {
+    wasProcessed: boolean
+    data: Buffer
+    wasCompressed: boolean
+    wasConverted: boolean
+    originalResolution: { width: number; height: number }
+    originalFormat: string
+}
+
 export interface ContentProcessorConfig {
     thumbnail: ThumbnailGenerationOptions
     validation: {
@@ -112,8 +142,10 @@ export interface ContentProcessorConfig {
     processing: {
         timeout: number // ms
         retryAttempts: number
-        autoCompress: boolean // Comprimir vídeos > Full HD
+        autoCompress: boolean // Redimensionar vídeos para proporção customizada
         autoConvertToMp4: boolean // Converter todos para MP4
-        targetResolution: { width: number; height: number } // Full HD por padrão
+        targetResolutions?: VideoResolution[] // Múltiplas resoluções
+        targetResolution?: { width: number; height: number } // Resolução única (compatibilidade)
+        maintainQuality?: boolean // Manter máxima qualidade
     }
 }
