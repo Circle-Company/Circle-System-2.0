@@ -608,26 +608,10 @@ export const MomentResponseSchema = {
         content: {
             type: "object",
             properties: {
-                videoUrls: {
-                    type: "object",
-                    properties: {
-                        low: {
-                            type: "string",
-                            description: "URL do vídeo em baixa qualidade",
-                            example: "https://storage.example.com/videos/low/123456789.mp4",
-                        },
-                        medium: {
-                            type: "string",
-                            description: "URL do vídeo em qualidade média",
-                            example: "https://storage.example.com/videos/medium/123456789.mp4",
-                        },
-                        high: {
-                            type: "string",
-                            description: "URL do vídeo em alta qualidade",
-                            example: "https://storage.example.com/videos/high/123456789.mp4",
-                        },
-                    },
-                    required: ["low", "medium", "high"],
+                videoUrl: {
+                    type: "string",
+                    description: "URL do vídeo em qualidade original",
+                    example: "https://storage.example.com/videos/123456789.mp4",
                 },
                 thumbnailUrl: {
                     type: "string",
@@ -731,7 +715,7 @@ export const MomentResponseSchema = {
                     example: 5000,
                 },
             },
-            required: ["videoUrls", "thumbnailUrl", "videoMetadata", "storage"],
+            required: ["videoUrl", "thumbnailUrl", "videoMetadata", "storage"],
         },
         moderation: {
             type: "object",
@@ -908,23 +892,10 @@ export const ContentProcessingResponseSchema = {
             description: "Descrição enriquecida com formatação",
             example: "Meu primeiro <strong>vlog</strong> sobre <em>tecnologia</em>!",
         },
-        videoUrls: {
-            type: "object",
-            properties: {
-                low: {
-                    type: "string",
-                    description: "URL do vídeo em baixa qualidade",
-                },
-                medium: {
-                    type: "string",
-                    description: "URL do vídeo em qualidade média",
-                },
-                high: {
-                    type: "string",
-                    description: "URL do vídeo em alta qualidade",
-                },
-            },
-            required: ["low", "medium", "high"],
+        videoUrl: {
+            type: "string",
+            description: "URL do vídeo em qualidade original",
+            example: "https://storage.example.com/videos/123456789.mp4",
         },
         thumbnailUrl: {
             type: "string",
