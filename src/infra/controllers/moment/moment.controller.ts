@@ -14,6 +14,7 @@ import {
     ReportMomentUseCase,
     UnlikeMomentUseCase,
 } from "@/application/moment/use.cases"
+
 import { GetUserMomentsResponse } from "@/application/moment/use.cases/get.user.moments.use.case"
 import { AuthenticatedUser } from "@/infra/middlewares"
 import { z } from "zod"
@@ -336,7 +337,7 @@ export class MomentController {
             const validatedQuery = ListMomentsQuerySchema.parse(query)
 
             const result = await this.getUserMomentsUseCase.execute({
-                userId: userId,
+                ownerId: userId,
                 requestingUser: requestingUser,
                 limit: validatedQuery.limit,
                 offset: (validatedQuery.page - 1) * validatedQuery.limit,
