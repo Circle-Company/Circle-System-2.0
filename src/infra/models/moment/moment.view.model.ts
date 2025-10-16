@@ -63,7 +63,7 @@ export default class MomentView
                     comment: "Timestamp da visualização",
                 },
                 viewDuration: {
-                    type: DataTypes.INTEGER,
+                    type: DataTypes.FLOAT,
                     allowNull: true,
                     field: "view_duration",
                     comment: "Duração da visualização em segundos",
