@@ -3,7 +3,6 @@
  * Processa vídeos para extração de metadados e geração de thumbnails
  */
 
-import { existsSync, readFileSync, unlinkSync, writeFileSync } from "fs"
 import {
     ContentProcessorConfig,
     ProcessedVideoResult,
@@ -14,12 +13,13 @@ import {
     VideoProcessingRequest,
     VideoProcessingResult,
 } from "./type"
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from "fs"
 
 import { VideoCompressionOptions as WorkerVideoCompressionOptions } from "@/infra/queue/types/video.compression.job.types"
 import { exec } from "child_process"
-import { tmpdir } from "os"
 import { join } from "path"
 import { promisify } from "util"
+import { tmpdir } from "os"
 
 const execAsync = promisify(exec)
 
@@ -29,8 +29,8 @@ export class VideoProcessor {
     constructor(config?: Partial<ContentProcessorConfig>) {
         this.config = {
             thumbnail: {
-                width: 360,
-                height: 558,
+                width: 1080,
+                height: 1674,
                 quality: 40,
                 format: "jpeg",
                 timePosition: 0,
@@ -42,16 +42,15 @@ export class VideoProcessor {
                 minDuration: 3, // 3 segundos
                 allowedFormats: ["mp4", "mov", "avi", "webm"],
                 minResolution: { width: 360, height: 558 },
-                maxResolution: { width: 1080, height: 1674 }, // Full HD mantendo aspect ratio 360:558
+                maxResolution: { width: 1080, height: 1674 }, // Proporção padrão do sistema
                 ...config?.validation,
             },
             processing: {
                 timeout: 60000, // 60 segundos
                 retryAttempts: 3,
-                autoCompress: true, // ✅ SEMPRE redimensionar para proporção customizada
+                autoCompress: false, // ✅ Manter resolução original, apenas cortar proporção
                 autoConvertToMp4: true, // ✅ SEMPRE converter todos para MP4
-                // Desabilitar compressão de vídeo - worker fará isso posteriormente
-                // targetResolutions: [], // Comentado - vídeo será salvo em qualidade original
+                targetResolution: { width: 1080, height: 1674 }, // Proporção padrão do sistema
                 maintainQuality: true, // Manter máxima qualidade possível
                 ...config?.processing,
             },
@@ -59,12 +58,13 @@ export class VideoProcessor {
     }
 
     /**
-     * Processa vídeo completo: validação, extração de metadados, redimensionamento, conversão e geração de thumbnail
+     * Processa vídeo completo: validação, extração de metadados, corte para proporção padrão e geração de thumbnail
      *
      * ✅ GARANTIAS:
-     * - Redimensiona TODOS os vídeos para proporção 9:16 (360x558) mantendo máxima qualidade
+     * - Mantém resolução original do vídeo
+     * - Corta para proporção padrão do sistema (1080x1674) se necessário
      * - Converte TODOS os vídeos para formato MP4 H.264
-     * - Gera thumbnail do primeiro frame na mesma proporção
+     * - Gera thumbnail do primeiro frame na proporção padrão
      * - Extrai metadados completos
      */
     async processVideo(request: VideoProcessingRequest): Promise<VideoProcessingResult> {
@@ -77,9 +77,19 @@ export class VideoProcessor {
             // 2. Extrair metadados do vídeo original
             const originalMetadata = await this.extractVideoMetadata(request.videoData)
 
-            // 3. Usar vídeo original (sem compressão - worker fará isso posteriormente)
-            const finalVideoData = request.videoData
-            const finalMetadata = originalMetadata
+            // 3. Processar vídeo para manter resolução original mas cortar para proporção padrão
+            const processedResult = await this.processVideoForAspectRatio(
+                request.videoData,
+                originalMetadata,
+                request.metadata.mimeType,
+            )
+
+            const finalVideoData = processedResult.data
+            const finalMetadata = {
+                ...originalMetadata,
+                width: processedResult.finalWidth,
+                height: processedResult.finalHeight,
+            }
 
             // 4. Gerar thumbnail comprimida (CRF 30)
             const thumbnail = await this.generateThumbnail(finalVideoData, {
@@ -147,6 +157,71 @@ export class VideoProcessor {
                 processingTime,
                 error:
                     error instanceof Error ? error.message : "Erro desconhecido ao processar vídeo",
+            }
+        }
+    }
+
+    /**
+     * Processa vídeo para manter resolução original mas cortar para proporção padrão (1080x1674)
+     */
+    private async processVideoForAspectRatio(
+        videoData: Buffer,
+        metadata: VideoMetadata,
+        originalMimeType: string,
+    ): Promise<{
+        data: Buffer
+        finalWidth: number
+        finalHeight: number
+        wasProcessed: boolean
+    }> {
+        const targetWidth = 1080
+        const targetHeight = 1674
+        const targetAspectRatio = targetWidth / targetHeight // ≈ 0.645
+
+        // Calcular aspect ratio do vídeo original
+        const originalAspectRatio = metadata.width / metadata.height
+
+        console.log(
+            `[VideoProcessor] 📐 Processando vídeo: ${metadata.width}x${metadata.height} (AR: ${originalAspectRatio.toFixed(3)}) → Target AR: ${targetAspectRatio.toFixed(3)}`,
+        )
+
+        // Se o vídeo já está na proporção correta, não precisa processar
+        if (Math.abs(originalAspectRatio - targetAspectRatio) < 0.01) {
+            console.log(`[VideoProcessor] ✅ Vídeo já está na proporção correta`)
+            return {
+                data: videoData,
+                finalWidth: metadata.width,
+                finalHeight: metadata.height,
+                wasProcessed: false,
+            }
+        }
+
+        // Se precisa cortar para a proporção padrão
+        console.log(`[VideoProcessor] 🔄 Cortando vídeo para proporção padrão do sistema`)
+
+        try {
+            const processedData = await this.cropVideoToAspectRatio(
+                videoData,
+                metadata,
+                targetWidth,
+                targetHeight,
+            )
+
+            return {
+                data: processedData,
+                finalWidth: targetWidth,
+                finalHeight: targetHeight,
+                wasProcessed: true,
+            }
+        } catch (error) {
+            console.error(`[VideoProcessor] ❌ Erro ao cortar vídeo:`, error)
+            console.log(`[VideoProcessor] 🔄 Usando vídeo original como fallback`)
+
+            return {
+                data: videoData,
+                finalWidth: metadata.width,
+                finalHeight: metadata.height,
+                wasProcessed: false,
             }
         }
     }
@@ -431,35 +506,28 @@ export class VideoProcessor {
             console.error(`[VideoProcessor] ❌ Erro na extração de metadados com ffprobe:`, error)
 
             // Fallback para metadados baseados no tamanho do arquivo
-            // SEMPRE retornar resoluções VERTICAIS (9:16) para moments
+            // SEMPRE retornar proporção padrão do sistema (1080x1674)
             console.log(
-                `[VideoProcessor] 🔄 Usando fallback baseado no tamanho do arquivo (VERTICAL 9:16)`,
+                `[VideoProcessor] 🔄 Usando fallback baseado no tamanho do arquivo (proporção padrão)`,
             )
 
-            let width = 720
-            let height = 1280
+            // Usar sempre a proporção padrão do sistema
+            const width = 1080
+            const height = 1674
             let duration = 15
 
             if (videoData.length > 100 * 1024 * 1024) {
-                width = 1080
-                height = 1674
                 duration = 30
             } else if (videoData.length > 50 * 1024 * 1024) {
-                width = 720
-                height = 1116
                 duration = 25
             } else if (videoData.length > 20 * 1024 * 1024) {
-                width = 720
-                height = 1116
                 duration = 20
             } else {
-                width = 360
-                height = 558
                 duration = 15
             }
 
             console.log(
-                `[VideoProcessor] ⚠️ Metadados estimados (fallback 360x558): ${width}x${height}, ${duration}s`,
+                `[VideoProcessor] ⚠️ Metadados estimados (fallback proporção padrão): ${width}x${height}, ${duration}s`,
             )
 
             return {
@@ -506,12 +574,12 @@ export class VideoProcessor {
         )
 
         try {
-            // Definir resolução fixa para thumbnails: 360x558
-            const targetWidth = 360
-            const targetHeight = 558
+            // Definir resolução fixa para thumbnails: 1080x1674 (proporção padrão do sistema)
+            const targetWidth = 1080
+            const targetHeight = 1674
 
             console.log(
-                `[VideoProcessor] 📐 Gerando thumbnail em resolução padrão: ${targetWidth}x${targetHeight}`,
+                `[VideoProcessor] 📐 Gerando thumbnail em proporção padrão do sistema: ${targetWidth}x${targetHeight}`,
             )
 
             console.log(
@@ -521,9 +589,9 @@ export class VideoProcessor {
             // 1. Salvar vídeo em arquivo temporário
             writeFileSync(tempInputPath, videoData)
 
-            // 2. Executar comando ffmpeg para extrair frame com crop/scale para 9:16
+            // 2. Executar comando ffmpeg para extrair frame com crop/scale para proporção padrão
             const timePosition = options.timePosition || 0
-            // Usar crop e scale para garantir aspect ratio 9:16 com compressão CRF 30
+            // Usar crop e scale para garantir proporção padrão (1080x1674) com compressão CRF 30
             const ffmpegCommand = `ffmpeg -i "${tempInputPath}" -ss ${timePosition} -vframes 1 -vf "scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=increase,crop=${targetWidth}:${targetHeight}" -q:v ${
                 options.quality || 30
             } "${tempOutputPath}"`
@@ -536,7 +604,7 @@ export class VideoProcessor {
                 const thumbnailData = readFileSync(tempOutputPath)
 
                 console.log(
-                    `[VideoProcessor] ✅ Thumbnail gerado em 9:16: ${targetWidth}x${targetHeight} (${thumbnailData.length} bytes)`,
+                    `[VideoProcessor] ✅ Thumbnail gerado em proporção padrão: ${targetWidth}x${targetHeight} (${thumbnailData.length} bytes)`,
                 )
 
                 return {
@@ -551,13 +619,13 @@ export class VideoProcessor {
         } catch (error) {
             console.error(`[VideoProcessor] ❌ Erro na geração de thumbnail com ffmpeg:`, error)
 
-            // Fallback para thumbnail vazio com dimensões 360x558
-            console.log(`[VideoProcessor] 🔄 Usando fallback - thumbnail vazio em 360x558`)
+            // Fallback para thumbnail vazio com dimensões 1080x1674
+            console.log(`[VideoProcessor] 🔄 Usando fallback - thumbnail vazio em proporção padrão`)
 
             return {
                 data: Buffer.from([]),
-                width: 360,
-                height: 558,
+                width: 1080,
+                height: 1674,
                 format: options.format || "jpeg",
             }
         } finally {
@@ -673,6 +741,76 @@ export class VideoProcessor {
             wasConverted,
             originalResolution,
             originalFormat,
+        }
+    }
+
+    /**
+     * Corta vídeo para proporção padrão (1080x1674) mantendo resolução original
+     * Comando ffmpeg: ffmpeg -i input.mp4 -vf "crop=1080:1674:(iw-1080)/2:(ih-1674)/2" -c:v libx264 -preset fast -crf 18 -c:a aac output.mp4
+     */
+    private async cropVideoToAspectRatio(
+        videoData: Buffer,
+        metadata: VideoMetadata,
+        targetWidth: number,
+        targetHeight: number,
+    ): Promise<Buffer> {
+        const tempInputPath = join(
+            tmpdir(),
+            `input_crop_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.mp4`,
+        )
+        const tempOutputPath = join(
+            tmpdir(),
+            `cropped_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.mp4`,
+        )
+
+        try {
+            console.log(
+                `[VideoProcessor] 📐 Cortando vídeo para proporção padrão: ${metadata.width}x${metadata.height} → ${targetWidth}x${targetHeight}`,
+            )
+
+            // 1. Salvar vídeo em arquivo temporário
+            writeFileSync(tempInputPath, videoData)
+
+            // 2. Calcular posição do crop (centralizado)
+            const cropX = Math.max(0, Math.floor((metadata.width - targetWidth) / 2))
+            const cropY = Math.max(0, Math.floor((metadata.height - targetHeight) / 2))
+
+            // 3. Executar comando ffmpeg para crop centralizado
+            const ffmpegCommand = `ffmpeg -i "${tempInputPath}" -vf "crop=${targetWidth}:${targetHeight}:${cropX}:${cropY}" -c:v libx264 -preset fast -crf 18 -c:a aac -movflags +faststart "${tempOutputPath}"`
+
+            console.log(`[VideoProcessor] 🔧 Executando: ${ffmpegCommand}`)
+            await execAsync(ffmpegCommand)
+
+            // 4. Ler arquivo cortado
+            if (existsSync(tempOutputPath)) {
+                const croppedData = readFileSync(tempOutputPath)
+
+                console.log(
+                    `[VideoProcessor] ✅ Vídeo cortado para proporção padrão: ${(
+                        croppedData.length /
+                        1024 /
+                        1024
+                    ).toFixed(2)}MB`,
+                )
+
+                return croppedData
+            } else {
+                throw new Error("Arquivo cortado não foi criado")
+            }
+        } catch (error) {
+            console.error(`[VideoProcessor] ❌ Erro no crop com ffmpeg:`, error)
+
+            // Fallback para vídeo original
+            console.log(`[VideoProcessor] 🔄 Usando fallback - vídeo original`)
+            return videoData
+        } finally {
+            // 5. Deletar arquivos temporários
+            if (existsSync(tempInputPath)) {
+                unlinkSync(tempInputPath)
+            }
+            if (existsSync(tempOutputPath)) {
+                unlinkSync(tempOutputPath)
+            }
         }
     }
 

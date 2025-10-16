@@ -240,13 +240,15 @@ export class VideoCompressionWorker {
         try {
             // Extrair key do storage a partir da URL
             const key = this.extractKeyFromUrl(originalUrl)
-            
+
             if (key) {
                 // Usar storage adapter para deletar
                 await this.storageAdapter.deleteVideo(key)
                 console.log(`[VideoCompressionWorker] ✅ Vídeo original deletado: ${key}`)
             } else {
-                console.warn(`[VideoCompressionWorker] ⚠️ Não foi possível extrair key da URL: ${originalUrl}`)
+                console.warn(
+                    `[VideoCompressionWorker] ⚠️ Não foi possível extrair key da URL: ${originalUrl}`,
+                )
             }
         } catch (error) {
             console.error(`[VideoCompressionWorker] ⚠️ Erro ao deletar vídeo original:`, error)
