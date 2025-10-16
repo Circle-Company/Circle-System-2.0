@@ -1,250 +1,220 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import { User } from "@/domain/user/entities/user.entity"
-import { UserMetrics } from "@/domain/user/entities/user.metrics.entity"
-import { IUserMetricsRepository } from "@/domain/user/repositories/user.metrics.repository"
-import { IUserRepository } from "@/domain/user/repositories/user.repository"
-import { ConflictError } from "@/shared/errors/conflict.error"
-import { NotFoundError } from "@/shared/errors/not.found.error"
-import { ValidationError } from "@/shared/errors/validation.error"
+import { IUserRepository } from "../../../../domain/user/repositories/user.repository"
 import { FollowUserUseCase } from "../follow.user.use.case"
 
 describe("FollowUserUseCase", () => {
     let followUserUseCase: FollowUserUseCase
-    let mockUserRepository: jest.Mocked<IUserRepository>
-    let mockUserMetricsRepository: jest.Mocked<IUserMetricsRepository>
+    let mockUserRepository: IUserRepository
 
     beforeEach(() => {
+        vi.clearAllMocks()
+
         mockUserRepository = {
-            create: vi.fn(),
+            save: vi.fn(),
             findById: vi.fn(),
-            findByEmail: vi.fn(),
-            update: vi.fn(),
-            delete: vi.fn(),
-            findMany: vi.fn(),
             findByUsername: vi.fn(),
-            findByPhone: vi.fn(),
-            findBySocialId: vi.fn(),
-        }
-
-        mockUserMetricsRepository = {
-            create: vi.fn(),
-            findByUserId: vi.fn(),
+            existsByUsername: vi.fn(),
             update: vi.fn(),
-            delete: vi.fn(),
-            findAll: vi.fn(),
-            findTopUsers: vi.fn(),
-            findUsersByEngagement: vi.fn(),
-            findUsersByGrowth: vi.fn(),
-        }
+            isBlocked: vi.fn(),
+            isFollowing: vi.fn(),
+            followUser: vi.fn(),
+            unfollowUser: vi.fn(),
+            blockUser: vi.fn(),
+            unblockUser: vi.fn(),
+        } as any
 
-        followUserUseCase = new FollowUserUseCase(mockUserRepository, mockUserMetricsRepository)
+        followUserUseCase = new FollowUserUseCase(mockUserRepository)
     })
 
     describe("execute", () => {
         it("deve seguir um usuário com sucesso", async () => {
             // Arrange
-            const followerId = "follower-id"
-            const followingId = "following-id"
+            const request = {
+                userId: "user-id",
+                targetUserId: "target-user-id",
+            }
 
-            const follower = User.create({
-                email: "follower@example.com",
-                username: "follower",
-                password: "password123",
-            })
+            const mockUser = {
+                id: "user-id",
+                username: "user",
+                status: { blocked: false, deleted: false },
+            }
 
-            const following = User.create({
-                email: "following@example.com",
-                username: "following",
-                password: "password123",
-            })
+            const mockTargetUser = {
+                id: "target-user-id",
+                username: "targetuser",
+                status: { blocked: false, deleted: false },
+            }
 
-            const followerMetrics = UserMetrics.create(followerId)
-            const followingMetrics = UserMetrics.create(followingId)
-
-            mockUserRepository.findById
-                .mockResolvedValueOnce(follower)
-                .mockResolvedValueOnce(following)
-
-            mockUserMetricsRepository.findByUserId
-                .mockResolvedValueOnce(followerMetrics)
-                .mockResolvedValueOnce(followingMetrics)
-
-            mockUserRepository.update.mockResolvedValue(follower)
-            mockUserMetricsRepository.update.mockResolvedValue(followerMetrics)
+            vi.mocked(mockUserRepository.findById)
+                .mockResolvedValueOnce(mockUser as any)
+                .mockResolvedValueOnce(mockTargetUser as any)
+            vi.mocked(mockUserRepository.isFollowing).mockResolvedValue(false)
+            vi.mocked(mockUserRepository.isBlocked).mockResolvedValue(false)
+            vi.mocked(mockUserRepository.followUser).mockResolvedValue(true)
 
             // Act
-            const result = await followUserUseCase.execute({ followerId, followingId })
+            const result = await followUserUseCase.execute(request)
 
             // Assert
-            expect(result).toEqual({
-                follower,
-                following,
-                relationship: {
-                    type: "follow",
-                    followerId,
-                    followingId,
-                    createdAt: expect.any(Date),
-                },
-            })
-
-            expect(mockUserRepository.findById).toHaveBeenCalledWith(followerId)
-            expect(mockUserRepository.findById).toHaveBeenCalledWith(followingId)
-            expect(mockUserRepository.update).toHaveBeenCalledWith(follower)
-            expect(mockUserMetricsRepository.update).toHaveBeenCalledWith(followerMetrics)
+            expect(result.success).toBe(true)
+            expect(result.followed).toBe(true)
+            expect(mockUserRepository.findById).toHaveBeenCalledWith("user-id")
+            expect(mockUserRepository.findById).toHaveBeenCalledWith("target-user-id")
+            expect(mockUserRepository.isFollowing).toHaveBeenCalledWith("user-id", "target-user-id")
+            expect(mockUserRepository.followUser).toHaveBeenCalledWith("user-id", "target-user-id")
         })
 
-        it("deve lançar NotFoundError quando follower não existe", async () => {
+        it("deve retornar erro ao tentar seguir a si mesmo", async () => {
             // Arrange
-            const followerId = "non-existent-follower"
-            const followingId = "following-id"
-
-            mockUserRepository.findById.mockResolvedValueOnce(null)
-
-            // Act & Assert
-            await expect(followUserUseCase.execute({ followerId, followingId })).rejects.toThrow(
-                NotFoundError,
-            )
-            expect(mockUserRepository.findById).toHaveBeenCalledWith(followerId)
-            expect(mockUserRepository.findById).not.toHaveBeenCalledWith(followingId)
-        })
-
-        it("deve lançar NotFoundError quando usuário a ser seguido não existe", async () => {
-            // Arrange
-            const followerId = "follower-id"
-            const followingId = "non-existent-following"
-
-            const follower = User.create({
-                email: "follower@example.com",
-                username: "follower",
-                password: "password123",
-            })
-
-            mockUserRepository.findById.mockResolvedValueOnce(follower).mockResolvedValueOnce(null)
-
-            // Act & Assert
-            await expect(followUserUseCase.execute({ followerId, followingId })).rejects.toThrow(
-                NotFoundError,
-            )
-            expect(mockUserRepository.findById).toHaveBeenCalledWith(followerId)
-            expect(mockUserRepository.findById).toHaveBeenCalledWith(followingId)
-        })
-
-        it("deve lançar ValidationError quando tentar seguir a si mesmo", async () => {
-            // Arrange
-            const userId = "same-user-id"
-
-            // Act & Assert
-            await expect(
-                followUserUseCase.execute({ followerId: userId, followingId: userId }),
-            ).rejects.toThrow(ValidationError)
-            expect(mockUserRepository.findById).not.toHaveBeenCalled()
-        })
-
-        it("deve lançar ConflictError quando já está seguindo o usuário", async () => {
-            // Arrange
-            const followerId = "follower-id"
-            const followingId = "following-id"
-
-            const follower = User.create({
-                email: "follower@example.com",
-                username: "follower",
-                password: "password123",
-            })
-
-            const following = User.create({
-                email: "following@example.com",
-                username: "following",
-                password: "password123",
-            })
-
-            // Simular que o follower já está seguindo o following
-            follower.follow(followingId)
-
-            mockUserRepository.findById
-                .mockResolvedValueOnce(follower)
-                .mockResolvedValueOnce(following)
-
-            // Act & Assert
-            await expect(followUserUseCase.execute({ followerId, followingId })).rejects.toThrow(
-                ConflictError,
-            )
-            expect(mockUserRepository.findById).toHaveBeenCalledWith(followerId)
-            expect(mockUserRepository.findById).toHaveBeenCalledWith(followingId)
-        })
-
-        it("deve lançar ValidationError quando usuário está bloqueado", async () => {
-            // Arrange
-            const followerId = "follower-id"
-            const followingId = "following-id"
-
-            const follower = User.create({
-                email: "follower@example.com",
-                username: "follower",
-                password: "password123",
-            })
-
-            const following = User.create({
-                email: "following@example.com",
-                username: "following",
-                password: "password123",
-            })
-
-            // Simular que o follower está bloqueado pelo following
-            follower.block(followingId)
-
-            mockUserRepository.findById
-                .mockResolvedValueOnce(follower)
-                .mockResolvedValueOnce(following)
-
-            // Act & Assert
-            await expect(followUserUseCase.execute({ followerId, followingId })).rejects.toThrow(
-                ValidationError,
-            )
-            expect(mockUserRepository.findById).toHaveBeenCalledWith(followerId)
-            expect(mockUserRepository.findById).toHaveBeenCalledWith(followingId)
-        })
-
-        it("deve criar métricas se não existirem", async () => {
-            // Arrange
-            const followerId = "follower-id"
-            const followingId = "following-id"
-
-            const follower = User.create({
-                email: "follower@example.com",
-                username: "follower",
-                password: "password123",
-            })
-
-            const following = User.create({
-                email: "following@example.com",
-                username: "following",
-                password: "password123",
-            })
-
-            const followerMetrics = UserMetrics.create(followerId)
-
-            mockUserRepository.findById
-                .mockResolvedValueOnce(follower)
-                .mockResolvedValueOnce(following)
-
-            mockUserMetricsRepository.findByUserId
-                .mockResolvedValueOnce(null) // Métricas do follower não existem
-                .mockResolvedValueOnce(null) // Métricas do following não existem
-
-            mockUserMetricsRepository.create
-                .mockResolvedValueOnce(followerMetrics)
-                .mockResolvedValueOnce(UserMetrics.create(followingId))
-
-            mockUserRepository.update.mockResolvedValue(follower)
-            mockUserMetricsRepository.update.mockResolvedValue(followerMetrics)
+            const request = {
+                userId: "user-id",
+                targetUserId: "user-id",
+            }
 
             // Act
-            await followUserUseCase.execute({ followerId, followingId })
+            const result = await followUserUseCase.execute(request)
 
             // Assert
-            expect(mockUserMetricsRepository.create).toHaveBeenCalledTimes(2)
-            expect(mockUserMetricsRepository.update).toHaveBeenCalledWith(followerMetrics)
+            expect(result.success).toBe(false)
+            expect(result.error).toBe("Você não pode seguir a si mesmo")
+            expect(mockUserRepository.followUser).not.toHaveBeenCalled()
+        })
+
+        it("deve retornar erro quando usuário não existe", async () => {
+            // Arrange
+            const request = {
+                userId: "non-existent-user",
+                targetUserId: "target-user-id",
+            }
+
+            vi.mocked(mockUserRepository.findById).mockResolvedValue(null)
+
+            // Act
+            const result = await followUserUseCase.execute(request)
+
+            // Assert
+            expect(result.success).toBe(false)
+            expect(result.error).toBe("Usuário não encontrado")
+            expect(mockUserRepository.followUser).not.toHaveBeenCalled()
+        })
+
+        it("deve retornar erro quando usuário alvo não existe", async () => {
+            // Arrange
+            const request = {
+                userId: "user-id",
+                targetUserId: "non-existent-target",
+            }
+
+            const mockUser = {
+                id: "user-id",
+                username: "user",
+                status: { blocked: false, deleted: false },
+            }
+
+            vi.mocked(mockUserRepository.findById)
+                .mockResolvedValueOnce(mockUser as any)
+                .mockResolvedValueOnce(null)
+
+            // Act
+            const result = await followUserUseCase.execute(request)
+
+            // Assert
+            expect(result.success).toBe(false)
+            expect(result.error).toBe("Usuário alvo não encontrado")
+            expect(mockUserRepository.followUser).not.toHaveBeenCalled()
+        })
+
+        it("deve retornar erro quando já está seguindo o usuário", async () => {
+            // Arrange
+            const request = {
+                userId: "user-id",
+                targetUserId: "target-user-id",
+            }
+
+            const mockUser = {
+                id: "user-id",
+                username: "user",
+                status: { blocked: false, deleted: false },
+            }
+
+            const mockTargetUser = {
+                id: "target-user-id",
+                username: "targetuser",
+                status: { blocked: false, deleted: false },
+            }
+
+            vi.mocked(mockUserRepository.findById)
+                .mockResolvedValueOnce(mockUser as any)
+                .mockResolvedValueOnce(mockTargetUser as any)
+            vi.mocked(mockUserRepository.isFollowing).mockResolvedValue(true)
+
+            // Act
+            const result = await followUserUseCase.execute(request)
+
+            // Assert
+            expect(result.success).toBe(false)
+            expect(result.error).toBe("Você já está seguindo este usuário")
+            expect(mockUserRepository.followUser).not.toHaveBeenCalled()
+        })
+
+        it("deve retornar erro quando usuário está bloqueado", async () => {
+            // Arrange
+            const request = {
+                userId: "user-id",
+                targetUserId: "target-user-id",
+            }
+
+            const mockUser = {
+                id: "user-id",
+                username: "user",
+                status: { blocked: false, deleted: false },
+            }
+
+            const mockTargetUser = {
+                id: "target-user-id",
+                username: "targetuser",
+                status: { blocked: false, deleted: false },
+            }
+
+            vi.mocked(mockUserRepository.findById)
+                .mockResolvedValueOnce(mockUser as any)
+                .mockResolvedValueOnce(mockTargetUser as any)
+            vi.mocked(mockUserRepository.isFollowing).mockResolvedValue(false)
+            vi.mocked(mockUserRepository.isBlocked).mockResolvedValue(true)
+
+            // Act
+            const result = await followUserUseCase.execute(request)
+
+            // Assert
+            expect(result.success).toBe(false)
+            expect(result.error).toBe("Não é possível seguir este usuário")
+            expect(mockUserRepository.followUser).not.toHaveBeenCalled()
+        })
+
+        it("deve retornar erro quando usuário está inativo", async () => {
+            // Arrange
+            const request = {
+                userId: "user-id",
+                targetUserId: "target-user-id",
+            }
+
+            const mockUser = {
+                id: "user-id",
+                username: "user",
+                status: { blocked: true, deleted: false },
+            }
+
+            vi.mocked(mockUserRepository.findById).mockResolvedValue(mockUser as any)
+
+            // Act
+            const result = await followUserUseCase.execute(request)
+
+            // Assert
+            expect(result.success).toBe(false)
+            expect(result.error).toBe("Usuário inativo não pode seguir outros usuários")
+            expect(mockUserRepository.followUser).not.toHaveBeenCalled()
         })
     })
 })

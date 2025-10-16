@@ -1,408 +1,367 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { UserRole, UserStatusEnum } from "../../../../../domain/user"
 
-import { User } from "@/domain/user/entities/user.entity"
-import { IUserRepository } from "@/domain/user/repositories/user.repository"
-import { ValidationError } from "@/shared/errors/validation.error"
+import { IUserRepository } from "../../../../../domain/user/repositories/user.repository"
+import { UserService } from "../../../services/user.service"
 import { AdminListUsersUseCase } from "../list.users.use.case"
 
 describe("AdminListUsersUseCase", () => {
     let adminListUsersUseCase: AdminListUsersUseCase
-    let mockUserRepository: jest.Mocked<IUserRepository>
+    let mockUserRepository: IUserRepository
+    let mockUserService: UserService
 
     beforeEach(() => {
-        mockUserRepository = {
-            create: vi.fn(),
-            findById: vi.fn(),
-            findByEmail: vi.fn(),
-            update: vi.fn(),
-            delete: vi.fn(),
-            findMany: vi.fn(),
-            findByUsername: vi.fn(),
-            findByPhone: vi.fn(),
-            findBySocialId: vi.fn(),
-        }
+        vi.clearAllMocks()
 
-        adminListUsersUseCase = new AdminListUsersUseCase(mockUserRepository)
+        mockUserRepository = {
+            save: vi.fn(),
+            findById: vi.fn(),
+            findByUsername: vi.fn(),
+            existsByUsername: vi.fn(),
+            update: vi.fn(),
+            isBlocked: vi.fn(),
+            isFollowing: vi.fn(),
+            followUser: vi.fn(),
+            unfollowUser: vi.fn(),
+            blockUser: vi.fn(),
+            unblockUser: vi.fn(),
+        } as any
+
+        mockUserService = {
+            getUserById: vi.fn(),
+            searchUsers: vi.fn(),
+        } as any
+
+        adminListUsersUseCase = new AdminListUsersUseCase(mockUserRepository, mockUserService)
     })
 
     describe("execute", () => {
         it("deve listar usuários com sucesso", async () => {
             // Arrange
-            const filters = {
-                status: "active",
-                limit: 10,
-                offset: 0,
+            const request = {
+                adminId: "admin-id",
+                page: 1,
+                limit: 20,
             }
 
-            const users = [
-                User.create({
+            const mockAdmin = {
+                id: "admin-id",
+                role: UserRole.ADMIN,
+            }
+
+            const mockUsers = [
+                {
+                    id: "user-1",
+                    name: "User One",
                     email: "user1@example.com",
-                    username: "user1",
-                    password: "password123",
-                    status: "active",
-                }),
-                User.create({
+                    role: UserRole.USER,
+                    status: UserStatusEnum.ACTIVE,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                },
+                {
+                    id: "user-2",
+                    name: "User Two",
                     email: "user2@example.com",
-                    username: "user2",
-                    password: "password123",
-                    status: "active",
-                }),
+                    role: UserRole.USER,
+                    status: UserStatusEnum.ACTIVE,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                },
             ]
 
-            mockUserRepository.findMany.mockResolvedValue(users)
-
-            // Act
-            const result = await adminListUsersUseCase.execute(filters)
-
-            // Assert
-            expect(result).toEqual({
-                users,
-                total: users.length,
-                limit: filters.limit,
-                offset: filters.offset,
-            })
-            expect(mockUserRepository.findMany).toHaveBeenCalledWith(filters)
-        })
-
-        it("deve retornar lista vazia quando nenhum usuário é encontrado", async () => {
-            // Arrange
-            const filters = {
-                status: "blocked",
-                limit: 10,
-                offset: 0,
+            const mockSearchResult = {
+                users: mockUsers,
+                total: 2,
+                page: 1,
+                limit: 20,
+                hasNext: false,
+                hasPrev: false,
             }
 
-            mockUserRepository.findMany.mockResolvedValue([])
+            vi.mocked(mockUserService.getUserById).mockResolvedValue(mockAdmin as any)
+            vi.mocked(mockUserService.searchUsers).mockResolvedValue(mockSearchResult as any)
 
             // Act
-            const result = await adminListUsersUseCase.execute(filters)
+            const result = await adminListUsersUseCase.execute(request)
 
             // Assert
-            expect(result).toEqual({
+            expect(result.success).toBe(true)
+            expect(result.users).toHaveLength(2)
+            expect(result.pagination?.total).toBe(2)
+            expect(result.pagination?.page).toBe(1)
+        })
+
+        it("deve retornar erro quando usuário não é admin", async () => {
+            // Arrange
+            const request = {
+                adminId: "regular-user-id",
+                page: 1,
+                limit: 20,
+            }
+
+            const mockRegularUser = {
+                id: "regular-user-id",
+                role: UserRole.USER,
+            }
+
+            vi.mocked(mockUserService.getUserById).mockResolvedValue(mockRegularUser as any)
+
+            // Act
+            const result = await adminListUsersUseCase.execute(request)
+
+            // Assert
+            expect(result.success).toBe(false)
+            expect(result.error).toBe("Acesso negado. Apenas administradores podem listar usuários")
+        })
+
+        it("deve aplicar filtros de status", async () => {
+            // Arrange
+            const request = {
+                adminId: "admin-id",
+                status: [UserStatusEnum.ACTIVE],
+            }
+
+            const mockAdmin = {
+                id: "admin-id",
+                role: UserRole.ADMIN,
+            }
+
+            const mockSearchResult = {
                 users: [],
                 total: 0,
-                limit: filters.limit,
-                offset: filters.offset,
-            })
-            expect(mockUserRepository.findMany).toHaveBeenCalledWith(filters)
-        })
-
-        it("deve usar valores padrão quando limit e offset não são fornecidos", async () => {
-            // Arrange
-            const filters = {
-                status: "active",
-            }
-
-            const users = [
-                User.create({
-                    email: "user@example.com",
-                    username: "user",
-                    password: "password123",
-                    status: "active",
-                }),
-            ]
-
-            mockUserRepository.findMany.mockResolvedValue(users)
-
-            // Act
-            const result = await adminListUsersUseCase.execute(filters)
-
-            // Assert
-            expect(result).toEqual({
-                users,
-                total: users.length,
-                limit: 20, // Valor padrão
-                offset: 0, // Valor padrão
-            })
-            expect(mockUserRepository.findMany).toHaveBeenCalledWith({
-                ...filters,
+                page: 1,
                 limit: 20,
-                offset: 0,
-            })
-        })
-
-        it("deve validar limite máximo", async () => {
-            // Arrange
-            const filters = {
-                status: "active",
-                limit: 1000, // Limite muito alto
-                offset: 0,
+                hasNext: false,
+                hasPrev: false,
             }
 
-            const users = [
-                User.create({
-                    email: "user@example.com",
-                    username: "user",
-                    password: "password123",
-                    status: "active",
-                }),
-            ]
-
-            mockUserRepository.findMany.mockResolvedValue(users)
+            vi.mocked(mockUserService.getUserById).mockResolvedValue(mockAdmin as any)
+            vi.mocked(mockUserService.searchUsers).mockResolvedValue(mockSearchResult as any)
 
             // Act
-            const result = await adminListUsersUseCase.execute(filters)
+            const result = await adminListUsersUseCase.execute(request)
 
             // Assert
-            expect(result.limit).toBe(100) // Limite máximo aplicado
-            expect(mockUserRepository.findMany).toHaveBeenCalledWith({
-                ...filters,
-                limit: 100,
-            })
+            expect(result.success).toBe(true)
+            expect(mockUserService.searchUsers).toHaveBeenCalledWith(
+                "",
+                expect.objectContaining({
+                    status: [UserStatusEnum.ACTIVE],
+                }),
+                expect.anything(),
+                expect.anything(),
+            )
         })
 
-        it("deve validar offset mínimo", async () => {
+        it("deve aplicar filtros de role", async () => {
             // Arrange
-            const filters = {
-                status: "active",
-                limit: 10,
-                offset: -5, // Offset negativo
+            const request = {
+                adminId: "admin-id",
+                role: [UserRole.USER],
             }
 
-            const users = [
-                User.create({
-                    email: "user@example.com",
-                    username: "user",
-                    password: "password123",
-                    status: "active",
-                }),
-            ]
+            const mockAdmin = {
+                id: "admin-id",
+                role: UserRole.ADMIN,
+            }
 
-            mockUserRepository.findMany.mockResolvedValue(users)
+            const mockSearchResult = {
+                users: [],
+                total: 0,
+                page: 1,
+                limit: 20,
+                hasNext: false,
+                hasPrev: false,
+            }
+
+            vi.mocked(mockUserService.getUserById).mockResolvedValue(mockAdmin as any)
+            vi.mocked(mockUserService.searchUsers).mockResolvedValue(mockSearchResult as any)
 
             // Act
-            const result = await adminListUsersUseCase.execute(filters)
+            const result = await adminListUsersUseCase.execute(request)
 
             // Assert
-            expect(result.offset).toBe(0) // Offset mínimo aplicado
-            expect(mockUserRepository.findMany).toHaveBeenCalledWith({
-                ...filters,
-                offset: 0,
-            })
+            expect(result.success).toBe(true)
+            expect(mockUserService.searchUsers).toHaveBeenCalledWith(
+                "",
+                expect.objectContaining({
+                    role: [UserRole.USER],
+                }),
+                expect.anything(),
+                expect.anything(),
+            )
         })
 
-        it("deve filtrar por status", async () => {
+        it("deve retornar erro quando página é inválida", async () => {
             // Arrange
-            const filters = {
-                status: "blocked",
-                limit: 10,
-                offset: 0,
+            const request = {
+                adminId: "admin-id",
+                page: 0,
             }
 
-            const users = [
-                User.create({
-                    email: "blocked@example.com",
-                    username: "blocked",
-                    password: "password123",
-                    status: "blocked",
-                }),
-            ]
+            const mockAdmin = {
+                id: "admin-id",
+                role: UserRole.ADMIN,
+            }
 
-            mockUserRepository.findMany.mockResolvedValue(users)
+            const mockSearchResult = {
+                users: [],
+                total: 0,
+                page: 1,
+                limit: 20,
+                hasNext: false,
+                hasPrev: false,
+            }
+
+            vi.mocked(mockUserService.getUserById).mockResolvedValue(mockAdmin as any)
+            vi.mocked(mockUserService.searchUsers).mockResolvedValue(mockSearchResult as any)
 
             // Act
-            const result = await adminListUsersUseCase.execute(filters)
+            const result = await adminListUsersUseCase.execute(request)
 
             // Assert
-            expect(result.users).toEqual(users)
-            expect(mockUserRepository.findMany).toHaveBeenCalledWith(filters)
+            expect(result.success).toBe(false)
+            expect(result.error).toBe("Página deve ser maior que 0")
         })
 
-        it("deve filtrar por data de criação", async () => {
+        it("deve retornar erro quando limite é inválido", async () => {
             // Arrange
-            const filters = {
-                createdAtFrom: new Date("2023-01-01"),
-                createdAtTo: new Date("2023-12-31"),
-                limit: 10,
-                offset: 0,
+            const request = {
+                adminId: "admin-id",
+                limit: 200,
             }
 
-            const users = [
-                User.create({
-                    email: "user@example.com",
-                    username: "user",
-                    password: "password123",
-                }),
-            ]
+            const mockAdmin = {
+                id: "admin-id",
+                role: UserRole.ADMIN,
+            }
 
-            mockUserRepository.findMany.mockResolvedValue(users)
+            vi.mocked(mockUserService.getUserById).mockResolvedValue(mockAdmin as any)
 
             // Act
-            const result = await adminListUsersUseCase.execute(filters)
+            const result = await adminListUsersUseCase.execute(request)
 
             // Assert
-            expect(result.users).toEqual(users)
-            expect(mockUserRepository.findMany).toHaveBeenCalledWith(filters)
+            expect(result.success).toBe(false)
+            expect(result.error).toBe("Limite deve estar entre 1 e 100")
         })
 
-        it("deve filtrar por localização", async () => {
+        it("deve aplicar ordenação personalizada", async () => {
             // Arrange
-            const filters = {
-                location: "São Paulo",
-                limit: 10,
-                offset: 0,
+            const request = {
+                adminId: "admin-id",
+                sortBy: "followersCount" as const,
+                sortOrder: "desc" as const,
             }
 
-            const users = [
-                User.create({
-                    email: "user@example.com",
-                    username: "user",
-                    password: "password123",
-                    location: "São Paulo",
-                }),
-            ]
+            const mockAdmin = {
+                id: "admin-id",
+                role: UserRole.SUPER_ADMIN,
+            }
 
-            mockUserRepository.findMany.mockResolvedValue(users)
+            const mockSearchResult = {
+                users: [],
+                total: 0,
+                page: 1,
+                limit: 20,
+                hasNext: false,
+                hasPrev: false,
+            }
+
+            vi.mocked(mockUserService.getUserById).mockResolvedValue(mockAdmin as any)
+            vi.mocked(mockUserService.searchUsers).mockResolvedValue(mockSearchResult as any)
 
             // Act
-            const result = await adminListUsersUseCase.execute(filters)
+            const result = await adminListUsersUseCase.execute(request)
 
             // Assert
-            expect(result.users).toEqual(users)
-            expect(mockUserRepository.findMany).toHaveBeenCalledWith(filters)
+            expect(result.success).toBe(true)
+            expect(mockUserService.searchUsers).toHaveBeenCalledWith(
+                "",
+                expect.anything(),
+                expect.objectContaining({
+                    field: "followersCount",
+                    direction: "desc",
+                }),
+                expect.anything(),
+            )
         })
 
-        it("deve ordenar por critério especificado", async () => {
+        it("deve aplicar busca por termo", async () => {
             // Arrange
-            const filters = {
-                sortBy: "createdAt",
-                sortOrder: "desc",
-                limit: 10,
-                offset: 0,
+            const request = {
+                adminId: "admin-id",
+                search: "john",
             }
 
-            const users = [
-                User.create({
-                    email: "user@example.com",
-                    username: "user",
-                    password: "password123",
-                }),
-            ]
+            const mockAdmin = {
+                id: "admin-id",
+                role: UserRole.ADMIN,
+            }
 
-            mockUserRepository.findMany.mockResolvedValue(users)
+            const mockSearchResult = {
+                users: [],
+                total: 0,
+                page: 1,
+                limit: 20,
+                hasNext: false,
+                hasPrev: false,
+            }
+
+            vi.mocked(mockUserService.getUserById).mockResolvedValue(mockAdmin as any)
+            vi.mocked(mockUserService.searchUsers).mockResolvedValue(mockSearchResult as any)
 
             // Act
-            const result = await adminListUsersUseCase.execute(filters)
+            const result = await adminListUsersUseCase.execute(request)
 
             // Assert
-            expect(result.users).toEqual(users)
-            expect(mockUserRepository.findMany).toHaveBeenCalledWith(filters)
+            expect(result.success).toBe(true)
+            expect(mockUserService.searchUsers).toHaveBeenCalledWith(
+                "john",
+                expect.anything(),
+                expect.anything(),
+                expect.anything(),
+            )
         })
 
-        it("deve retornar metadados de paginação corretos", async () => {
+        it("deve respeitar limite máximo de 100", async () => {
             // Arrange
-            const filters = {
-                status: "active",
-                limit: 5,
-                offset: 10,
+            const request = {
+                adminId: "admin-id",
+                limit: 50,
             }
 
-            const users = [
-                User.create({
-                    email: "user@example.com",
-                    username: "user",
-                    password: "password123",
-                    status: "active",
-                }),
-            ]
+            const mockAdmin = {
+                id: "admin-id",
+                role: UserRole.ADMIN,
+            }
 
-            mockUserRepository.findMany.mockResolvedValue(users)
+            const mockSearchResult = {
+                users: [],
+                total: 0,
+                page: 1,
+                limit: 50,
+                hasNext: false,
+                hasPrev: false,
+            }
+
+            vi.mocked(mockUserService.getUserById).mockResolvedValue(mockAdmin as any)
+            vi.mocked(mockUserService.searchUsers).mockResolvedValue(mockSearchResult as any)
 
             // Act
-            const result = await adminListUsersUseCase.execute(filters)
+            const result = await adminListUsersUseCase.execute(request)
 
             // Assert
-            expect(result).toEqual({
-                users,
-                total: users.length,
-                limit: 5,
-                offset: 10,
-            })
-        })
-
-        it("deve filtrar por múltiplos critérios", async () => {
-            // Arrange
-            const filters = {
-                status: "active",
-                location: "São Paulo",
-                createdAtFrom: new Date("2023-01-01"),
-                limit: 10,
-                offset: 0,
-            }
-
-            const users = [
-                User.create({
-                    email: "user@example.com",
-                    username: "user",
-                    password: "password123",
-                    status: "active",
-                    location: "São Paulo",
+            expect(result.success).toBe(true)
+            expect(mockUserService.searchUsers).toHaveBeenCalledWith(
+                "",
+                expect.anything(),
+                expect.anything(),
+                expect.objectContaining({
+                    limit: 50,
                 }),
-            ]
-
-            mockUserRepository.findMany.mockResolvedValue(users)
-
-            // Act
-            const result = await adminListUsersUseCase.execute(filters)
-
-            // Assert
-            expect(result.users).toEqual(users)
-            expect(mockUserRepository.findMany).toHaveBeenCalledWith(filters)
-        })
-
-        it("deve validar data de criação", async () => {
-            // Arrange
-            const filters = {
-                createdAtFrom: new Date("2023-12-31"),
-                createdAtTo: new Date("2023-01-01"), // Data final antes da inicial
-                limit: 10,
-                offset: 0,
-            }
-
-            // Act & Assert
-            await expect(adminListUsersUseCase.execute(filters)).rejects.toThrow(ValidationError)
-            expect(mockUserRepository.findMany).not.toHaveBeenCalled()
-        })
-
-        it("deve validar status inválido", async () => {
-            // Arrange
-            const filters = {
-                status: "invalid-status",
-                limit: 10,
-                offset: 0,
-            }
-
-            // Act & Assert
-            await expect(adminListUsersUseCase.execute(filters)).rejects.toThrow(ValidationError)
-            expect(mockUserRepository.findMany).not.toHaveBeenCalled()
-        })
-
-        it("deve validar ordenação inválida", async () => {
-            // Arrange
-            const filters = {
-                sortBy: "invalid-field",
-                sortOrder: "desc",
-                limit: 10,
-                offset: 0,
-            }
-
-            // Act & Assert
-            await expect(adminListUsersUseCase.execute(filters)).rejects.toThrow(ValidationError)
-            expect(mockUserRepository.findMany).not.toHaveBeenCalled()
-        })
-
-        it("deve validar ordem de ordenação inválida", async () => {
-            // Arrange
-            const filters = {
-                sortBy: "createdAt",
-                sortOrder: "invalid-order",
-                limit: 10,
-                offset: 0,
-            }
-
-            // Act & Assert
-            await expect(adminListUsersUseCase.execute(filters)).rejects.toThrow(ValidationError)
-            expect(mockUserRepository.findMany).not.toHaveBeenCalled()
+            )
         })
     })
 })

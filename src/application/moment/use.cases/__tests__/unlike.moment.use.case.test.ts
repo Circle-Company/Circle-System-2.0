@@ -147,7 +147,7 @@ describe("UnlikeMomentUseCase", () => {
 
             // Assert
             expect(result.success).toBe(false)
-            expect(result.error).toBe("Momento não encontrado")
+            expect(result.error).toBe("Moment not found")
             expect(result.unliked).toBeUndefined()
             expect(mockMomentService.hasUserLikedMoment).not.toHaveBeenCalled()
             expect(mockMomentService.unlikeMoment).not.toHaveBeenCalled()
@@ -168,7 +168,7 @@ describe("UnlikeMomentUseCase", () => {
 
             // Assert
             expect(result.success).toBe(false)
-            expect(result.error).toBe("Usuário não curtiu este momento")
+            expect(result.error).toBe("User has not liked this moment")
             expect(result.unliked).toBeUndefined()
             expect(mockMomentService.unlikeMoment).not.toHaveBeenCalled()
         })
@@ -195,7 +195,7 @@ describe("UnlikeMomentUseCase", () => {
 
             // Assert
             expect(result.success).toBe(false)
-            expect(result.error).toBe("Momento não pode ser descurtido no estado atual")
+            expect(result.error).toBe("Moment cannot be unliked in current state")
             expect(result.unliked).toBeUndefined()
             expect(mockMomentService.hasUserLikedMoment).not.toHaveBeenCalled()
             expect(mockMomentService.unlikeMoment).not.toHaveBeenCalled()
@@ -223,7 +223,7 @@ describe("UnlikeMomentUseCase", () => {
 
             // Assert
             expect(result.success).toBe(false)
-            expect(result.error).toBe("Momento não pode ser descurtido no estado atual")
+            expect(result.error).toBe("Moment cannot be unliked in current state")
             expect(result.unliked).toBeUndefined()
             expect(mockMomentService.hasUserLikedMoment).not.toHaveBeenCalled()
             expect(mockMomentService.unlikeMoment).not.toHaveBeenCalled()
@@ -248,7 +248,7 @@ describe("UnlikeMomentUseCase", () => {
 
             // Assert
             expect(result.success).toBe(false)
-            expect(result.error).toBe("Momento não pode ser descurtido no estado atual")
+            expect(result.error).toBe("Moment cannot be unliked in current state")
             expect(result.unliked).toBeUndefined()
             expect(mockMomentService.hasUserLikedMoment).not.toHaveBeenCalled()
             expect(mockMomentService.unlikeMoment).not.toHaveBeenCalled()
@@ -266,7 +266,7 @@ describe("UnlikeMomentUseCase", () => {
 
             // Assert
             expect(result.success).toBe(false)
-            expect(result.error).toBe("ID do momento é obrigatório")
+            expect(result.error).toBe("Moment ID is required")
             expect(result.unliked).toBeUndefined()
             expect(mockMomentService.getMomentById).not.toHaveBeenCalled()
         })
@@ -283,7 +283,7 @@ describe("UnlikeMomentUseCase", () => {
 
             // Assert
             expect(result.success).toBe(false)
-            expect(result.error).toBe("ID do usuário é obrigatório")
+            expect(result.error).toBe("User ID is required")
             expect(result.unliked).toBeUndefined()
             expect(mockMomentService.getMomentById).not.toHaveBeenCalled()
         })

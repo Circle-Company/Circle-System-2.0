@@ -9,6 +9,7 @@ export enum Permission {
     UPDATE_MOMENT_STATUS = "update:moment_status",
     UPDATE_MOMENT_PROCESSING = "update:moment_processing",
 
+    READ_MOMENT = "read:moment",
     VIEW_OWN_MOMENT = "view:own_moment",
     CREATE_MOMENT = "create:own_moment",
     UPDATE_OWN_MOMENT = "update:own_moment",
@@ -17,33 +18,31 @@ export enum Permission {
     REPORT_MOMENT = "report:own_moment",
     LIKE_MOMENT = "like:own_moment",
 
-    READ_OWN_MEMORY = "read:own_memory",
-    READ_OWN_MEMORIES = "read:own_memories",
-    CREATE_OWN_MEMORY = "create:own_memory",
-    UPDATE_OWN_MEMORY = "update:own_memory",
-    DELETE_OWN_MEMORY = "delete:own_memory",
     READ_OWN_ACCOUNT = "read:own_account",
     UPDATE_OWN_ACCOUNT = "update:own_account",
     DELETE_OWN_ACCOUNT = "delete:own_account",
     READ_OWN_SETTINGS = "read:own_settings",
     UPDATE_OWN_PREFERENCES = "update:own_preferences",
+
+    READ_PROFILE = "read:profile",
+    READ_PROFILE_MOMENTS = "read:profile_moments",
 }
 
 /**
  * Tipos de dispositivo
  */
 export enum Device {
-    MOBILE = "mobile",
-    WEB = "web",
+    MOBILE = "MOBILE",
+    WEB = "WEB",
 }
 
 /**
  * Levels do sistema - usando os mesmos valores do Level
  */
 export enum Level {
-    SUDO = "sudo",
-    ADMIN = "admin",
-    USER = "user",
+    SUDO = "SUDO",
+    ADMIN = "ADMIN",
+    USER = "USER",
 }
 
 /**

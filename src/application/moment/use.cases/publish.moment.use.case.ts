@@ -26,14 +26,14 @@ export class PublishMomentUseCase {
             if (!request.momentId) {
                 return {
                     success: false,
-                    error: "ID do momento é obrigatório",
+                    error: "Moment ID is required",
                 }
             }
 
             if (!request.userId) {
                 return {
                     success: false,
-                    error: "ID do usuário é obrigatório",
+                    error: "User ID is required",
                 }
             }
 
@@ -43,7 +43,7 @@ export class PublishMomentUseCase {
             if (!moment) {
                 return {
                     success: false,
-                    error: "Momento não encontrado",
+                    error: "Moment not found",
                 }
             }
 
@@ -51,7 +51,7 @@ export class PublishMomentUseCase {
             if (moment.ownerId !== request.userId) {
                 return {
                     success: false,
-                    error: "Apenas o dono do momento pode publicá-lo",
+                    error: "Only the moment owner can publish it",
                 }
             }
 
@@ -59,7 +59,7 @@ export class PublishMomentUseCase {
             if (!this.canPublishMoment(moment)) {
                 return {
                     success: false,
-                    error: "Momento não pode ser publicado no estado atual",
+                    error: "Moment cannot be published in current state",
                 }
             }
 
@@ -75,7 +75,7 @@ export class PublishMomentUseCase {
         } catch (error) {
             return {
                 success: false,
-                error: error instanceof Error ? error.message : "Erro interno do servidor",
+                error: error instanceof Error ? error.message : "Internal server error",
             }
         }
     }

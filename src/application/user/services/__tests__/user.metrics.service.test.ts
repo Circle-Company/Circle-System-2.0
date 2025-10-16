@@ -2,111 +2,67 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { UserMetricsService, UserMetricsServiceConfig } from "../user.metrics.service"
 
 import { UserMetrics } from "../../../../domain/user/entities/user.metrics.entity"
+import { IUserMetricsRepository } from "../../../../domain/user/repositories/user.metrics.repository"
+
+// Mock do UserMetrics.create
+vi.mock("../../../../domain/user/entities/user.metrics.entity", () => ({
+    UserMetrics: {
+        create: vi.fn(),
+    },
+}))
 
 describe("UserMetricsService", () => {
     let metricsService: UserMetricsService
-    let mockRepository: any
+    let mockRepository: IUserMetricsRepository
     let mockUserMetrics: UserMetrics
 
     beforeEach(() => {
+        vi.clearAllMocks()
+
         mockRepository = {
             create: vi.fn(),
             update: vi.fn(),
+            delete: vi.fn(),
             findByUserId: vi.fn(),
-        }
+            findAll: vi.fn(),
+            findTopUsers: vi.fn(),
+            findUsersByEngagement: vi.fn(),
+            findUsersByGrowth: vi.fn(),
+        } as any
 
         mockUserMetrics = {
             id: "metrics_123",
             userId: "user_123",
-            activity: {
-                loginCount: 10,
-                profileViews: 50,
-                profileEdits: 5,
-                lastActiveAt: new Date(),
-                averageSessionDuration: 1200,
-                totalSessions: 25,
-                deviceInfo: {},
-                locationInfo: {},
-                sessionHistory: [],
-            },
-            social: {
-                followersCount: 100,
-                followingCount: 50,
-                blockedCount: 2,
-                totalInteractions: 200,
-                socialScore: 75,
-                socialActivity: [],
-            },
-            content: {
-                momentsCreated: 20,
-                totalLikes: 150,
-                totalComments: 30,
-                totalShares: 10,
-                contentScore: 80,
-                topHashtags: ["#test", "#vlog"],
-                preferredContentTypes: ["video"],
-                interactionPatterns: [],
-            },
-            engagement: {
-                engagementScore: 0.75,
-                retentionRate: 0.8,
-                growthRate: 0.15,
-                activityLevel: "high",
-                engagementHistory: [],
-            },
-            behavior: {
-                preferredDevices: ["mobile", "desktop"],
-                peakActivityHours: [18, 19, 20],
-                averageSessionDuration: 1200,
-                sessionFrequency: 0.7,
-                behaviorPatterns: [],
-            },
-            performance: {
-                viralScore: 60,
-                influenceScore: 70,
-                reachScore: 80,
-                trendingScore: 65,
-                performanceHistory: [],
-                recentGrowthRate: 0.1,
-            },
-            subscription: {
-                isActive: true,
-                plan: "premium",
-                startDate: new Date(),
-                upgrades: 1,
-                downgrades: 0,
-            },
-            timeline: [],
+            totalLikesGiven: 10,
+            totalCommentsGiven: 5,
+            totalSharesGiven: 2,
+            totalFollowing: 50,
+            totalFollowers: 100,
+            totalMomentsCreated: 20,
+            totalLikesReceived: 150,
+            totalCommentsReceived: 30,
+            totalSharesReceived: 10,
+            totalViewsReceived: 500,
+            totalReportsSpecifically: 0,
+            reportsReceived: 0,
+            engagementRate: 0.75,
+            momentsPerDayAverage: 0.5,
+            followerGrowthRate30d: 0.15,
+            lastMetricsUpdate: new Date(),
             createdAt: new Date(),
             updatedAt: new Date(),
-            incrementLoginCount: vi.fn(),
-            incrementProfileViews: vi.fn(),
-            incrementProfileEdits: vi.fn(),
-            updateLastActiveAt: vi.fn(),
-            updateDeviceInfo: vi.fn(),
-            updateLocationInfo: vi.fn(),
-            incrementMomentsCreated: vi.fn(),
-            incrementTotalLikes: vi.fn(),
-            incrementTotalComments: vi.fn(),
-            incrementTotalShares: vi.fn(),
-            incrementFollowingCount: vi.fn(),
-            decrementFollowingCount: vi.fn(),
-            incrementBlockedCount: vi.fn(),
-            decrementBlockedCount: vi.fn(),
-            updateSocialActivity: vi.fn(),
-            incrementSearchCount: vi.fn(),
-            updateSearchHistory: vi.fn(),
-            incrementReportsCount: vi.fn(),
-            updateReportHistory: vi.fn(),
-            updateSubscription: vi.fn(),
-            incrementPremiumUpgrades: vi.fn(),
-            incrementPremiumDowngrades: vi.fn(),
+            incrementActionMetrics: vi.fn(),
+            incrementReceivedMetrics: vi.fn(),
+            incrementCreationMetrics: vi.fn(),
         } as any
 
-        // Mock do UserMetrics.create (se necessário)
-        // vi.spyOn(UserMetrics, "create").mockReturnValue(mockUserMetrics)
+        // Configurar UserMetrics.create para retornar o mock
+        vi.mocked(UserMetrics.create).mockReturnValue(mockUserMetrics as any)
 
-        metricsService = new UserMetricsService(mockRepository)
+        // Criar serviço com updates em tempo real desabilitados para testes síncronos
+        metricsService = new UserMetricsService(mockRepository, {
+            enableRealTimeUpdates: false,
+        })
     })
 
     describe("recordLogin", () => {
@@ -119,14 +75,15 @@ describe("UserMetricsService", () => {
                 location: "São Paulo",
             }
 
-            mockRepository.findByUserId.mockResolvedValue(mockUserMetrics)
-            mockRepository.update.mockResolvedValue(mockUserMetrics)
+            vi.mocked(mockRepository.findByUserId).mockResolvedValue(mockUserMetrics)
+            vi.mocked(mockRepository.update).mockResolvedValue(mockUserMetrics)
 
             // Act
             await metricsService.recordLogin("user_123", loginData)
 
             // Assert
             expect(mockRepository.findByUserId).toHaveBeenCalledWith("user_123")
+            expect(mockUserMetrics.incrementActionMetrics).toHaveBeenCalledWith({ likesGiven: 0 })
             expect(mockRepository.update).toHaveBeenCalledWith(mockUserMetrics)
         })
 
@@ -138,15 +95,17 @@ describe("UserMetricsService", () => {
                 userAgent: "Mozilla/5.0",
             }
 
-            mockRepository.findByUserId.mockResolvedValue(null)
-            mockRepository.create.mockResolvedValue(mockUserMetrics)
-            mockRepository.update.mockResolvedValue(mockUserMetrics)
+            vi.mocked(mockRepository.findByUserId).mockResolvedValue(null)
+            vi.mocked(mockRepository.create).mockResolvedValue(mockUserMetrics)
+            vi.mocked(mockRepository.update).mockResolvedValue(mockUserMetrics)
 
             // Act
             await metricsService.recordLogin("user_123", loginData)
 
             // Assert
+            expect(UserMetrics.create).toHaveBeenCalledWith("user_123")
             expect(mockRepository.create).toHaveBeenCalledWith(mockUserMetrics)
+            expect(mockRepository.update).toHaveBeenCalledWith(mockUserMetrics)
         })
     })
 
@@ -159,13 +118,16 @@ describe("UserMetricsService", () => {
                 duration: 30,
             }
 
-            mockRepository.findByUserId.mockResolvedValue(mockUserMetrics)
-            mockRepository.update.mockResolvedValue(mockUserMetrics)
+            vi.mocked(mockRepository.findByUserId).mockResolvedValue(mockUserMetrics)
+            vi.mocked(mockRepository.update).mockResolvedValue(mockUserMetrics)
 
             // Act
             await metricsService.recordProfileView("user_123", viewData)
 
             // Assert
+            expect(mockUserMetrics.incrementReceivedMetrics).toHaveBeenCalledWith({
+                viewsReceived: 1,
+            })
             expect(mockRepository.update).toHaveBeenCalledWith(mockUserMetrics)
         })
     })
@@ -178,13 +140,16 @@ describe("UserMetricsService", () => {
                 timestamp: new Date(),
             }
 
-            mockRepository.findByUserId.mockResolvedValue(mockUserMetrics)
-            mockRepository.update.mockResolvedValue(mockUserMetrics)
+            vi.mocked(mockRepository.findByUserId).mockResolvedValue(mockUserMetrics)
+            vi.mocked(mockRepository.update).mockResolvedValue(mockUserMetrics)
 
             // Act
             await metricsService.recordMomentActivity("user_123", "moment_create", activityData)
 
             // Assert
+            expect(mockUserMetrics.incrementCreationMetrics).toHaveBeenCalledWith({
+                momentsCreated: 1,
+            })
             expect(mockRepository.update).toHaveBeenCalledWith(mockUserMetrics)
         })
 
@@ -196,13 +161,52 @@ describe("UserMetricsService", () => {
                 timestamp: new Date(),
             }
 
-            mockRepository.findByUserId.mockResolvedValue(mockUserMetrics)
-            mockRepository.update.mockResolvedValue(mockUserMetrics)
+            vi.mocked(mockRepository.findByUserId).mockResolvedValue(mockUserMetrics)
+            vi.mocked(mockRepository.update).mockResolvedValue(mockUserMetrics)
 
             // Act
             await metricsService.recordMomentActivity("user_123", "moment_like", activityData)
 
             // Assert
+            expect(mockUserMetrics.incrementActionMetrics).toHaveBeenCalledWith({ likesGiven: 1 })
+            expect(mockRepository.update).toHaveBeenCalledWith(mockUserMetrics)
+        })
+
+        it("deve registrar comentário em momento", async () => {
+            // Arrange
+            const activityData = {
+                momentId: "moment_123",
+                timestamp: new Date(),
+            }
+
+            vi.mocked(mockRepository.findByUserId).mockResolvedValue(mockUserMetrics)
+            vi.mocked(mockRepository.update).mockResolvedValue(mockUserMetrics)
+
+            // Act
+            await metricsService.recordMomentActivity("user_123", "moment_comment", activityData)
+
+            // Assert
+            expect(mockUserMetrics.incrementActionMetrics).toHaveBeenCalledWith({
+                commentsGiven: 1,
+            })
+            expect(mockRepository.update).toHaveBeenCalledWith(mockUserMetrics)
+        })
+
+        it("deve registrar compartilhamento de momento", async () => {
+            // Arrange
+            const activityData = {
+                momentId: "moment_123",
+                timestamp: new Date(),
+            }
+
+            vi.mocked(mockRepository.findByUserId).mockResolvedValue(mockUserMetrics)
+            vi.mocked(mockRepository.update).mockResolvedValue(mockUserMetrics)
+
+            // Act
+            await metricsService.recordMomentActivity("user_123", "moment_share", activityData)
+
+            // Assert
+            expect(mockUserMetrics.incrementActionMetrics).toHaveBeenCalledWith({ sharesGiven: 1 })
             expect(mockRepository.update).toHaveBeenCalledWith(mockUserMetrics)
         })
     })
@@ -215,11 +219,29 @@ describe("UserMetricsService", () => {
                 timestamp: new Date(),
             }
 
-            mockRepository.findByUserId.mockResolvedValue(mockUserMetrics)
-            mockRepository.update.mockResolvedValue(mockUserMetrics)
+            vi.mocked(mockRepository.findByUserId).mockResolvedValue(mockUserMetrics)
+            vi.mocked(mockRepository.update).mockResolvedValue(mockUserMetrics)
 
             // Act
             await metricsService.recordSocialActivity("user_123", "follow", socialData)
+
+            // Assert
+            expect(mockUserMetrics.incrementActionMetrics).toHaveBeenCalledWith({ followsGiven: 1 })
+            expect(mockRepository.update).toHaveBeenCalledWith(mockUserMetrics)
+        })
+
+        it("deve registrar unfollow", async () => {
+            // Arrange
+            const socialData = {
+                targetUserId: "target_123",
+                timestamp: new Date(),
+            }
+
+            vi.mocked(mockRepository.findByUserId).mockResolvedValue(mockUserMetrics)
+            vi.mocked(mockRepository.update).mockResolvedValue(mockUserMetrics)
+
+            // Act
+            await metricsService.recordSocialActivity("user_123", "unfollow", socialData)
 
             // Assert
             expect(mockRepository.update).toHaveBeenCalledWith(mockUserMetrics)
@@ -232,11 +254,29 @@ describe("UserMetricsService", () => {
                 timestamp: new Date(),
             }
 
-            mockRepository.findByUserId.mockResolvedValue(mockUserMetrics)
-            mockRepository.update.mockResolvedValue(mockUserMetrics)
+            vi.mocked(mockRepository.findByUserId).mockResolvedValue(mockUserMetrics)
+            vi.mocked(mockRepository.update).mockResolvedValue(mockUserMetrics)
 
             // Act
             await metricsService.recordSocialActivity("user_123", "block", socialData)
+
+            // Assert
+            expect(mockUserMetrics.incrementActionMetrics).toHaveBeenCalledWith({ reportsGiven: 1 })
+            expect(mockRepository.update).toHaveBeenCalledWith(mockUserMetrics)
+        })
+
+        it("deve registrar unblock", async () => {
+            // Arrange
+            const socialData = {
+                targetUserId: "target_123",
+                timestamp: new Date(),
+            }
+
+            vi.mocked(mockRepository.findByUserId).mockResolvedValue(mockUserMetrics)
+            vi.mocked(mockRepository.update).mockResolvedValue(mockUserMetrics)
+
+            // Act
+            await metricsService.recordSocialActivity("user_123", "unblock", socialData)
 
             // Assert
             expect(mockRepository.update).toHaveBeenCalledWith(mockUserMetrics)
@@ -252,13 +292,35 @@ describe("UserMetricsService", () => {
                 filters: { type: "user" },
             }
 
-            mockRepository.findByUserId.mockResolvedValue(mockUserMetrics)
-            mockRepository.update.mockResolvedValue(mockUserMetrics)
+            vi.mocked(mockRepository.findByUserId).mockResolvedValue(mockUserMetrics)
+            vi.mocked(mockRepository.update).mockResolvedValue(mockUserMetrics)
 
             // Act
             await metricsService.recordSearch("user_123", searchData)
 
             // Assert
+            expect(mockUserMetrics.incrementActionMetrics).toHaveBeenCalledWith({ likesGiven: 0 })
+            expect(mockRepository.update).toHaveBeenCalledWith(mockUserMetrics)
+        })
+    })
+
+    describe("recordReport", () => {
+        it("deve registrar report", async () => {
+            // Arrange
+            const reportData = {
+                targetUserId: "target_123",
+                reason: "spam",
+                timestamp: new Date(),
+            }
+
+            vi.mocked(mockRepository.findByUserId).mockResolvedValue(mockUserMetrics)
+            vi.mocked(mockRepository.update).mockResolvedValue(mockUserMetrics)
+
+            // Act
+            await metricsService.recordReport("user_123", reportData)
+
+            // Assert
+            expect(mockUserMetrics.incrementActionMetrics).toHaveBeenCalledWith({ reportsGiven: 1 })
             expect(mockRepository.update).toHaveBeenCalledWith(mockUserMetrics)
         })
     })
@@ -272,13 +334,32 @@ describe("UserMetricsService", () => {
                 amount: 9.99,
             }
 
-            mockRepository.findByUserId.mockResolvedValue(mockUserMetrics)
-            mockRepository.update.mockResolvedValue(mockUserMetrics)
+            vi.mocked(mockRepository.findByUserId).mockResolvedValue(mockUserMetrics)
+            vi.mocked(mockRepository.update).mockResolvedValue(mockUserMetrics)
 
             // Act
             await metricsService.recordPremiumChange("user_123", "premium_upgrade", premiumData)
 
             // Assert
+            expect(mockUserMetrics.incrementActionMetrics).toHaveBeenCalledWith({ likesGiven: 0 })
+            expect(mockRepository.update).toHaveBeenCalledWith(mockUserMetrics)
+        })
+
+        it("deve registrar downgrade premium", async () => {
+            // Arrange
+            const premiumData = {
+                previousPlan: "premium",
+                newPlan: "free",
+            }
+
+            vi.mocked(mockRepository.findByUserId).mockResolvedValue(mockUserMetrics)
+            vi.mocked(mockRepository.update).mockResolvedValue(mockUserMetrics)
+
+            // Act
+            await metricsService.recordPremiumChange("user_123", "premium_downgrade", premiumData)
+
+            // Assert
+            expect(mockUserMetrics.incrementActionMetrics).toHaveBeenCalledWith({ likesGiven: 0 })
             expect(mockRepository.update).toHaveBeenCalledWith(mockUserMetrics)
         })
     })
@@ -286,7 +367,7 @@ describe("UserMetricsService", () => {
     describe("getMetrics", () => {
         it("deve retornar métricas do usuário", async () => {
             // Arrange
-            mockRepository.findByUserId.mockResolvedValue(mockUserMetrics)
+            vi.mocked(mockRepository.findByUserId).mockResolvedValue(mockUserMetrics)
 
             // Act
             const result = await metricsService.getMetrics("user_123")
@@ -298,7 +379,7 @@ describe("UserMetricsService", () => {
 
         it("deve retornar null para usuário sem métricas", async () => {
             // Arrange
-            mockRepository.findByUserId.mockResolvedValue(null)
+            vi.mocked(mockRepository.findByUserId).mockResolvedValue(null)
 
             // Act
             const result = await metricsService.getMetrics("user_123")
@@ -308,46 +389,110 @@ describe("UserMetricsService", () => {
         })
     })
 
+    describe("getMetricsWithAnalysis", () => {
+        it("deve retornar métricas com análise", async () => {
+            // Arrange
+            vi.mocked(mockRepository.findByUserId).mockResolvedValue(mockUserMetrics)
+
+            // Act
+            const result = await metricsService.getMetricsWithAnalysis("user_123")
+
+            // Assert
+            expect(result).toBeDefined()
+            expect(result?.metrics).toEqual(mockUserMetrics)
+            expect(result?.analysis).toBeDefined()
+            expect(result?.analysis.engagementAnalysis).toBeDefined()
+            expect(result?.analysis.behaviorAnalysis).toBeDefined()
+            expect(result?.analysis.performanceAnalysis).toBeDefined()
+            expect(result?.analysis.recommendations).toBeDefined()
+        })
+
+        it("deve retornar null quando métricas não existem", async () => {
+            // Arrange
+            vi.mocked(mockRepository.findByUserId).mockResolvedValue(null)
+
+            // Act
+            const result = await metricsService.getMetricsWithAnalysis("user_123")
+
+            // Assert
+            expect(result).toBeNull()
+        })
+    })
+
+    describe("getBatchMetrics", () => {
+        it("deve retornar métricas em lote", async () => {
+            // Arrange
+            const metrics1 = { ...mockUserMetrics, userId: "user_1" }
+            const metrics2 = { ...mockUserMetrics, userId: "user_2" }
+
+            vi.mocked(mockRepository.findByUserId)
+                .mockResolvedValueOnce(metrics1 as any)
+                .mockResolvedValueOnce(metrics2 as any)
+
+            // Act
+            const result = await metricsService.getBatchMetrics(["user_1", "user_2"])
+
+            // Assert
+            expect(result).toHaveLength(2)
+            expect(result[0].userId).toBe("user_1")
+            expect(result[1].userId).toBe("user_2")
+        })
+
+        it("deve ignorar usuários sem métricas", async () => {
+            // Arrange
+            vi.mocked(mockRepository.findByUserId)
+                .mockResolvedValueOnce(mockUserMetrics)
+                .mockResolvedValueOnce(null)
+
+            // Act
+            const result = await metricsService.getBatchMetrics(["user_1", "user_2"])
+
+            // Assert
+            expect(result).toHaveLength(1)
+        })
+    })
+
     describe("getAggregatedMetrics", () => {
-        it("deve retornar métricas agregadas", async () => {
+        it("deve retornar métricas agregadas corretamente", async () => {
             // Arrange
             const metrics1 = {
                 ...mockUserMetrics,
-                activity: { ...mockUserMetrics.activity, loginCount: 10, profileViews: 50 },
-                social: { ...mockUserMetrics.social, followersCount: 100 },
-                content: { ...mockUserMetrics.content, momentsCreated: 5 },
-                engagement: { ...mockUserMetrics.engagement, engagementScore: 0.8 },
-                subscription: { isActive: true },
+                totalLikesGiven: 10,
+                totalCommentsGiven: 5,
+                totalSharesGiven: 2,
+                totalMomentsCreated: 5,
+                totalViewsReceived: 100,
+                engagementRate: 0.8,
+                momentsPerDayAverage: 1.0,
             }
             const metrics2 = {
                 ...mockUserMetrics,
-                activity: { ...mockUserMetrics.activity, loginCount: 20, profileViews: 100 },
-                social: { ...mockUserMetrics.social, followersCount: 200 },
-                content: { ...mockUserMetrics.content, momentsCreated: 10 },
-                engagement: { ...mockUserMetrics.engagement, engagementScore: 0.6 },
-                subscription: { isActive: false },
+                totalLikesGiven: 20,
+                totalCommentsGiven: 10,
+                totalSharesGiven: 5,
+                totalMomentsCreated: 10,
+                totalViewsReceived: 200,
+                engagementRate: 0.6,
+                momentsPerDayAverage: 2.0,
             }
 
-            mockRepository.findByUserId
-                .mockResolvedValueOnce(metrics1)
-                .mockResolvedValueOnce(metrics2)
+            vi.mocked(mockRepository.findByUserId)
+                .mockResolvedValueOnce(metrics1 as any)
+                .mockResolvedValueOnce(metrics2 as any)
 
             // Act
             const result = await metricsService.getAggregatedMetrics(["user_1", "user_2"])
 
             // Assert
-            expect(result).toEqual({
-                totalUsers: 2,
-                totalLogins: 30,
-                totalProfileViews: 150,
-                totalMomentsCreated: 15,
-                totalLikes: 300,
-                totalComments: 60,
-                averageEngagement: 0.7,
-                averageSessionDuration: 2400,
-                premiumUsers: 1,
-                activeUsers: 2,
-            })
+            expect(result.totalUsers).toBe(2)
+            expect(result.totalLogins).toBe(2) // 1 por métrica
+            expect(result.totalProfileViews).toBe(300) // 100 + 200
+            expect(result.totalMomentsCreated).toBe(15) // 5 + 10
+            expect(result.totalLikes).toBe(30) // 10 + 20
+            expect(result.totalComments).toBe(15) // 5 + 10
+            expect(result.averageEngagement).toBe(0.7) // (0.8 + 0.6) / 2
+            expect(result.averageSessionDuration).toBe(1.5) // (1.0 + 2.0) / 2
+            expect(result.activeUsers).toBe(2) // Ambos criaram moments
         })
 
         it("deve retornar zeros para lista vazia", async () => {
@@ -392,6 +537,26 @@ describe("UserMetricsService", () => {
 
             // Assert
             expect(service).toBeDefined()
+        })
+
+        it("deve parar processamento quando solicitado", () => {
+            // Arrange
+            const service = new UserMetricsService(mockRepository, {
+                enableRealTimeUpdates: true,
+            })
+
+            // Act
+            service.stop()
+
+            // Assert - Não deve haver erros
+            expect(service).toBeDefined()
+        })
+    })
+
+    describe("processamento de eventos", () => {
+        it("deve processar fila de eventos vazia sem erros", async () => {
+            // Act & Assert
+            await expect(metricsService.processEventQueue()).resolves.not.toThrow()
         })
     })
 })

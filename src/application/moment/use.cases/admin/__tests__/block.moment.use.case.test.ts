@@ -2,8 +2,8 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import { MomentService } from "@/application/moment/moment.service"
-import { MomentNotFoundError } from "@/domain/moment/errors/moment.errors"
+import { MomentNotFoundError } from "../../../../../domain/moment/moment.errors"
+import { MomentService } from "../../../services/moment.service"
 import { BlockMomentUseCase } from "../block.moment.use.case"
 
 // Mock do MomentService
@@ -30,20 +30,10 @@ describe("BlockMomentUseCase", () => {
 
             const mockMoment = {
                 id: "123456789",
-                ownerId: "user_123",
-                description: "Test moment",
-                hashtags: ["test"],
-                mentions: [],
-                publishedAt: new Date(),
-                createdAt: new Date(),
-                updatedAt: new Date(),
                 status: "blocked",
-                metrics: {
-                    totalViews: 0,
-                    totalLikes: 0,
-                    totalComments: 0,
-                    totalReports: 5,
-                },
+                reason: "Inappropriate content",
+                blockedBy: "moderator_123",
+                blockedAt: new Date(),
             }
 
             vi.mocked(mockMomentService.blockMoment).mockResolvedValue({
@@ -74,20 +64,10 @@ describe("BlockMomentUseCase", () => {
 
             const mockMoment = {
                 id: "123456789",
-                ownerId: "user_123",
-                description: "Test moment",
-                hashtags: ["test"],
-                mentions: [],
-                publishedAt: new Date(),
-                createdAt: new Date(),
-                updatedAt: new Date(),
                 status: "blocked",
-                metrics: {
-                    totalViews: 0,
-                    totalLikes: 0,
-                    totalComments: 0,
-                    totalReports: 3,
-                },
+                reason: "Test reason",
+                blockedBy: "moderator_456",
+                blockedAt: new Date(),
             }
 
             vi.mocked(mockMomentService.blockMoment).mockResolvedValue({
@@ -118,20 +98,10 @@ describe("BlockMomentUseCase", () => {
 
             const mockMoment = {
                 id: "123456789",
-                ownerId: "user_123",
-                description: "Test moment",
-                hashtags: ["test"],
-                mentions: [],
-                publishedAt: new Date(),
-                createdAt: new Date(),
-                updatedAt: new Date(),
                 status: "blocked",
-                metrics: {
-                    totalViews: 0,
-                    totalLikes: 0,
-                    totalComments: 0,
-                    totalReports: 1,
-                },
+                reason: "Copyright violation - unauthorized use of music",
+                blockedBy: "copyright_moderator",
+                blockedAt: new Date(),
             }
 
             vi.mocked(mockMomentService.blockMoment).mockResolvedValue({
@@ -162,20 +132,10 @@ describe("BlockMomentUseCase", () => {
 
             const mockMoment = {
                 id: "123456789",
-                ownerId: "user_123",
-                description: "Test moment",
-                hashtags: ["test"],
-                mentions: [],
-                publishedAt: new Date(),
-                createdAt: new Date(),
-                updatedAt: new Date(),
                 status: "blocked",
-                metrics: {
-                    totalViews: 0,
-                    totalLikes: 0,
-                    totalComments: 0,
-                    totalReports: 8,
-                },
+                reason: "Harassment and bullying",
+                blockedBy: "safety_moderator",
+                blockedAt: new Date(),
             }
 
             vi.mocked(mockMomentService.blockMoment).mockResolvedValue({
@@ -206,20 +166,10 @@ describe("BlockMomentUseCase", () => {
 
             const mockMoment = {
                 id: "123456789",
-                ownerId: "user_123",
-                description: "Test moment",
-                hashtags: ["test"],
-                mentions: [],
-                publishedAt: new Date(),
-                createdAt: new Date(),
-                updatedAt: new Date(),
                 status: "blocked",
-                metrics: {
-                    totalViews: 0,
-                    totalLikes: 0,
-                    totalComments: 0,
-                    totalReports: 2,
-                },
+                reason: "Spam and repetitive content",
+                blockedBy: "spam_moderator",
+                blockedAt: new Date(),
             }
 
             vi.mocked(mockMomentService.blockMoment).mockResolvedValue({
@@ -315,20 +265,10 @@ describe("BlockMomentUseCase", () => {
 
             const mockMoment = {
                 id: "123456789",
-                ownerId: "user_123",
-                description: "Test moment",
-                hashtags: ["test"],
-                mentions: [],
-                publishedAt: new Date(),
-                createdAt: new Date(),
-                updatedAt: new Date(),
                 status: "blocked",
-                metrics: {
-                    totalViews: 0,
-                    totalLikes: 0,
-                    totalComments: 0,
-                    totalReports: 4,
-                },
+                reason: "Violation of community guidelines",
+                blockedBy: "community_moderator_789",
+                blockedAt: new Date(),
             }
 
             vi.mocked(mockMomentService.blockMoment).mockResolvedValue({
@@ -359,20 +299,10 @@ describe("BlockMomentUseCase", () => {
 
             const mockMoment = {
                 id: "123456789",
-                ownerId: "user_123",
-                description: "Test moment",
-                hashtags: ["test"],
-                mentions: [],
-                publishedAt: new Date(),
-                createdAt: new Date(),
-                updatedAt: new Date(),
                 status: "blocked",
-                metrics: {
-                    totalViews: 0,
-                    totalLikes: 0,
-                    totalComments: 0,
-                    totalReports: 15,
-                },
+                reason: "Severe violation requiring immediate action",
+                blockedBy: "super_admin_999",
+                blockedAt: new Date(),
             }
 
             vi.mocked(mockMomentService.blockMoment).mockResolvedValue({

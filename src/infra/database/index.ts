@@ -1,6 +1,7 @@
 import { ErrorCode, SystemError } from "../../shared/errors"
 
 // Importar todos os modelos
+import { Sequelize } from "sequelize"
 import AuthLog from "../models/auth/sign.logs.model"
 import MomentContent from "../models/moment/moment.content.model"
 import MomentContext from "../models/moment/moment.context.model"
@@ -15,14 +16,12 @@ import MomentProcessingStep from "../models/moment/moment.processing.step.model"
 import MomentResolution from "../models/moment/moment.resolution.model"
 import MomentStatus from "../models/moment/moment.status.model"
 import MomentThumbnail from "../models/moment/moment.thumbnail.model"
+import MomentView from "../models/moment/moment.view.model"
 import MomentVisibility from "../models/moment/moment.visibility.model"
 import InteractionEvent from "../models/swipe.engine/interaction.event.model"
 import PostCluster from "../models/swipe.engine/post.cluster.model"
 import PostClusterRank from "../models/swipe.engine/post.cluster.rank.model"
 import PostEmbedding from "../models/swipe.engine/post.embedding.model"
-import { ENVIRONMENT } from "./environment"
-// Swipe Engine models
-import { Sequelize } from "sequelize"
 import UserClusterRank from "../models/swipe.engine/user.cluster.rank.model"
 import UserEmbedding from "../models/swipe.engine/user.embedding.model"
 import UserInteractionHistory from "../models/swipe.engine/user.interaction.history.model"
@@ -33,9 +32,11 @@ import UserPreferences from "../models/user/user.preferences.model"
 import UserProfilePicture from "../models/user/user.profile.picture.model"
 import UserStatistics from "../models/user/user.statistics.model"
 import UserStatus from "../models/user/user.status.model"
-import UserTerms from "../models/user/user.terms.model"
+import UserTerm from "../models/user/user.terms.model"
+import { ENVIRONMENT } from "./environment"
 // Moment models
 import { logger } from "@/shared"
+// Swipe Engine models
 
 /**
  * Interface para modelos que podem ser inicializados
@@ -59,7 +60,7 @@ export class DatabaseManager {
         // User models
         User,
         UserStatus,
-        UserTerms,
+        UserTerm,
         UserMetadata,
         UserPreferences,
         UserProfilePicture,
@@ -80,6 +81,7 @@ export class DatabaseManager {
         MomentMedia,
         MomentThumbnail,
         MomentResolution,
+        MomentView,
 
         // Swipe Engine models
         InteractionEvent,

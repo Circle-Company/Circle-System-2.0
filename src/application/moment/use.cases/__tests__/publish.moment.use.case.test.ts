@@ -159,7 +159,7 @@ describe("PublishMomentUseCase", () => {
 
             // Assert
             expect(result.success).toBe(false)
-            expect(result.error).toBe("Momento não encontrado")
+            expect(result.error).toBe("Moment not found")
             expect(result.moment).toBeUndefined()
             expect(mockMomentService.updateMoment).not.toHaveBeenCalled()
         })
@@ -178,7 +178,7 @@ describe("PublishMomentUseCase", () => {
 
             // Assert
             expect(result.success).toBe(false)
-            expect(result.error).toBe("Apenas o dono do momento pode publicá-lo")
+            expect(result.error).toBe("Only the moment owner can publish it")
             expect(result.moment).toBeUndefined()
             expect(mockMomentService.updateMoment).not.toHaveBeenCalled()
         })
@@ -206,7 +206,7 @@ describe("PublishMomentUseCase", () => {
 
             // Assert
             expect(result.success).toBe(false)
-            expect(result.error).toBe("Momento não pode ser publicado no estado atual")
+            expect(result.error).toBe("Moment cannot be published in current state")
             expect(result.moment).toBeUndefined()
             expect(mockMomentService.updateMoment).not.toHaveBeenCalled()
         })
@@ -233,7 +233,7 @@ describe("PublishMomentUseCase", () => {
 
             // Assert
             expect(result.success).toBe(false)
-            expect(result.error).toBe("Momento não pode ser publicado no estado atual")
+            expect(result.error).toBe("Moment cannot be published in current state")
             expect(result.moment).toBeUndefined()
             expect(mockMomentService.updateMoment).not.toHaveBeenCalled()
         })
@@ -260,7 +260,7 @@ describe("PublishMomentUseCase", () => {
 
             // Assert
             expect(result.success).toBe(false)
-            expect(result.error).toBe("Momento não pode ser publicado no estado atual")
+            expect(result.error).toBe("Moment cannot be published in current state")
             expect(result.moment).toBeUndefined()
             expect(mockMomentService.updateMoment).not.toHaveBeenCalled()
         })
@@ -294,7 +294,7 @@ describe("PublishMomentUseCase", () => {
 
             // Assert
             expect(result.success).toBe(false)
-            expect(result.error).toBe("Momento não pode ser publicado no estado atual")
+            expect(result.error).toBe("Moment cannot be published in current state")
             expect(result.moment).toBeUndefined()
             expect(mockMomentService.updateMoment).not.toHaveBeenCalled()
         })
@@ -311,7 +311,7 @@ describe("PublishMomentUseCase", () => {
 
             // Assert
             expect(result.success).toBe(false)
-            expect(result.error).toBe("ID do momento é obrigatório")
+            expect(result.error).toBe("Moment ID is required")
             expect(result.moment).toBeUndefined()
             expect(mockMomentService.getMomentById).not.toHaveBeenCalled()
         })
@@ -328,7 +328,7 @@ describe("PublishMomentUseCase", () => {
 
             // Assert
             expect(result.success).toBe(false)
-            expect(result.error).toBe("ID do usuário é obrigatório")
+            expect(result.error).toBe("User ID is required")
             expect(result.moment).toBeUndefined()
             expect(mockMomentService.getMomentById).not.toHaveBeenCalled()
         })

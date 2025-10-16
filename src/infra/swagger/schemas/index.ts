@@ -1,4 +1,5 @@
 import { signInSchema, signUpSchema } from "./auth.schemas"
+import { CommonSchemas } from "./common.schemas"
 import {
     CommentSchema,
     CreateMomentSchema,
@@ -14,15 +15,22 @@ import {
     SearchMomentsQuerySchema,
     UpdateMomentSchema,
 } from "./moment.schemas"
+import { UserSchemas } from "./user.schemas"
 
 export const AllSchemas = {
-    // Auth schemas
+    // ===== COMMON SCHEMAS =====
+    ...CommonSchemas,
+
+    // ===== AUTH SCHEMAS =====
     SignInRequest: signInSchema.body,
     SignInHeaders: signInSchema.headers,
     SignUpRequest: signUpSchema.body,
     SignUpHeaders: signUpSchema.headers,
 
-    // Moment schemas
+    // ===== USER SCHEMAS =====
+    ...UserSchemas,
+
+    // ===== MOMENT SCHEMAS =====
     CreateMoment: CreateMomentSchema,
     UpdateMoment: UpdateMomentSchema,
     Comment: CommentSchema,
@@ -33,38 +41,21 @@ export const AllSchemas = {
     MomentListResponse: MomentListResponseSchema,
     MomentError: MomentErrorSchema,
 
-    // Metrics schemas
+    // ===== METRICS SCHEMAS =====
     GetMomentMetricsQuery: GetMomentMetricsQuerySchema,
     GetAnalyticsQuery: GetAnalyticsQuerySchema,
     MomentMetricsResponse: MomentMetricsResponseSchema,
     MomentsAnalyticsResponse: MomentsAnalyticsResponseSchema,
 
-    // Common schemas
-    ValidationError: {
-        type: "object",
-        properties: {
-            message: { type: "string" },
-            details: { type: "object" },
-            code: { type: "string" },
-        },
-        required: ["message"],
-    },
-    Error: {
-        type: "object",
-        properties: {
-            success: { type: "boolean", default: false },
-            error: {
-                type: "object",
-                properties: {
-                    message: { type: "string" },
-                    code: { type: "string" },
-                    timestamp: { type: "string", format: "date-time" },
-                },
-                required: ["message"],
-            },
-        },
-        required: ["success", "error"],
-    },
+    // ===== DEPRECATED (manter para compatibilidade) =====
+    ValidationError: CommonSchemas.ValidationError,
+    Error: CommonSchemas.ErrorResponse,
 }
 
 export const Schemas = AllSchemas
+
+// Export individual schema modules
+export * from "./auth.schemas"
+export { CommonSchemas } from "./common.schemas"
+export * from "./moment.schemas"
+export { UserSchemas } from "./user.schemas"

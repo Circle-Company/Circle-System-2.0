@@ -1,7 +1,7 @@
 // ===== DELETE MOMENT USE CASE (ADMIN) =====
 
 import { MomentService } from "@/application/moment/services/moment.service"
-import { MomentNotFoundError } from "@/domain/moment/errors/moment.errors"
+import { MomentNotFoundError } from "@/domain/moment/moment.errors"
 
 export interface DeleteMomentRequest {
     momentId: string

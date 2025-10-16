@@ -105,12 +105,13 @@ export const DEFAULT_MOMENT_CREATION_RULES: MomentCreationRules = {
         minDuration: 1, // 1 segundo
         minSize: 1024, // 1KB
         requiredAspectRatio: {
-            width: 9,
-            height: 16,
+            width: 360,
+            height: 558,
         },
         allowedResolutions: [
-            { width: 720, height: 1280, quality: MomentQualityEnum.MEDIUM },
-            { width: 1080, height: 1920, quality: MomentQualityEnum.HIGH },
+            { width: 360, height: 558, quality: MomentQualityEnum.MEDIUM },
+            { width: 720, height: 1116, quality: MomentQualityEnum.HIGH },
+            { width: 1080, height: 1674, quality: MomentQualityEnum.HIGH },
         ],
     },
     text: {
@@ -189,13 +190,13 @@ export const HUMAN_CONTENT_CREATION_RULES: MomentCreationRules = {
         minDuration: 2, // 2 segundos
         minSize: 1024 * 1024, // 1MB
         requiredAspectRatio: {
-            width: 9,
-            height: 16,
+            width: 360,
+            height: 558,
         },
         allowedResolutions: [
-            { width: 1080, height: 1920, quality: MomentQualityEnum.HIGH },
-            { width: 1440, height: 2560, quality: MomentQualityEnum.HIGH },
-            { width: 2160, height: 3840, quality: MomentQualityEnum.HIGH },
+            { width: 360, height: 558, quality: MomentQualityEnum.MEDIUM },
+            { width: 720, height: 1116, quality: MomentQualityEnum.HIGH },
+            { width: 1080, height: 1674, quality: MomentQualityEnum.HIGH },
         ],
     },
     text: {
@@ -360,25 +361,11 @@ export class MomentCreationValidator {
             }
 
             if (content.width && content.height) {
-                const aspectRatio = content.width / content.height
-                const targetRatio =
-                    this.rules.content.requiredAspectRatio.width /
-                    this.rules.content.requiredAspectRatio.height
-                const tolerance = 0.01
-
-                if (Math.abs(aspectRatio - targetRatio) > tolerance) {
-                    errors.push(
-                        `Aspect ratio deve ser ${this.rules.content.requiredAspectRatio.width}:${this.rules.content.requiredAspectRatio.height}`,
-                    )
-                }
-
-                const isValidResolution = this.rules.content.allowedResolutions.some(
-                    (res) => res.width === content.width && res.height === content.height,
+                // Validação de aspect ratio e resolução DESABILITADA (sem ffmpeg para fazer crop)
+                // TODO: Reabilitar quando ffmpeg estiver disponível para fazer crop automático
+                console.log(
+                    `[CreationRules] ⚠️ Validação desabilitada (sem ffmpeg): ${content.width}x${content.height} - ACEITO`,
                 )
-
-                if (!isValidResolution) {
-                    errors.push(`Resolução ${content.width}x${content.height} não é suportada`)
-                }
             }
         }
 

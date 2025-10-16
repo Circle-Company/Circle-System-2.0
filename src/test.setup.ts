@@ -1,4 +1,97 @@
-import { afterAll, beforeAll } from "vitest"
+import { afterAll, beforeAll, vi } from "vitest"
+
+// Mock do circle-text-library para evitar problemas de inicialização
+vi.mock("circle-text-library", () => ({
+    CircleText: class MockCircleText {
+        constructor(config?: any) {}
+        validate = {
+            username: (username: string) => ({
+                isValid: username.length >= 4 && username.length <= 20,
+                errors: [],
+            }),
+            name: (name: string) => ({
+                isValid: name.length >= 2 && name.length <= 100,
+                errors: [],
+            }),
+            password: (password: string) => ({
+                isValid: password.length >= 6 && password.length <= 128,
+                errors: [],
+            }),
+            description: (description: string) => ({
+                isValid: description.length <= 1000,
+                errors: [],
+            }),
+            hashtag: (hashtag: string) => ({
+                isValid: hashtag.startsWith("#") && hashtag.length >= 2,
+                errors: [],
+            }),
+        }
+    },
+    TextLibrary: class MockTextLibrary {
+        constructor(config?: any) {}
+        validate = {
+            username: (username: string) => ({
+                isValid: username.length >= 4 && username.length <= 20,
+                errors: [],
+            }),
+            name: (name: string) => ({
+                isValid: name.length >= 2 && name.length <= 100,
+                errors: [],
+            }),
+            password: (password: string) => ({
+                isValid: password.length >= 6 && password.length <= 128,
+                errors: [],
+            }),
+            description: (description: string) => ({
+                isValid: description.length <= 1000,
+                errors: [],
+            }),
+            hashtag: (hashtag: string) => ({
+                isValid: hashtag.startsWith("#") && hashtag.length >= 2,
+                errors: [],
+            }),
+        }
+    },
+    Timezone: class MockTimezone {
+        constructor(timezoneCode?: any) {}
+        static getTimezoneFromOffset(offset: number) {
+            if (offset === 0) return "UTC"
+            if (offset === -3) return "BRT"
+            return "UTC"
+        }
+        static getCurrentTimezone() {
+            return "BRT"
+        }
+        getTimezoneOffset() {
+            return -3
+        }
+        getCurrentTimezoneCode() {
+            return "BRT"
+        }
+        UTCToLocal(date: Date) {
+            return date
+        }
+        localToUTC(date: Date) {
+            return date
+        }
+    },
+    TimezoneCodes: {
+        UTC: "UTC",
+        BRT: "BRT",
+        BRST: "BRST",
+        EST: "EST",
+        EDT: "EDT",
+        CST: "CST",
+        CDT: "CDT",
+        MST: "MST",
+        MDT: "MDT",
+        PST: "PST",
+        PDT: "PDT",
+        AKST: "AKST",
+        AKDT: "AKDT",
+        HST: "HST",
+    },
+}))
 
 // Configuração de ambiente para testes
 beforeAll(() => {

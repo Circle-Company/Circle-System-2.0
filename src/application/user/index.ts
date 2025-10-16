@@ -20,7 +20,7 @@ export type {
 
 export type { CreateUserInput, CreateUserOutput } from "./use.cases/create.user.use.case"
 
-export type { GetUserInput, GetUserOutput } from "./use.cases/get.user.use.case"
+export type { GetUserInput, GetUserOutput } from "./use.cases/get.user.profile.use.case"
 
 export type { UpdateUserInput, UpdateUserOutput } from "./use.cases/update.user.use.case"
 

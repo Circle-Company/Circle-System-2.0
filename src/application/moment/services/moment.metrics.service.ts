@@ -3,20 +3,19 @@ import {
     MomentMetricsAnalysisService,
 } from "@/domain/moment/repositories/moment.metrics.repository"
 
+import { normalizeL2 } from "@/core/swipe.engine/utils/normalization"
 import { MomentMetricsEntity } from "@/domain/moment/entities/moment.metrics.entity"
+import {
+    CalculateEngagementVectorParams,
+    CalculateEngagementVectorResult,
+    EngagementFeatures,
+    EngagementMetrics,
+    MomentEngagementVector,
+} from "@/domain/moment/types/moment.engagement.vector.type"
 
 // ===== EVENTOS DE MÉTRICAS =====
 export interface MetricsEvent {
-    type:
-        | "view"
-        | "like"
-        | "comment"
-        | "report"
-        | "share"
-        | "completion"
-        | "quality_update"
-        | "revenue"
-        | "cost"
+    type: "view" | "like" | "comment" | "report" | "share" | "completion" | "quality_update"
     momentId: string
     data: any
     timestamp: Date
@@ -29,7 +28,6 @@ export interface MomentMetricsServiceConfig {
     maxRetries: number
     enableRealTimeUpdates: boolean
     enableAnalytics: boolean
-    enableMonetizationTracking: boolean
 }
 
 // ===== SERVIÇO DE MÉTRICAS =====
@@ -49,7 +47,6 @@ export class MomentMetricsService {
             maxRetries: 3,
             enableRealTimeUpdates: true,
             enableAnalytics: true,
-            enableMonetizationTracking: true,
             ...config,
         }
 
@@ -214,62 +211,6 @@ export class MomentMetricsService {
     }
 
     /**
-     * Registra receita
-     */
-    async recordRevenue(
-        momentId: string,
-        data: {
-            amount: number
-            type: "ad" | "subscription" | "tip" | "merchandise"
-            source?: string
-            timestamp?: Date
-        },
-    ): Promise<void> {
-        if (!this.config.enableMonetizationTracking) return
-
-        const event: MetricsEvent = {
-            type: "revenue",
-            momentId,
-            data,
-            timestamp: new Date(),
-        }
-
-        if (this.config.enableRealTimeUpdates) {
-            await this.processEvent(event)
-        } else {
-            this.eventQueue.push(event)
-        }
-    }
-
-    /**
-     * Registra custo
-     */
-    async recordCost(
-        momentId: string,
-        data: {
-            amount: number
-            type: "production" | "distribution" | "marketing"
-            description?: string
-            timestamp?: Date
-        },
-    ): Promise<void> {
-        if (!this.config.enableMonetizationTracking) return
-
-        const event: MetricsEvent = {
-            type: "cost",
-            momentId,
-            data,
-            timestamp: new Date(),
-        }
-
-        if (this.config.enableRealTimeUpdates) {
-            await this.processEvent(event)
-        } else {
-            this.eventQueue.push(event)
-        }
-    }
-
-    /**
      * Obtém métricas de um momento
      */
     async getMetrics(momentId: string): Promise<MomentMetricsEntity | null> {
@@ -313,7 +254,6 @@ export class MomentMetricsService {
         totalViews: number
         totalLikes: number
         totalComments: number
-        totalRevenue: number
         averageEngagement: number
         averageViralScore: number
         averageTrendingScore: number
@@ -325,7 +265,6 @@ export class MomentMetricsService {
                 totalViews: 0,
                 totalLikes: 0,
                 totalComments: 0,
-                totalRevenue: 0,
                 averageEngagement: 0,
                 averageViralScore: 0,
                 averageTrendingScore: 0,
@@ -335,7 +274,6 @@ export class MomentMetricsService {
         const totalViews = metrics.reduce((sum, m) => sum + m.views.totalViews, 0)
         const totalLikes = metrics.reduce((sum, m) => sum + m.engagement.totalLikes, 0)
         const totalComments = metrics.reduce((sum, m) => sum + m.engagement.totalComments, 0)
-        const totalRevenue = metrics.reduce((sum, m) => sum + m.monetization.totalRevenue, 0)
         const averageEngagement =
             metrics.reduce((sum, m) => sum + m.calculateEngagementRate(), 0) / metrics.length
         const averageViralScore =
@@ -347,10 +285,140 @@ export class MomentMetricsService {
             totalViews,
             totalLikes,
             totalComments,
-            totalRevenue,
             averageEngagement,
             averageViralScore,
             averageTrendingScore,
+        }
+    }
+
+    /**
+     * Calcula vetor de engajamento com features normalizadas
+     * Este vetor é MUTÁVEL e deve ser atualizado periodicamente
+     */
+    async calculateEngagementVector(
+        params: CalculateEngagementVectorParams,
+    ): Promise<CalculateEngagementVectorResult> {
+        try {
+            console.log(`[MetricsService] 📊 Calculando engagement vector: ${params.momentId}`)
+
+            const { metrics, duration } = params
+
+            // Calcular features normalizadas
+            const features: EngagementFeatures = {
+                likeRate: metrics.views > 0 ? metrics.likes / metrics.views : 0,
+                commentRate: metrics.views > 0 ? metrics.comments / metrics.views : 0,
+                shareRate: metrics.views > 0 ? metrics.shares / metrics.views : 0,
+                saveRate: metrics.views > 0 ? metrics.saves / metrics.views : 0,
+                retentionRate:
+                    metrics.views > 0 && duration > 0
+                        ? metrics.avgWatchTime / (metrics.views * duration)
+                        : 0,
+                avgCompletionRate: metrics.completionRate,
+                reportRate: metrics.views > 0 ? metrics.reports / metrics.views : 0,
+                viralityScore: 0,
+                qualityScore: 0,
+            }
+
+            // Calcular scores compostos
+            features.viralityScore = (features.shareRate + features.saveRate) / 2
+            features.qualityScore = Math.max(
+                0,
+                features.retentionRate + features.avgCompletionRate - features.reportRate * 2,
+            )
+
+            // Montar vetor de features (10 dimensões)
+            const rawVector: number[] = [
+                features.likeRate,
+                features.commentRate,
+                features.shareRate,
+                features.saveRate,
+                features.retentionRate,
+                features.avgCompletionRate,
+                features.reportRate,
+                features.viralityScore,
+                features.qualityScore,
+                // Adicionar taxa de views únicas
+                metrics.uniqueViews > 0 ? metrics.views / metrics.uniqueViews : 1,
+            ]
+
+            // Normalizar vetor
+            const normalizedVector = normalizeL2(rawVector)
+
+            const engagementVector: MomentEngagementVector = {
+                vector: normalizedVector,
+                dimension: normalizedVector.length,
+                metrics,
+                features,
+                metadata: {
+                    lastUpdated: new Date(),
+                    version: "engagement-vector-v1",
+                    calculationMethod: "normalized-features",
+                },
+            }
+
+            console.log(
+                `[MetricsService] ✅ Engagement vector calculado: dim=${normalizedVector.length}`,
+            )
+            console.log(`  👍 Like rate: ${(features.likeRate * 100).toFixed(2)}%`)
+            console.log(`  💬 Comment rate: ${(features.commentRate * 100).toFixed(2)}%`)
+            console.log(`  📤 Share rate: ${(features.shareRate * 100).toFixed(2)}%`)
+            console.log(`  ⭐ Quality score: ${(features.qualityScore * 100).toFixed(2)}%`)
+
+            return {
+                success: true,
+                vector: engagementVector,
+            }
+        } catch (error) {
+            console.error("[MetricsService] ❌ Erro ao calcular engagement vector:", error)
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : String(error),
+            }
+        }
+    }
+
+    /**
+     * Calcula engagement vector para um moment existente
+     */
+    async calculateEngagementVectorForMoment(
+        momentId: string,
+        duration: number,
+    ): Promise<CalculateEngagementVectorResult> {
+        try {
+            // Buscar métricas do moment
+            const metricsEntity = await this.repository.findByMomentId(momentId)
+
+            if (!metricsEntity) {
+                return {
+                    success: false,
+                    error: "Metrics not found for moment",
+                }
+            }
+
+            // Montar EngagementMetrics a partir da entidade
+            const engagementMetrics: EngagementMetrics = {
+                views: metricsEntity.views.totalViews,
+                uniqueViews: metricsEntity.views.uniqueViews,
+                likes: metricsEntity.engagement.totalLikes,
+                comments: metricsEntity.engagement.totalComments,
+                shares: (metricsEntity.engagement as any).totalShares || 0,
+                saves: (metricsEntity.engagement as any).totalSaves || 0,
+                avgWatchTime: metricsEntity.views.averageWatchTime,
+                completionRate: (metricsEntity.views as any).completionRate || 0,
+                reports: metricsEntity.engagement.totalReports,
+            }
+
+            return await this.calculateEngagementVector({
+                momentId,
+                metrics: engagementMetrics,
+                duration,
+                createdAt: metricsEntity.createdAt,
+            })
+        } catch (error) {
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : String(error),
+            }
         }
     }
 
@@ -427,12 +495,6 @@ export class MomentMetricsService {
                 break
             case "quality_update":
                 await this.processQualityUpdateEvent(metrics, event.data)
-                break
-            case "revenue":
-                await this.processRevenueEvent(metrics, event.data)
-                break
-            case "cost":
-                await this.processCostEvent(metrics, event.data)
                 break
         }
 
@@ -541,19 +603,5 @@ export class MomentMetricsService {
         if (data.faceDetectionRate !== undefined) {
             metrics.updateFaceDetectionRate(data.faceDetectionRate)
         }
-    }
-
-    /**
-     * Processa evento de receita
-     */
-    private async processRevenueEvent(metrics: MomentMetricsEntity, data: any): Promise<void> {
-        metrics.addRevenue(data.amount, data.type)
-    }
-
-    /**
-     * Processa evento de custo
-     */
-    private async processCostEvent(metrics: MomentMetricsEntity, data: any): Promise<void> {
-        metrics.addCost(data.amount, data.type)
     }
 }

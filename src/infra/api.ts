@@ -1,10 +1,8 @@
-import { extractErrorInfo, isBaseError } from "@/shared/errors"
-import Fastify, { FastifyInstance, FastifyServerOptions } from "fastify"
-import { HttpRequest, HttpResponse } from "./http/http.type"
+import { HttpRequest, HttpResponse } from "@/infra/http/http.type"
+import { extractErrorInfo, generateId, isBaseError, logger } from "@/shared"
 
 import { ENABLE_LOGGING } from "@/infra/database/environment"
-import { logger } from "@/shared/logger"
-import { HttpFactory } from "./http/http.factory"
+import { HttpFactory } from "@/infra/http/http.factory"
 
 // Configuração da aplicação
 const ENV_CONFIG = {
@@ -13,117 +11,115 @@ const ENV_CONFIG = {
     environment: process.env.NODE_ENV || "development",
 }
 
-// Configuração do Fastify (apenas para produção)
-const fastifyConfig: FastifyServerOptions = {
-    logger: ENABLE_LOGGING
-        ? {
-              level: "info",
-          }
-        : false,
-    disableRequestLogging: !ENABLE_LOGGING,
+// Configuração HTTP genérica
+const httpConfig = {
+    port: ENV_CONFIG.port,
+    host: ENV_CONFIG.host,
+    environment: ENV_CONFIG.environment,
+    logging: false, // Desabilitar logging do Fastify para usar apenas nosso logger
     requestIdHeader: "x-request-id",
     requestIdLogLabel: "reqId",
-    genReqId: () => `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    schemaErrorFormatter: (errors, dataVar) => {
-        return new Error(
-            `Validation failed for ${dataVar}: ${errors.map((e) => e.message).join(", ")}`,
-        )
-    },
-    ajv: {
-        customOptions: {
-            strict: false,
-            removeAdditional: false,
-            useDefaults: true,
-            coerceTypes: true,
-        },
-    },
+    genReqId: () => `req-${Date.now()}-${generateId().slice(0, 9)}`,
 }
 
-// Instância do Fastify (apenas para produção)
-const fastifyInstance: FastifyInstance =
-    ENV_CONFIG.environment === "test" ? (null as any) : Fastify(fastifyConfig)
+// Instância da API usando abstração HTTP
+export const api = HttpFactory.createForEnvironment(ENV_CONFIG.environment, httpConfig)
 
-// Instância da API usando adapter HTTP genérico
-export const api = HttpFactory.createForEnvironment(ENV_CONFIG.environment, fastifyInstance)
+// Rate limiting - armazenamento de contadores
+const requestCounts = new Map<string, { count: number; resetTime: number }>()
 
-// Adicionar referência ao Fastify para compatibilidade com Swagger
-if (fastifyInstance && api) {
-    const apiWithSwagger = api as any
-    apiWithSwagger.fastify = fastifyInstance
-    apiWithSwagger.registerPlugin = (plugin: any, options: any) =>
-        fastifyInstance.register(plugin, options)
-    apiWithSwagger.log = fastifyInstance.log
-}
-
-// Configurar middleware de segurança e CORS
-function configureSecurityMiddleware() {
-    // Middleware de CORS
-    api.addHook("onRequest", async (request: HttpRequest, response: HttpResponse) => {
-        const origin = request.headers.origin
-
-        // Permitir requests sem origin (mobile apps, Postman, etc.)
-        if (!origin) return
-
+// Hook único onRequest para CORS, rate limiting e logging
+api.addHook("onRequest", async (request: HttpRequest, response: HttpResponse) => {
+    // 1. CORS
+    const origin = request.headers.origin
+    if (origin) {
         // Em desenvolvimento, permitir qualquer origin
         if (ENV_CONFIG.environment === "development" || ENV_CONFIG.environment === "test") {
             response.header("Access-Control-Allow-Origin", origin)
             response.header("Access-Control-Allow-Credentials", "true")
-            return
-        }
-
-        // Em produção, definir origins permitidos
-        const allowedOrigins = ["https://yourdomain.com", "https://www.yourdomain.com"]
-
-        if (allowedOrigins.includes(origin)) {
-            response.header("Access-Control-Allow-Origin", origin)
-            response.header("Access-Control-Allow-Credentials", "true")
+            response.header(
+                "Access-Control-Allow-Methods",
+                "GET, POST, PUT, DELETE, PATCH, OPTIONS",
+            )
+            response.header(
+                "Access-Control-Allow-Headers",
+                "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-Request-ID",
+            )
         } else {
-            response.status(403).send({
-                error: "Not allowed by CORS",
-                message: "Origin not allowed",
-            })
-            return
-        }
+            // Em produção, definir origins permitidos
+            const allowedOrigins = process.env.CORS_ORIGIN?.split(",") || []
 
-        // Headers CORS
-        response.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS")
-        response.header(
-            "Access-Control-Allow-Headers",
-            "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-Request-ID",
-        )
-    })
-
-    // Middleware de Rate Limiting (simplificado)
-    const requestCounts = new Map<string, { count: number; resetTime: number }>()
-
-    api.addHook("onRequest", async (request: HttpRequest, response: HttpResponse) => {
-        const clientId = request.headers["x-forwarded-for"] || request.ip || "unknown"
-        const now = Date.now()
-        const windowMs = 60 * 1000 // 1 minuto
-
-        const clientData = requestCounts.get(clientId)
-
-        if (!clientData || now > clientData.resetTime) {
-            requestCounts.set(clientId, { count: 1, resetTime: now + windowMs })
-        } else {
-            clientData.count++
-
-            if (clientData.count > 100) {
-                // máximo 100 requests por minuto
-                response.status(429).send({
-                    error: "Too Many Requests",
-                    message: "Rate limit exceeded, retry later",
-                    retryAfter: Math.ceil((clientData.resetTime - now) / 1000),
+            if (allowedOrigins.includes(origin)) {
+                response.header("Access-Control-Allow-Origin", origin)
+                response.header("Access-Control-Allow-Credentials", "true")
+                response.header(
+                    "Access-Control-Allow-Methods",
+                    "GET, POST, PUT, DELETE, PATCH, OPTIONS",
+                )
+                response.header(
+                    "Access-Control-Allow-Headers",
+                    "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-Request-ID",
+                )
+            } else {
+                response.status(403).send({
+                    error: "Not allowed by CORS",
+                    message: "Origin not allowed",
                 })
                 return
             }
         }
-    })
+    }
 
-    logger.info("Middleware de segurança configurado com sucesso")
-}
+    // 2. Rate Limiting
+    const clientId = request.headers["x-forwarded-for"] || request.ip || "unknown"
+    const now = Date.now()
+    const windowMs = 60 * 1000 // 1 minuto
 
-// Hook para adicionar headers de segurança
+    const clientData = requestCounts.get(clientId)
+
+    if (!clientData || now > clientData.resetTime) {
+        requestCounts.set(clientId, { count: 1, resetTime: now + windowMs })
+    } else {
+        clientData.count++
+
+        if (clientData.count > 100) {
+            response.status(429).send({
+                error: "Too Many Requests",
+                message: "Rate limit exceeded, retry later",
+                retryAfter: Math.ceil((clientData.resetTime - now) / 1000),
+            })
+            return
+        }
+    }
+
+    // 3. Logging
+    if (ENABLE_LOGGING) {
+        logger.info("Incoming request", {
+            method: request.method,
+            url: request.url,
+            ip: request.ip,
+            userAgent: request.headers["user-agent"],
+            requestId: request.id,
+        })
+    }
+
+    // 4. Validação básica de segurança
+    const userAgent = request.headers["user-agent"]
+    if (userAgent && userAgent.includes("sqlmap")) {
+        logger.warn("Potential SQL injection attempt detected", {
+            ip: request.ip,
+            userAgent,
+            url: request.url,
+        })
+        response.status(403).send({
+            error: "Forbidden",
+            message: "Access denied",
+        })
+        return
+    }
+})
+
+// Hook para adicionar headers de segurança antes de enviar a resposta
 api.addHook("onSend", async (request: HttpRequest, response: HttpResponse, payload: any) => {
     // Headers de segurança
     response.header("X-Content-Type-Options", "nosniff")
@@ -146,34 +142,6 @@ api.addHook("onSend", async (request: HttpRequest, response: HttpResponse, paylo
     }
 
     return payload
-})
-
-// Hook para logging de requests e validações de segurança
-api.addHook("onRequest", async (request: HttpRequest, response: HttpResponse) => {
-    // Log da requisição
-    if (ENABLE_LOGGING) {
-        logger.info("Incoming request", {
-            method: request.method,
-            url: request.url,
-            ip: request.ip,
-            userAgent: request.headers["user-agent"],
-            requestId: request.id,
-        })
-    }
-
-    // Validação básica de segurança
-    const userAgent = request.headers["user-agent"]
-    if (userAgent && userAgent.includes("sqlmap")) {
-        logger.warn("Potential SQL injection attempt detected", {
-            ip: request.ip,
-            userAgent,
-            url: request.url,
-        })
-        return response.status(403).send({
-            error: "Forbidden",
-            message: "Access denied",
-        })
-    }
 })
 
 // Hook para logging de responses
@@ -237,7 +205,7 @@ api.setErrorHandler(async (error: any, request: HttpRequest, response: HttpRespo
 
 // Health check endpoint
 api.get("/health", async (request: HttpRequest, response: HttpResponse) => {
-    return response.send({
+    response.send({
         status: "ok",
         timestamp: new Date().toISOString(),
         uptime: process.uptime(),
@@ -248,7 +216,7 @@ api.get("/health", async (request: HttpRequest, response: HttpResponse) => {
 
 // Endpoint para informações da API
 api.get("/info", async (request: HttpRequest, response: HttpResponse) => {
-    return response.send({
+    response.send({
         name: "Circle System API",
         version: "1.0.0",
         description: "API robusta para sistema de vlog com arquitetura limpa",
@@ -261,35 +229,4 @@ api.get("/info", async (request: HttpRequest, response: HttpResponse) => {
             info: "/info",
         },
     })
-})
-
-// Configurar middleware de segurança
-configureSecurityMiddleware()
-
-// Graceful shutdown
-const gracefulShutdown = async (signal: string) => {
-    logger.info(`Received ${signal}, shutting down gracefully...`)
-    try {
-        await api.close()
-        logger.info("HTTP server closed successfully")
-        process.exit(0)
-    } catch (error) {
-        logger.error("Error during shutdown", error)
-        process.exit(1)
-    }
-}
-
-// Capturar sinais de shutdown
-process.on("SIGTERM", () => gracefulShutdown("SIGTERM"))
-process.on("SIGINT", () => gracefulShutdown("SIGINT"))
-
-// Capturar erros não tratados
-process.on("uncaughtException", (error) => {
-    logger.error("Uncaught Exception", error)
-    process.exit(1)
-})
-
-process.on("unhandledRejection", (reason, promise) => {
-    logger.error("Unhandled Rejection", { reason, promise })
-    process.exit(1)
 })

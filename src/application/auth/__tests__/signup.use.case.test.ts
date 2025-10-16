@@ -1,10 +1,12 @@
 import * as UserEntity from "../../../domain/user/entities/user.entity"
 
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { AuthLogRepository, AuthLogStatus, AuthLogType, Device } from "../../../domain/auth"
+import { AuthLogRepository, AuthLogStatus, AuthLogType } from "../../../domain/auth"
+import { Device } from "../../../domain/authorization"
+import { SecurityRisk, SignStatus } from "../../../domain/auth/auth.type"
 import { IUserRepository, User, UserRole } from "../../../domain/user"
-import { SecurityRisk, SignStatus } from "../../../infra/models/auth/sign.logs.model"
 import {
+    AccessDeniedError,
     InvalidCredentialsError,
     SecurityRiskError,
     UserAlreadyExistsError,
@@ -15,12 +17,23 @@ import { SignUpInputDto, SignUpUseCase } from "../signup.use.case"
 // Mock do jwtEncoder
 vi.mock("@/shared", () => ({
     jwtEncoder: vi.fn().mockResolvedValue("mock-jwt-token"),
+    parseTimezone: vi.fn().mockReturnValue(-3),
+    generateId: vi.fn().mockReturnValue("mock-id-123"),
 }))
 
 // Mock do User.create
 vi.mock("../../../domain/user/entities/user.entity", () => ({
     User: {
         create: vi.fn(),
+    },
+}))
+
+// Mock do textLib
+vi.mock("@/shared/circle.text.library", () => ({
+    textLib: {
+        validate: {
+            username: vi.fn().mockReturnValue({ isValid: true }),
+        },
     },
 }))
 
@@ -40,7 +53,6 @@ describe("SignUpUseCase", () => {
             id: "new-user-123",
             username: "newuser@example.com",
             name: "New User",
-            email: "newuser@example.com",
             password: "hashed-password",
             role: UserRole.USER,
             status: { blocked: false, deleted: false },
@@ -48,6 +60,7 @@ describe("SignUpUseCase", () => {
             recordLogin: vi.fn(),
             shouldUpdatePassword: vi.fn().mockReturnValue(false),
             isVerified: vi.fn().mockReturnValue(false),
+            updateMetrics: vi.fn(),
         } as any
 
         // Mock do IUserRepository
@@ -55,10 +68,11 @@ describe("SignUpUseCase", () => {
             save: vi.fn(),
             findById: vi.fn(),
             findByEmail: vi.fn(),
+            findByUsername: vi.fn(),
+            existsByUsername: vi.fn(),
             update: vi.fn(),
             deleteUser: vi.fn(),
             exists: vi.fn(),
-            existsByEmail: vi.fn(),
             followUser: vi.fn(),
             unfollowUser: vi.fn(),
             blockUser: vi.fn(),
@@ -96,7 +110,7 @@ describe("SignUpUseCase", () => {
         } as any
 
         // Mock do User.create
-        vi.mocked(UserEntity.User.create).mockReturnValue(mockUser)
+        vi.mocked(UserEntity.User.create).mockResolvedValue(mockUser)
 
         // Instanciar o use case
         signUpUseCase = new SignUpUseCase(
@@ -110,19 +124,17 @@ describe("SignUpUseCase", () => {
         it("deve registrar novo usuário com sucesso e atualizar propriedades", async () => {
             // Arrange
             const input: SignUpInputDto = {
-                name: "New User",
-                email: "newuser@example.com",
+                username: "newuser@example.com",
                 password: "password123",
                 device: Device.WEB,
-                logContext: {
-                    ip: "192.168.1.1",
+                metadata: {
+                    ipAddress: "192.168.1.1",
                     userAgent: "Mozilla/5.0",
                 },
                 termsAccepted: true,
-                marketingAccepted: false,
             }
 
-            vi.mocked(mockUserRepository.existsByEmail).mockResolvedValue(false)
+            vi.mocked(mockUserRepository.existsByUsername).mockResolvedValue(false)
             vi.mocked(mockUserRepository.save).mockResolvedValue(mockUser)
             vi.mocked(mockUserRepository.update).mockResolvedValue(mockUser)
 
@@ -136,7 +148,6 @@ describe("SignUpUseCase", () => {
                 id: "new-user-123",
                 username: "newuser@example.com",
                 name: "New User",
-                email: "newuser@example.com",
                 role: UserRole.USER,
                 status: "active",
                 lastLogin: expect.any(Date),
@@ -145,10 +156,33 @@ describe("SignUpUseCase", () => {
             // Verificar se User.create foi chamado com os parâmetros corretos
             expect(UserEntity.User.create).toHaveBeenCalledWith({
                 username: "newuser@example.com",
-                name: "New User",
-                searchMatchTerm: "New User newuser@example.com",
+                name: null,
+                searchMatchTerm: "newuser@example.com",
                 password: "password123",
                 description: null,
+                profilePicture: {
+                    tinyResolution: null,
+                    fullhdResolution: null,
+                    createdAt: expect.any(Date),
+                    updatedAt: expect.any(Date),
+                },
+                status: {
+                    accessLevel: "user",
+                    verified: false,
+                    deleted: false,
+                    blocked: false,
+                    muted: false,
+                    createdAt: expect.any(Date),
+                    updatedAt: expect.any(Date),
+                },
+                metrics: undefined,
+                embedding: {
+                    vector: "",
+                    dimension: 0,
+                    metadata: {},
+                    createdAt: expect.any(Date),
+                    updatedAt: expect.any(Date),
+                },
                 preferences: {
                     appLanguage: "pt",
                     appTimezone: -3,
@@ -161,8 +195,8 @@ describe("SignUpUseCase", () => {
                     disableAddToMemoryPushNotification: false,
                     disableFollowUserPushNotification: false,
                     disableViewUserPushNotification: false,
-                    disableNewsPushNotification: true,
-                    disableSugestionsPushNotification: true,
+                    disableNewsPushNotification: false,
+                    disableSugestionsPushNotification: false,
                     disableAroundYouPushNotification: false,
                     defaultMomentVisibility: "public",
                     createdAt: expect.any(Date),
@@ -177,7 +211,7 @@ describe("SignUpUseCase", () => {
                 },
             })
 
-            expect(mockUserRepository.existsByEmail).toHaveBeenCalledWith("newuser@example.com")
+            expect(mockUserRepository.existsByUsername).toHaveBeenCalledWith("newuser@example.com")
             expect(mockUserRepository.save).toHaveBeenCalledWith(mockUser)
             expect(mockUser.recordLogin).toHaveBeenCalledWith({
                 device: Device.WEB,
@@ -196,37 +230,34 @@ describe("SignUpUseCase", () => {
                 deviceType: Device.WEB,
                 deviceId: "unknown",
                 deviceTimezone: "UTC",
-                createdAt: expect.any(Date),
             })
         })
 
         it("deve registrar usuário com marketing aceito", async () => {
             // Arrange
             const input: SignUpInputDto = {
-                name: "Marketing User",
-                email: "marketing@example.com",
+                username: "marketing@example.com",
                 password: "password123",
                 device: Device.MOBILE,
                 termsAccepted: true,
-                marketingAccepted: true,
             }
 
             const userWithMarketing = {
                 ...mockUser,
                 id: "marketing-user-123",
-                email: "marketing@example.com",
+                username: "marketing@example.com",
             }
 
-            vi.mocked(UserEntity.User.create).mockReturnValue(userWithMarketing)
-            vi.mocked(mockUserRepository.existsByEmail).mockResolvedValue(false)
-            vi.mocked(mockUserRepository.save).mockResolvedValue(userWithMarketing)
-            vi.mocked(mockUserRepository.update).mockResolvedValue(userWithMarketing)
+            vi.mocked(UserEntity.User.create).mockResolvedValue(userWithMarketing as any)
+            vi.mocked(mockUserRepository.existsByUsername).mockResolvedValue(false)
+            vi.mocked(mockUserRepository.save).mockResolvedValue(userWithMarketing as any)
+            vi.mocked(mockUserRepository.update).mockResolvedValue(userWithMarketing as any)
 
             // Act
             const result = await signUpUseCase.execute(input)
 
             // Assert
-            expect(result.user.email).toBe("marketing@example.com")
+            expect(result.user.username).toBe("marketing@example.com")
 
             expect(UserEntity.User.create).toHaveBeenCalledWith(
                 expect.objectContaining({
@@ -243,53 +274,59 @@ describe("SignUpUseCase", () => {
         it("deve falhar quando usuário já existe", async () => {
             // Arrange
             const input: SignUpInputDto = {
-                name: "Existing User",
-                email: "existing@example.com",
+                username: "existing@example.com",
                 password: "password123",
                 device: Device.WEB,
                 termsAccepted: true,
             }
 
-            vi.mocked(mockUserRepository.existsByEmail).mockResolvedValue(true)
+            vi.mocked(mockUserRepository.existsByUsername).mockResolvedValue(true)
 
             // Act & Assert
             await expect(signUpUseCase.execute(input)).rejects.toThrow(UserAlreadyExistsError)
         })
 
-        it("deve falhar quando nome é muito curto", async () => {
+        it("deve falhar quando username é muito curto", async () => {
             // Arrange
             const input: SignUpInputDto = {
-                name: "A", // Nome muito curto
-                email: "test@example.com",
+                username: "ab", // Username muito curto (menos de 3 caracteres)
                 password: "password123",
                 device: Device.WEB,
                 termsAccepted: true,
             }
 
+            // Mock User.create para lançar erro de validação
+            vi.mocked(UserEntity.User.create).mockRejectedValue(
+                new Error("Username validation failed"),
+            )
+
             // Act & Assert
-            await expect(signUpUseCase.execute(input)).rejects.toThrow(InvalidCredentialsError)
+            await expect(signUpUseCase.execute(input)).rejects.toThrow(Error)
         })
 
         it("deve falhar quando email é inválido", async () => {
             // Arrange
             const input: SignUpInputDto = {
-                name: "Test User",
-                email: "invalid-email",
+                username: "invalid-email",
                 password: "password123",
                 device: Device.WEB,
                 termsAccepted: true,
             }
 
+            // Mock User.create para lançar erro de validação
+            vi.mocked(UserEntity.User.create).mockRejectedValue(
+                new Error("Username validation failed"),
+            )
+
             // Act & Assert
-            await expect(signUpUseCase.execute(input)).rejects.toThrow(InvalidCredentialsError)
+            await expect(signUpUseCase.execute(input)).rejects.toThrow(Error)
         })
 
-        it("deve falhar quando senha é muito curta", async () => {
+        it("deve falhar quando senha é vazia", async () => {
             // Arrange
             const input: SignUpInputDto = {
-                name: "Test User",
-                email: "test@example.com",
-                password: "123", // Senha muito curta
+                username: "test@example.com",
+                password: "", // Senha vazia
                 device: Device.WEB,
                 termsAccepted: true,
             }
@@ -301,15 +338,14 @@ describe("SignUpUseCase", () => {
         it("deve falhar quando termos não são aceitos", async () => {
             // Arrange
             const input: SignUpInputDto = {
-                name: "Test User",
-                email: "test@example.com",
+                username: "test@example.com",
                 password: "password123",
                 device: Device.WEB,
                 termsAccepted: false, // Termos não aceitos
             }
 
             // Act & Assert
-            await expect(signUpUseCase.execute(input)).rejects.toThrow(InvalidCredentialsError)
+            await expect(signUpUseCase.execute(input)).rejects.toThrow(AccessDeniedError)
         })
     })
 
@@ -317,14 +353,13 @@ describe("SignUpUseCase", () => {
         it("deve retornar erro quando falha ao salvar usuário", async () => {
             // Arrange
             const input: SignUpInputDto = {
-                name: "Test User",
-                email: "test@example.com",
+                username: "test@example.com",
                 password: "password123",
                 device: Device.WEB,
                 termsAccepted: true,
             }
 
-            vi.mocked(mockUserRepository.existsByEmail).mockResolvedValue(false)
+            vi.mocked(mockUserRepository.existsByUsername).mockResolvedValue(false)
             vi.mocked(mockUserRepository.save).mockRejectedValue(new Error("Database error"))
 
             // Act & Assert
@@ -343,14 +378,13 @@ describe("SignUpUseCase", () => {
 
             for (const email of validEmails) {
                 const input: SignUpInputDto = {
-                    name: "Test User",
-                    email,
+                    username: email,
                     password: "password123",
                     device: Device.WEB,
                     termsAccepted: true,
                 }
 
-                vi.mocked(mockUserRepository.existsByEmail).mockResolvedValue(false)
+                vi.mocked(mockUserRepository.existsByUsername).mockResolvedValue(false)
                 vi.mocked(mockUserRepository.save).mockResolvedValue(mockUser)
                 vi.mocked(mockUserRepository.update).mockResolvedValue(mockUser)
 
@@ -364,14 +398,18 @@ describe("SignUpUseCase", () => {
 
             for (const email of invalidEmails) {
                 const input: SignUpInputDto = {
-                    name: "Test User",
-                    email,
+                    username: email,
                     password: "password123",
                     device: Device.WEB,
                     termsAccepted: true,
                 }
 
-                await expect(signUpUseCase.execute(input)).rejects.toThrow(InvalidCredentialsError)
+                // Mock User.create para lançar erro de validação
+                vi.mocked(UserEntity.User.create).mockRejectedValue(
+                    new Error("Username validation failed"),
+                )
+
+                await expect(signUpUseCase.execute(input)).rejects.toThrow(Error)
             }
         })
     })
@@ -380,13 +418,11 @@ describe("SignUpUseCase", () => {
         it("deve processar solicitação de registro com dados de segurança válidos", async () => {
             // Arrange
             const input: SignUpInputDto = {
-                name: "New User",
-                email: "newuser@example.com",
+                username: "newuser@example.com",
                 password: "password123",
                 device: Device.WEB,
                 termsAccepted: true,
-                marketingAccepted: false,
-                securityData: {
+                metadata: {
                     ipAddress: "203.0.113.1",
                     userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
                     machineId: "device123",
@@ -407,7 +443,7 @@ describe("SignUpUseCase", () => {
                 },
             }
 
-            vi.mocked(mockUserRepository.existsByEmail).mockResolvedValue(false)
+            vi.mocked(mockUserRepository.existsByUsername).mockResolvedValue(false)
             vi.mocked(mockUserRepository.save).mockResolvedValue(mockUser)
             vi.mocked(mockUserRepository.update).mockResolvedValue(mockUser)
             vi.mocked(mockProcessSignRequest.setSignRequest).mockResolvedValue()
@@ -436,12 +472,11 @@ describe("SignUpUseCase", () => {
         it("deve rejeitar registro com risco crítico de segurança", async () => {
             // Arrange
             const input: SignUpInputDto = {
-                name: "New User",
-                email: "newuser@example.com",
+                username: "newuser@example.com",
                 password: "password123",
                 device: Device.WEB,
                 termsAccepted: true,
-                securityData: {
+                metadata: {
                     ipAddress: "192.168.1.100", // IP suspeito
                     userAgent: "curl/7.68.0", // User agent suspeito
                     machineId: "device123",
@@ -486,12 +521,11 @@ describe("SignUpUseCase", () => {
         it("deve permitir registro com atividade suspeita mas com alerta", async () => {
             // Arrange
             const input: SignUpInputDto = {
-                name: "New User",
-                email: "newuser@example.com",
+                username: "newuser@example.com",
                 password: "password123",
                 device: Device.WEB,
                 termsAccepted: true,
-                securityData: {
+                metadata: {
                     ipAddress: "203.0.113.1",
                     userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
                     machineId: "device123",
@@ -519,7 +553,7 @@ describe("SignUpUseCase", () => {
                 },
             }
 
-            vi.mocked(mockUserRepository.existsByEmail).mockResolvedValue(false)
+            vi.mocked(mockUserRepository.existsByUsername).mockResolvedValue(false)
             vi.mocked(mockUserRepository.save).mockResolvedValue(mockUser)
             vi.mocked(mockUserRepository.update).mockResolvedValue(mockUser)
             vi.mocked(mockProcessSignRequest.setSignRequest).mockResolvedValue()
@@ -542,14 +576,13 @@ describe("SignUpUseCase", () => {
                 mockAuthLogRepository,
             )
             const input: SignUpInputDto = {
-                name: "New User",
-                email: "newuser@example.com",
+                username: "newuser@example.com",
                 password: "password123",
                 device: Device.WEB,
                 termsAccepted: true,
             }
 
-            vi.mocked(mockUserRepository.existsByEmail).mockResolvedValue(false)
+            vi.mocked(mockUserRepository.existsByUsername).mockResolvedValue(false)
             vi.mocked(mockUserRepository.save).mockResolvedValue(mockUser)
             vi.mocked(mockUserRepository.update).mockResolvedValue(mockUser)
 

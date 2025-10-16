@@ -1,191 +1,213 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import { User } from "@/domain/user/entities/user.entity"
-import { UserMetrics } from "@/domain/user/entities/user.metrics.entity"
-import { IUserMetricsRepository } from "@/domain/user/repositories/user.metrics.repository"
-import { IUserRepository } from "@/domain/user/repositories/user.repository"
-import { ValidationError } from "@/shared/errors/validation.error"
+import { IUserRepository } from "../../../../domain/user/repositories/user.repository"
 import { CreateUserUseCase } from "../create.user.use.case"
 
 describe("CreateUserUseCase", () => {
     let createUserUseCase: CreateUserUseCase
-    let mockUserRepository: jest.Mocked<IUserRepository>
-    let mockUserMetricsRepository: jest.Mocked<IUserMetricsRepository>
+    let mockUserRepository: IUserRepository
 
     beforeEach(() => {
+        vi.clearAllMocks()
+
         mockUserRepository = {
-            create: vi.fn(),
+            save: vi.fn(),
             findById: vi.fn(),
-            findByEmail: vi.fn(),
-            update: vi.fn(),
-            delete: vi.fn(),
-            findMany: vi.fn(),
             findByUsername: vi.fn(),
-            findByPhone: vi.fn(),
-            findBySocialId: vi.fn(),
-        }
-
-        mockUserMetricsRepository = {
-            create: vi.fn(),
-            findByUserId: vi.fn(),
+            existsByUsername: vi.fn(),
             update: vi.fn(),
-            delete: vi.fn(),
-            findAll: vi.fn(),
-            findTopUsers: vi.fn(),
-            findUsersByEngagement: vi.fn(),
-            findUsersByGrowth: vi.fn(),
-        }
+            isBlocked: vi.fn(),
+            isFollowing: vi.fn(),
+            followUser: vi.fn(),
+            unfollowUser: vi.fn(),
+            blockUser: vi.fn(),
+            unblockUser: vi.fn(),
+        } as any
 
-        createUserUseCase = new CreateUserUseCase(mockUserRepository, mockUserMetricsRepository)
+        createUserUseCase = new CreateUserUseCase(mockUserRepository)
     })
 
     describe("execute", () => {
-        it("deve criar um usuário com sucesso", async () => {
+        it("deve retornar erro quando nome é muito curto", async () => {
             // Arrange
-            const input = {
-                email: "test@example.com",
+            const request = {
+                name: "A",
                 username: "testuser",
                 password: "password123",
-                phone: "+1234567890",
-                firstName: "Test",
-                lastName: "User",
-                dateOfBirth: new Date("1990-01-01"),
-                bio: "Test bio",
-                location: "Test City",
-                preferences: {
-                    notifications: true,
-                    privacy: "public",
-                },
             }
-
-            const expectedUser = User.create({
-                email: input.email,
-                username: input.username,
-                password: input.password,
-                phone: input.phone,
-                firstName: input.firstName,
-                lastName: input.lastName,
-                dateOfBirth: input.dateOfBirth,
-                bio: input.bio,
-                location: input.location,
-                preferences: input.preferences,
-            })
-
-            const expectedMetrics = UserMetrics.create(expectedUser.id)
-
-            mockUserRepository.findByEmail.mockResolvedValue(null)
-            mockUserRepository.findByUsername.mockResolvedValue(null)
-            mockUserRepository.create.mockResolvedValue(expectedUser)
-            mockUserMetricsRepository.create.mockResolvedValue(expectedMetrics)
 
             // Act
-            const result = await createUserUseCase.execute(input)
+            const result = await createUserUseCase.execute(request)
 
             // Assert
-            expect(result).toEqual({
-                user: expectedUser,
-                metrics: expectedMetrics,
-            })
-
-            expect(mockUserRepository.findByEmail).toHaveBeenCalledWith(input.email)
-            expect(mockUserRepository.findByUsername).toHaveBeenCalledWith(input.username)
-            expect(mockUserRepository.create).toHaveBeenCalledWith(expect.any(User))
-            expect(mockUserMetricsRepository.create).toHaveBeenCalledWith(expect.any(UserMetrics))
+            expect(result.success).toBe(false)
+            expect(result.error).toBe("Nome deve ter pelo menos 2 caracteres")
+            expect(mockUserRepository.save).not.toHaveBeenCalled()
         })
 
-        it("deve lançar ValidationError quando email já existe", async () => {
+        it("deve retornar erro quando nome está vazio", async () => {
             // Arrange
-            const input = {
-                email: "existing@example.com",
+            const request = {
+                name: "",
                 username: "testuser",
                 password: "password123",
             }
 
-            const existingUser = User.create({
-                email: input.email,
-                username: "otheruser",
-                password: "password123",
-            })
+            // Act
+            const result = await createUserUseCase.execute(request)
 
-            mockUserRepository.findByEmail.mockResolvedValue(existingUser)
-
-            // Act & Assert
-            await expect(createUserUseCase.execute(input)).rejects.toThrow(ValidationError)
-            expect(mockUserRepository.findByEmail).toHaveBeenCalledWith(input.email)
-            expect(mockUserRepository.create).not.toHaveBeenCalled()
+            // Assert
+            expect(result.success).toBe(false)
+            expect(result.error).toBe("Nome deve ter pelo menos 2 caracteres")
         })
 
-        it("deve lançar ValidationError quando username já existe", async () => {
+        it("deve retornar erro quando nome é muito longo", async () => {
             // Arrange
-            const input = {
-                email: "test@example.com",
+            const request = {
+                name: "A".repeat(101),
+                username: "testuser",
+                password: "password123",
+            }
+
+            // Act
+            const result = await createUserUseCase.execute(request)
+
+            // Assert
+            expect(result.success).toBe(false)
+            expect(result.error).toBe("Nome deve ter no máximo 100 caracteres")
+            expect(mockUserRepository.save).not.toHaveBeenCalled()
+        })
+
+        it("deve retornar erro quando username está vazio", async () => {
+            // Arrange
+            const request = {
+                name: "Test User",
+                username: "",
+                password: "password123",
+            }
+
+            // Act
+            const result = await createUserUseCase.execute(request)
+
+            // Assert
+            expect(result.success).toBe(false)
+            expect(result.error).toBe("Username inválido")
+        })
+
+        it("deve retornar erro quando username já está em uso", async () => {
+            // Arrange
+            const request = {
+                name: "Test User",
                 username: "existinguser",
                 password: "password123",
             }
 
-            const existingUser = User.create({
-                email: "other@example.com",
-                username: input.username,
-                password: "password123",
-            })
+            vi.mocked(mockUserRepository.existsByUsername).mockResolvedValue(true)
 
-            mockUserRepository.findByEmail.mockResolvedValue(null)
-            mockUserRepository.findByUsername.mockResolvedValue(existingUser)
+            // Act
+            const result = await createUserUseCase.execute(request)
 
-            // Act & Assert
-            await expect(createUserUseCase.execute(input)).rejects.toThrow(ValidationError)
-            expect(mockUserRepository.findByEmail).toHaveBeenCalledWith(input.email)
-            expect(mockUserRepository.findByUsername).toHaveBeenCalledWith(input.username)
-            expect(mockUserRepository.create).not.toHaveBeenCalled()
+            // Assert
+            expect(result.success).toBe(false)
+            expect(result.error).toBe("Username já está em uso")
+            expect(mockUserRepository.existsByUsername).toHaveBeenCalledWith("existinguser")
+            expect(mockUserRepository.save).not.toHaveBeenCalled()
         })
 
-        it("deve lançar ValidationError quando dados obrigatórios estão faltando", async () => {
+        it("deve retornar erro quando senha é muito curta", async () => {
             // Arrange
-            const input = {
-                email: "",
-                username: "",
+            const request = {
+                name: "Test User",
+                username: "testuser",
+                password: "123",
+            }
+
+            vi.mocked(mockUserRepository.existsByUsername).mockResolvedValue(false)
+
+            // Act
+            const result = await createUserUseCase.execute(request)
+
+            // Assert
+            expect(result.success).toBe(false)
+            expect(result.error).toBe("Senha deve ter pelo menos 6 caracteres")
+            expect(mockUserRepository.save).not.toHaveBeenCalled()
+        })
+
+        it("deve retornar erro quando senha está vazia", async () => {
+            // Arrange
+            const request = {
+                name: "Test User",
+                username: "testuser",
                 password: "",
             }
 
-            // Act & Assert
-            await expect(createUserUseCase.execute(input)).rejects.toThrow(ValidationError)
+            vi.mocked(mockUserRepository.existsByUsername).mockResolvedValue(false)
+
+            // Act
+            const result = await createUserUseCase.execute(request)
+
+            // Assert
+            expect(result.success).toBe(false)
+            expect(result.error).toBe("Senha deve ter pelo menos 6 caracteres")
         })
 
-        it("deve lançar ConflictError quando email é inválido", async () => {
+        it("deve retornar erro quando senha é muito longa", async () => {
             // Arrange
-            const input = {
-                email: "invalid-email",
+            const request = {
+                name: "Test User",
+                username: "testuser",
+                password: "A".repeat(129),
+            }
+
+            vi.mocked(mockUserRepository.existsByUsername).mockResolvedValue(false)
+
+            // Act
+            const result = await createUserUseCase.execute(request)
+
+            // Assert
+            expect(result.success).toBe(false)
+            expect(result.error).toBe("Senha deve ter no máximo 128 caracteres")
+            expect(mockUserRepository.save).not.toHaveBeenCalled()
+        })
+
+        it("deve retornar erro quando bio é muito longa", async () => {
+            // Arrange
+            const request = {
+                name: "Test User",
                 username: "testuser",
                 password: "password123",
+                bio: "A".repeat(501),
             }
 
-            // Act & Assert
-            await expect(createUserUseCase.execute(input)).rejects.toThrow(ValidationError)
+            vi.mocked(mockUserRepository.existsByUsername).mockResolvedValue(false)
+
+            // Act
+            const result = await createUserUseCase.execute(request)
+
+            // Assert
+            expect(result.success).toBe(false)
+            expect(result.error).toBe("Bio deve ter no máximo 500 caracteres")
+            expect(mockUserRepository.save).not.toHaveBeenCalled()
         })
 
-        it("deve lançar ValidationError quando senha é muito fraca", async () => {
+        it("deve retornar erro quando URL da foto de perfil é inválida", async () => {
             // Arrange
-            const input = {
-                email: "test@example.com",
-                username: "testuser",
-                password: "123", // Senha muito fraca
-            }
-
-            // Act & Assert
-            await expect(createUserUseCase.execute(input)).rejects.toThrow(ValidationError)
-        })
-
-        it("deve lançar ValidationError quando usuário é menor de idade", async () => {
-            // Arrange
-            const input = {
-                email: "test@example.com",
+            const request = {
+                name: "Test User",
                 username: "testuser",
                 password: "password123",
-                dateOfBirth: new Date(Date.now() - 16 * 365 * 24 * 60 * 60 * 1000), // 16 anos
+                profilePicture: "invalid-url",
             }
 
-            // Act & Assert
-            await expect(createUserUseCase.execute(input)).rejects.toThrow(ValidationError)
+            vi.mocked(mockUserRepository.existsByUsername).mockResolvedValue(false)
+
+            // Act
+            const result = await createUserUseCase.execute(request)
+
+            // Assert
+            expect(result.success).toBe(false)
+            expect(result.error).toBe("URL da foto de perfil inválida")
+            expect(mockUserRepository.save).not.toHaveBeenCalled()
         })
     })
 })

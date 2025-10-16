@@ -1,7 +1,7 @@
 import { ErrorCode, NotFoundError, ValidationError } from "@/shared/errors"
 import { JWTPayload, SignJWT } from "jose"
 
-import { Device } from "@/domain/authorization/authorization.type"
+import { Device, Level } from "@/domain/authorization/authorization.type"
 import UserModel from "@/infra/models/user/user.model"
 
 interface JwtConfig {
@@ -14,13 +14,15 @@ interface JwtConfig {
 interface JwtPayload extends JWTPayload {
     sub: string
     device: Device
-    role: string
+    level: Level
+    tz: number // Timezone offset em horas (ex: -3, 0, +5)
 }
 
 interface JwtEncoderParams {
     userId: string
     device: Device
-    role: string
+    level: string
+    timezone?: number // Timezone offset em horas (opcional)
 }
 
 let jwtConfig: JwtConfig | null = null
@@ -28,28 +30,10 @@ let jwtConfig: JwtConfig | null = null
 function getJwtConfig(): JwtConfig {
     // Sempre recriar a configuração para evitar cache durante testes
     const config = {
-        secret: process.env.JWT_SECRET!,
-        issuer: process.env.JWT_ISSUER!,
-        audience: process.env.JWT_AUDIENCE!,
+        secret: process.env.JWT_SECRET || "giIOw90192Gkdzc463FF4rhgwrdghdftt",
+        issuer: process.env.JWT_ISSUER || "circle.company",
+        audience: process.env.JWT_AUDIENCE || "circle.company",
         expiresIn: Number(process.env.JWT_EXPIRES) || 3600, // Default 1 hora
-    }
-
-    // Validação das variáveis obrigatórias
-    if (!config.secret || !config.issuer || !config.audience) {
-        throw new ValidationError({
-            message: "JWT configuration is incomplete",
-            code: ErrorCode.CONFIGURATION_ERROR,
-            action: "Check JWT environment variables (JWT_SECRET, JWT_ISSUER, JWT_AUDIENCE)",
-            context: {
-                additionalData: {
-                    missingVars: [
-                        !config.secret && "JWT_SECRET",
-                        !config.issuer && "JWT_ISSUER",
-                        !config.audience && "JWT_AUDIENCE",
-                    ].filter(Boolean),
-                },
-            },
-        })
     }
 
     // Cache apenas em produção
@@ -80,7 +64,8 @@ function validateDevice(device: Device): void {
 function createJwtPayload(
     userId: string,
     device: Device,
-    role: string,
+    level: Level,
+    timezone: number,
     config: JwtConfig,
 ): JwtPayload {
     const now = Math.floor(Date.now() / 1000)
@@ -88,7 +73,8 @@ function createJwtPayload(
     return {
         sub: userId,
         device,
-        role,
+        level,
+        tz: timezone,
         iat: now,
         exp: now + config.expiresIn,
         iss: config.issuer,
@@ -105,15 +91,24 @@ function createJwtPayload(
  * @throws {ValidationError} - Quando usuário não encontrado ou dispositivo inválido
  * @throws {Error} - Quando há erro na geração do token
  */
-export async function jwtEncoder({ userId, device, role }: JwtEncoderParams): Promise<string> {
+export async function jwtEncoder({
+    userId,
+    device,
+    level,
+    timezone = 0,
+}: JwtEncoderParams): Promise<string> {
     try {
+        // Normalizar device e level para UPPERCASE
+        const normalizedDevice = (device as string).toUpperCase() as Device
+        const normalizedLevel = (level as string).toUpperCase() as Level
+
         // Validação prévia do dispositivo (sem I/O)
-        validateDevice(device)
+        validateDevice(normalizedDevice)
 
         // Obter configurações primeiro (com validação)
         const config = getJwtConfig()
 
-        // Verificação assíncrona do usuário (única consulta ao banco)
+        // Verificação assíncrona do usuário (busca apenas o ID)
         const user = await UserModel.findByPk(userId, {
             attributes: ["id"], // Busca apenas o ID
         })
@@ -132,8 +127,20 @@ export async function jwtEncoder({ userId, device, role }: JwtEncoderParams): Pr
             })
         }
 
-        // Criar payload simples
-        const payload = createJwtPayload(userId, device, role, config)
+        // Obter timezone do usuário ou usar o fornecido
+        let userTimezone = timezone
+        if (user && (user as any).preferences?.appTimezone !== undefined) {
+            userTimezone = (user as any).preferences.appTimezone
+        }
+
+        // Criar payload com level, device e timezone normalizados
+        const payload = createJwtPayload(
+            userId,
+            normalizedDevice,
+            normalizedLevel,
+            userTimezone,
+            config,
+        )
         const now = Math.floor(Date.now() / 1000)
 
         // Gerar token com JOSE (mais seguro que jsonwebtoken)
@@ -153,9 +160,6 @@ export async function jwtEncoder({ userId, device, role }: JwtEncoderParams): Pr
         if (error instanceof ValidationError || error instanceof NotFoundError) {
             throw error
         }
-
-        // Log e wrap outros erros como SystemError
-        console.error("JWT encoding error:", error)
         throw new ValidationError({
             message: "Failed to generate JWT token",
             code: ErrorCode.INTERNAL_ERROR,

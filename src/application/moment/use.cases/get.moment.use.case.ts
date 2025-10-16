@@ -1,3 +1,4 @@
+import { IUserRepository } from "@/domain/user"
 import { IMomentRepository, MomentEntity } from "../../../domain/moment"
 
 import { MomentService } from "../services/moment.service"
@@ -16,6 +17,7 @@ export interface GetMomentResponse {
 
 export class GetMomentUseCase {
     constructor(
+        private readonly userRepository: IUserRepository,
         private readonly momentRepository: IMomentRepository,
         private readonly momentService: MomentService,
     ) {}
@@ -26,17 +28,18 @@ export class GetMomentUseCase {
             if (!request.momentId) {
                 return {
                     success: false,
-                    error: "ID do momento é obrigatório",
+                    error: "Moment ID is required",
                 }
             }
 
             // Buscar o momento
             const moment = await this.momentService.getMomentById(request.momentId)
+            moment?.isViewable(request.userId!, this.userRepository, moment.ownerId, request.userId)
 
             if (!moment) {
                 return {
                     success: false,
-                    error: "Momento não encontrado",
+                    error: "Moment not found",
                 }
             }
 
@@ -55,19 +58,27 @@ export class GetMomentUseCase {
         } catch (error) {
             return {
                 success: false,
-                error: error instanceof Error ? error.message : "Erro interno do servidor",
+                error: error instanceof Error ? error.message : "Internal server error",
             }
         }
     }
 
-    private canViewMoment(moment: MomentEntity, userId?: string): boolean {
+    private async canViewMoment(moment: MomentEntity, userId?: string): Promise<boolean> {
         // Se não há usuário logado, só pode ver momentos públicos
         if (!userId) {
             return moment.visibility.level === "public"
         }
 
+        const owner = await this.userRepository.findById(moment.ownerId)
+        const requestingUser = await this.userRepository.findById(userId)
+        // if (moment.visibility.ageRestriction && !requestingUser?.) return false
+        // if (moment.visibility.contentWarning && !requestingUser?.canViewContentWarning()) return false
+
+        if (requestingUser?.hasViewingRestrictions()) return false
+        if (requestingUser?.canViewMoments()) return true
+
         // Se é o dono do momento, pode ver sempre
-        if (moment.ownerId === userId) {
+        if (owner?.id === userId) {
             return true
         }
 
@@ -76,9 +87,7 @@ export class GetMomentUseCase {
             case "public":
                 return true
             case "followers_only":
-                // Aqui deveria verificar se o usuário segue o dono
-                // Por enquanto, assumindo que pode ver
-                return true
+                return await this.userRepository.isFollowing(userId, moment.ownerId)
             case "private":
                 return moment.visibility.allowedUsers?.includes(userId) || false
             case "unlisted":

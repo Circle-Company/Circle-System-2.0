@@ -7,7 +7,7 @@
 
 import { IUserRepository, User } from "@/domain/user"
 
-import { CircleText } from "circle-text-library"
+import { textLib } from "@/shared"
 
 export interface CreateUserRequest {
     name: string
@@ -158,8 +158,7 @@ export class CreateUserUseCase {
     }
 
     private isValidUsername(username: string): boolean {
-        const circleTextLibrary = new CircleText()
-        return circleTextLibrary.validate.username(username).isValid
+        return textLib.validator.username(username).isValid
     }
 
     private isValidUrl(url: string): boolean {

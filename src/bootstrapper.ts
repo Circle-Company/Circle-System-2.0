@@ -1,9 +1,13 @@
 import { api } from "@/infra/api"
 import { DatabaseAdapterFactory } from "@/infra/database"
+import { MomentFactory } from "@/infra/factories/moment.factory"
+import { EmbeddingsWorker } from "@/infra/queue/embeddings.worker"
 import { initialize as initializeRoutes } from "@/infra/routes"
 import { setupSwagger } from "@/infra/swagger"
 import { resetSwaggerRegistration } from "@/infra/swagger/swagger.config"
 import { logger } from "@/shared/logger"
+import fastifyStatic from "@fastify/static"
+import path from "path"
 
 /**
  * Configurações de ambiente da aplicação
@@ -69,10 +73,11 @@ export class ApplicationBootstrapper {
         process.env.NODE_ENV || "development",
     )
     private status: AppStatus = AppStatus.INITIALIZING
-    private metrics: BootMetrics
+    private metrics: BootMetrics | null
     private healthCheckInterval?: NodeJS.Timeout
     private shutdownTimeout?: NodeJS.Timeout
     private isShuttingDown = false
+    private embeddingsWorker?: EmbeddingsWorker
 
     constructor() {
         this.config = this.loadConfiguration()
@@ -149,25 +154,27 @@ export class ApplicationBootstrapper {
     /**
      * Inicializa métricas de boot
      */
-    private initializeMetrics(): BootMetrics {
-        return {
-            startTime: Date.now(),
-            steps: [],
+    private initializeMetrics(): BootMetrics | null {
+        if (process.env.ENABLE_METRICS) {
+            return {
+                startTime: Date.now(),
+                steps: [],
+            }
         }
+        return null
     }
 
     /**
-     * Verifica se os logs de inicialização devem ser exibidos
+     * Verifica se os logs de inicialização devem ser exibidos no console
      */
     private shouldLog(): boolean {
-        return (
-            this.config.enableConsoleLogs &&
-            (this.config.environment === "development" || this.config.environment === "test")
-        )
+        // Respeita a variável ENABLE_CONSOLE_LOGS
+        return this.config.enableConsoleLogs
     }
 
     /**
      * Sistema de logging profissional
+     * Respeita as variáveis de ambiente ENABLE_LOGGER e ENABLE_CONSOLE_LOGS
      */
     private log(level: "info" | "warn" | "error", message: string, data?: any): void {
         const logData = {
@@ -177,21 +184,31 @@ export class ApplicationBootstrapper {
             ...data,
         }
 
+        const enableLogger = process.env.ENABLE_LOGGER !== "false"
+        const shouldLogToConsole = this.shouldLog()
+
         switch (level) {
             case "info":
-                logger.info(message, logData)
-                if (this.shouldLog()) {
+                if (enableLogger) {
+                    logger.info(message, logData)
+                }
+                if (shouldLogToConsole) {
                     console.log(`${message}`, data ? data : "")
                 }
                 break
             case "warn":
-                logger.warn(message, logData)
-                if (this.shouldLog()) {
+                if (enableLogger) {
+                    logger.warn(message, logData)
+                }
+                if (shouldLogToConsole) {
                     console.warn(`⚠️ ${message}`, data ? data : "")
                 }
                 break
             case "error":
-                logger.error(message, logData)
+                if (enableLogger) {
+                    logger.error(message, logData)
+                }
+                // Erros sempre são exibidos no console para garantir visibilidade
                 console.error(`❌ ${message}`, data ? data : "")
                 break
         }
@@ -232,7 +249,9 @@ export class ApplicationBootstrapper {
 
             throw error
         } finally {
-            this.metrics.steps.push(step)
+            if (this.metrics) {
+                this.metrics.steps.push(step)
+            }
         }
     }
 
@@ -248,11 +267,15 @@ export class ApplicationBootstrapper {
             })
 
             // Etapas do boot
-            await this.executeBootStep("Environment Validation", () => this.validateEnvironment())
             await this.executeBootStep("Database Connection", () => this.connectDatabase())
+            await this.executeBootStep("Multipart Configuration", () => this.configureMultipart())
+            await this.executeBootStep("Static Files Setup", () => this.setupStaticFiles())
             await this.executeBootStep("Routes Setup", () => this.setupRoutes())
             await this.executeBootStep("Swagger Setup", () => this.setupSwagger())
             await this.executeBootStep("Server Startup", () => this.startServer())
+            await this.executeBootStep("Embeddings Worker Startup", () =>
+                this.startEmbeddingsWorker(),
+            )
             await this.executeBootStep("Graceful Shutdown Setup", () =>
                 this.setupGracefulShutdown(),
             )
@@ -268,16 +291,17 @@ export class ApplicationBootstrapper {
 
             this.status = AppStatus.RUNNING
             this.finalizeBootMetrics()
-
-            this.log("info", "🎉 Application bootstrap completed successfully", {
-                totalDuration: `${this.metrics.duration}ms`,
-                stepsCompleted: this.metrics.steps.length,
-            })
+            if (this.metrics) {
+                this.log("info", "🎉 Application bootstrap completed successfully", {
+                    totalDuration: `${this.metrics.duration}ms`,
+                    stepsCompleted: this.metrics.steps.length,
+                })
+            }
         } catch (error) {
             this.status = AppStatus.ERROR
             this.log("error", "💥 Application bootstrap failed", {
                 error: (error as Error).message,
-                stepsCompleted: this.metrics.steps.length,
+                stepsCompleted: this.metrics?.steps.length,
             })
 
             await this.shutdown()
@@ -286,13 +310,16 @@ export class ApplicationBootstrapper {
     }
 
     /**
-     * Valida configurações do ambiente
+     * Verifica configurações de multipart/form-data
+     *
+     * Nota: O suporte a multipart já é configurado automaticamente
+     * durante a criação do adapter HTTP (veja http.factory.ts)
      */
-    private async validateEnvironment(): Promise<void> {
-        // Validações já feitas no construtor, mas pode ser expandido
-        this.log("info", "Environment validation passed", {
-            port: this.config.port,
-            environment: this.config.environment,
+    private async configureMultipart(): Promise<void> {
+        this.log("info", "Multipart/form-data support enabled", {
+            maxFileSize: "500MB",
+            maxFiles: 10,
+            maxFieldSize: "10MB",
         })
     }
 
@@ -335,11 +362,47 @@ export class ApplicationBootstrapper {
     }
 
     /**
+     * Configura servir arquivos estáticos (uploads)
+     */
+    private async setupStaticFiles(): Promise<void> {
+        try {
+            const fastifyInstance = (api as any).getFastifyInstance?.()
+
+            if (!fastifyInstance) {
+                throw new Error("Fastify instance not available")
+            }
+
+            // Registrar plugin para servir arquivos estáticos
+            await fastifyInstance.register(fastifyStatic, {
+                root: path.join(process.cwd(), "uploads"),
+                prefix: "/uploads/",
+                constraints: {},
+            })
+
+            this.log("info", "Static files configured", {
+                root: path.join(process.cwd(), "uploads"),
+                prefix: "/uploads/",
+            })
+        } catch (error) {
+            this.log("error", "Failed to configure static files", {
+                error: (error as Error).message,
+            })
+            throw error
+        }
+    }
+
+    /**
      * Configura as rotas da aplicação
      */
     private async setupRoutes(): Promise<void> {
-        await initializeRoutes(api)
-        this.log("info", "Routes configured successfully")
+        this.log("info", "🚀 Iniciando configuração de rotas...")
+        try {
+            await initializeRoutes(api)
+            this.log("info", "✅ Routes configured successfully")
+        } catch (error) {
+            this.log("error", "❌ Erro ao configurar rotas", { error: (error as Error).message })
+            throw error
+        }
     }
 
     /**
@@ -350,12 +413,31 @@ export class ApplicationBootstrapper {
             // Resetar flag para evitar decorador duplicado
             resetSwaggerRegistration()
 
-            await setupSwagger(api as any, {
+            // Criar adapter estendido com suporte ao Fastify
+            const swaggerAdapter = {
+                ...api,
+                registerPlugin: (api as any).registerPlugin?.bind(api),
+                fastify: (api as any).getFastifyInstance?.(),
+                log: {
+                    info: (message: string, ...args: any[]) => this.log("info", message, args[0]),
+                    error: (message: string, ...args: any[]) => this.log("error", message, args[0]),
+                    debug: (message: string, ...args: any[]) => {
+                        if (this.shouldLog()) {
+                            console.log(`🐛 ${message}`, args[0] || "")
+                        }
+                    },
+                },
+            }
+
+            await setupSwagger(swaggerAdapter, {
                 enableAutoGeneration: true,
                 customSchemas: {},
                 customTags: [],
             })
-            this.log("info", "Swagger documentation configured successfully")
+
+            this.log("info", "Swagger documentation configured successfully", {
+                docsUrl: `http://localhost:${this.config.port}/docs`,
+            })
         } catch (error) {
             this.log("error", "Failed to configure Swagger", { error: (error as Error).message })
             throw error
@@ -373,6 +455,26 @@ export class ApplicationBootstrapper {
             environment: this.config.environment,
             url: `http://localhost:${this.config.port}`,
         })
+    }
+
+    /**
+     * Inicia o worker de embeddings
+     */
+    private async startEmbeddingsWorker(): Promise<void> {
+        try {
+            const momentRepository = MomentFactory.createMomentRepository(this.databaseAdapter)
+            this.embeddingsWorker = new EmbeddingsWorker(momentRepository)
+            this.embeddingsWorker.start()
+
+            this.log("info", "Embeddings worker started successfully", {
+                scheduleTime: process.env.EMBEDDINGS_SCHEDULE_TIME || "01:00",
+            })
+        } catch (error) {
+            this.log("error", "Failed to start embeddings worker", {
+                error: (error as Error).message,
+            })
+            // Não throw error - worker é opcional
+        }
     }
 
     /**
@@ -400,8 +502,6 @@ export class ApplicationBootstrapper {
             })
             this.shutdown().then(() => process.exit(1))
         })
-
-        this.log("info", "Graceful shutdown handlers configured")
     }
 
     /**
@@ -454,17 +554,19 @@ export class ApplicationBootstrapper {
      * Finaliza métricas de boot
      */
     private finalizeBootMetrics(): void {
-        this.metrics.endTime = Date.now()
-        this.metrics.duration = this.metrics.endTime - this.metrics.startTime
+        if (this.metrics) {
+            this.metrics.endTime = Date.now()
+            this.metrics.duration = this.metrics.endTime - this.metrics.startTime
 
-        if (this.config.enableMetrics) {
-            this.log("info", "Boot metrics collected", {
-                totalDuration: `${this.metrics.duration}ms`,
-                stepsCount: this.metrics.steps.length,
-                averageStepDuration: `${Math.round(
-                    this.metrics.duration / this.metrics.steps.length,
-                )}ms`,
-            })
+            if (this.config.enableMetrics) {
+                this.log("info", "Boot metrics collected", {
+                    totalDuration: `${this.metrics.duration}ms`,
+                    stepsCount: this.metrics.steps.length,
+                    averageStepDuration: `${Math.round(
+                        this.metrics.duration / this.metrics.steps.length,
+                    )}ms`,
+                })
+            }
         }
     }
 
@@ -495,6 +597,12 @@ export class ApplicationBootstrapper {
             if (this.healthCheckInterval) {
                 clearInterval(this.healthCheckInterval)
                 this.log("info", "Health check stopped")
+            }
+
+            // Parar embeddings worker
+            if (this.embeddingsWorker) {
+                await this.embeddingsWorker.stop()
+                this.log("info", "Embeddings worker stopped")
             }
 
             // Desconectar do banco
@@ -542,8 +650,8 @@ export class ApplicationBootstrapper {
     /**
      * Obtém métricas de boot
      */
-    getMetrics(): BootMetrics {
-        return { ...this.metrics }
+    getMetrics(): BootMetrics | null {
+        return this.metrics ? { ...this.metrics } : null
     }
 
     /**

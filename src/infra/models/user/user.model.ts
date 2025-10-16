@@ -10,6 +10,8 @@ export interface UserAttributes {
     old_encrypted_password?: string | null
     description?: string | null
     last_password_updated_at?: Date | string | null
+    created_at?: Date | string
+    updated_at?: Date | string
 }
 
 export default class User extends Model<UserAttributes> implements UserAttributes {
@@ -21,6 +23,8 @@ export default class User extends Model<UserAttributes> implements UserAttribute
     public old_encrypted_password?: string | null
     public description?: string | null
     public last_password_updated_at!: Date | string | null
+    public created_at!: Date | string
+    public updated_at!: Date | string
     static initialize(sequelize: Sequelize) {
         User.init(
             {
@@ -70,6 +74,8 @@ export default class User extends Model<UserAttributes> implements UserAttribute
                 modelName: "User",
                 tableName: "users",
                 timestamps: true,
+                createdAt: "created_at",
+                updatedAt: "updated_at",
                 indexes: [
                     {
                         fields: ["search_match_term"],
@@ -165,8 +171,8 @@ export default class User extends Model<UserAttributes> implements UserAttribute
             })
         }
 
-        if (models.UserTerms) {
-            this.hasOne(models.UserTerms, {
+        if (models.UserTerm) {
+            this.hasOne(models.UserTerm, {
                 foreignKey: "user_id",
                 as: "terms",
             })

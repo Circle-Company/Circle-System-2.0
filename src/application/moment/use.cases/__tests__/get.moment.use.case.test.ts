@@ -228,7 +228,7 @@ describe("GetMomentUseCase", () => {
 
             // Assert
             expect(result.success).toBe(false)
-            expect(result.error).toBe("Momento não encontrado")
+            expect(result.error).toBe("Moment not found")
             expect(result.moment).toBeUndefined()
         })
 
@@ -243,7 +243,7 @@ describe("GetMomentUseCase", () => {
 
             // Assert
             expect(result.success).toBe(false)
-            expect(result.error).toBe("ID do momento é obrigatório")
+            expect(result.error).toBe("Moment ID is required")
             expect(result.moment).toBeUndefined()
             expect(mockMomentService.getMomentById).not.toHaveBeenCalled()
         })

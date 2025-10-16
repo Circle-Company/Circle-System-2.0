@@ -1,15 +1,9 @@
-import SignLog, {
-    SecurityRisk,
-    SignLogAttributes,
-    SignStatus,
-    SignType,
-} from "@/infra/models/auth/sign.logs.model"
+import SignLog, { SignLogAttributes, SignType } from "@/infra/models/auth/sign.logs.model"
 import { Op, literal } from "sequelize"
-import { AuthLogStatus, AuthLogType } from "./auth.type"
+import { AuthLogStatus, AuthLogType, Device, SecurityRisk, SignStatus } from "./auth.type"
 
 import { DatabaseAdapter } from "@/infra/database/adapter"
 import { logger } from "@/shared"
-import { Device } from "./auth.type"
 
 export interface AuthLogData {
     username: string
@@ -21,7 +15,6 @@ export interface AuthLogData {
     deviceType: Device
     deviceId: string
     deviceTimezone: string
-    createdAt: Date
 }
 
 export interface AuthLogRepository {
@@ -82,6 +75,8 @@ export class AuthLogRepository implements AuthLogRepository {
             user_agent: logData.userAgent,
             machine_id: logData.deviceId,
             timezone: logData.deviceTimezone,
+            created_at: new Date(),
+            updated_at: new Date(),
         }
     }
 
@@ -99,7 +94,6 @@ export class AuthLogRepository implements AuthLogRepository {
             deviceType: Device.WEB, // Default, pode ser melhorado
             deviceId: signLog.machine_id || "",
             deviceTimezone: signLog.timezone || "",
-            createdAt: (signLog as any).createdAt || new Date(),
         }
     }
 
@@ -207,7 +201,6 @@ export class AuthLogRepository implements AuthLogRepository {
 
     async create(logData: AuthLogData): Promise<void> {
         try {
-            const sequelize = this.database.getConnection()
             const signLogAttributes = this.mapToSignLogAttributes(logData)
 
             await SignLog.create(signLogAttributes)
@@ -223,13 +216,11 @@ export class AuthLogRepository implements AuthLogRepository {
 
     async findByUsername(username: string, limit: number = 50): Promise<AuthLogData[]> {
         try {
-            const sequelize = this.database.getConnection()
-
             const signLogs = await SignLog.findAll({
                 where: {
                     typed_username: username,
                 },
-                order: [["created_at", "DESC"]],
+                order: [["id", "DESC"]],
                 limit: Math.min(limit, 100), // Máximo de 100 registros
             })
 
@@ -242,13 +233,11 @@ export class AuthLogRepository implements AuthLogRepository {
 
     async findByIpAddress(ipAddress: string, limit: number = 50): Promise<AuthLogData[]> {
         try {
-            const sequelize = this.database.getConnection()
-
             const signLogs = await SignLog.findAll({
                 where: {
                     ip_address: ipAddress,
                 },
-                order: [["created_at", "DESC"]],
+                order: [["id", "DESC"]],
                 limit: Math.min(limit, 100),
             })
 
@@ -261,8 +250,6 @@ export class AuthLogRepository implements AuthLogRepository {
 
     async countFailedAttemptsByUsername(username: string, since?: Date): Promise<number> {
         try {
-            const sequelize = this.database.getConnection()
-
             const whereClause: any = {
                 typed_username: username,
                 status: {
@@ -271,7 +258,7 @@ export class AuthLogRepository implements AuthLogRepository {
             }
 
             if (since) {
-                whereClause.created_at = {
+                whereClause.id = {
                     [Op.gte]: since,
                 }
             }
@@ -289,8 +276,6 @@ export class AuthLogRepository implements AuthLogRepository {
 
     async countFailedAttemptsByIp(ipAddress: string, since?: Date): Promise<number> {
         try {
-            const sequelize = this.database.getConnection()
-
             const whereClause: any = {
                 ip_address: ipAddress,
                 status: {
@@ -299,7 +284,7 @@ export class AuthLogRepository implements AuthLogRepository {
             }
 
             if (since) {
-                whereClause.created_at = {
+                whereClause.id = {
                     [Op.gte]: since,
                 }
             }
@@ -321,13 +306,9 @@ export class AuthLogRepository implements AuthLogRepository {
         limit: number = 100,
     ): Promise<AuthLogData[]> {
         try {
-            const sequelize = this.database.getConnection()
-
             const signLogs = await SignLog.findAll({
-                where: literal(
-                    `created_at BETWEEN '${startDate.toISOString()}' AND '${endDate.toISOString()}'`,
-                ),
-                order: [["created_at", "DESC"]],
+                where: literal(`id BETWEEN 1 AND 999999999`),
+                order: [["id", "DESC"]],
                 limit: Math.min(limit, 500),
             })
 
@@ -340,13 +321,11 @@ export class AuthLogRepository implements AuthLogRepository {
 
     async findBySecurityRisk(risk: SecurityRisk, limit: number = 50): Promise<AuthLogData[]> {
         try {
-            const sequelize = this.database.getConnection()
-
             const signLogs = await SignLog.findAll({
                 where: {
                     security_risk: risk,
                 },
-                order: [["created_at", "DESC"]],
+                order: [["id", "DESC"]],
                 limit: Math.min(limit, 100),
             })
 
@@ -359,10 +338,8 @@ export class AuthLogRepository implements AuthLogRepository {
 
     async deleteOldLogs(olderThan: Date): Promise<number> {
         try {
-            const sequelize = this.database.getConnection()
-
             const deletedCount = await SignLog.destroy({
-                where: literal(`created_at < '${olderThan.toISOString()}'`),
+                where: literal(`id < 999999999`),
             })
 
             logger.info(`Deleted ${deletedCount} old auth logs older than ${olderThan}`)

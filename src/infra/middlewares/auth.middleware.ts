@@ -22,45 +22,54 @@ export class AuthServiceImpl implements AuthService {
     constructor(private userRepository: UserRepositoryInterface) {}
 
     async authenticate(token: string): Promise<AuthenticatedUser> {
-        // Decodificar e validar o JWT
-        const payload = await jwtDecoder(token)
+        try {
+            // Decodificar e validar o JWT
+            const payload = await jwtDecoder(token)
+            const user = await this.userRepository.findById(payload.sub)
 
-        // Buscar usuário no banco de dados
-        const user = await this.userRepository.findById(payload.sub)
-
-        if (!user) {
-            throw new ValidationError({
-                message: "Usuário não encontrado",
-                code: ErrorCode.USER_NOT_FOUND,
-                action: "Verifique se o usuário existe",
-                context: {
-                    additionalData: {
-                        userId: payload.sub,
+            if (!user) {
+                console.error(`User not found with ID: ${payload.sub}`)
+                throw new ValidationError({
+                    message: "User not found",
+                    code: ErrorCode.USER_NOT_FOUND,
+                    action: "Verify if the user exists",
+                    context: {
+                        additionalData: {
+                            userId: payload.sub,
+                        },
                     },
-                },
-            })
-        }
+                })
+            }
 
-        // Verificar se o usuário está bloqueado ou deletado pelo sistema
-        if (user.status?.blocked || user.status?.deleted) {
-            throw new ValidationError({
-                message: "Usuário bloqueado ou deletado pelo sistema.",
-                code: ErrorCode.OPERATION_NOT_ALLOWED,
-                action: "Contate o suporte para mais informações.",
-                context: {
-                    additionalData: {
-                        userId: payload.sub,
-                        status: user.status,
+            // Verificar se o usuário está bloqueado ou deletado pelo sistema
+            if (user.status?.blocked || user.status?.deleted) {
+                console.warn(`User ${user.id} is blocked or deleted`)
+                throw new ValidationError({
+                    message: "User blocked or deleted by system",
+                    code: ErrorCode.OPERATION_NOT_ALLOWED,
+                    action: "Contact support for more information",
+                    context: {
+                        additionalData: {
+                            userId: payload.sub,
+                            status: user.status,
+                        },
                     },
-                },
-            })
-        }
+                })
+            }
 
-        // Retornar dados do usuário autenticado
-        return {
-            id: payload.sub,
-            device: payload.device as unknown as Device,
-            level: user.status?.accessLevel as unknown as Level,
+            // Retornar dados do usuário autenticado
+            // jwtDecoder já retorna level, device e timezone normalizados
+            const authenticatedUser: AuthenticatedUser = {
+                id: payload.sub, // Manter como string para compatibilidade
+                device: payload.device,
+                level: payload.level as Level,
+                timezone: payload.tz, // Timezone offset em horas
+            }
+
+            return authenticatedUser
+        } catch (error) {
+            console.error("Authentication service error:", error)
+            throw error
         }
     }
 }
@@ -71,45 +80,30 @@ export class AuthMiddleware {
         try {
             // Extrair token do header Authorization
             const authHeader = request.headers.authorization
+
             if (!authHeader || !authHeader.startsWith("Bearer ")) {
                 response.status(401).send({
                     success: false,
-                    error: {
-                        message: "Token de autenticação necessário",
-                        code: "AUTHENTICATION_REQUIRED",
-                        timestamp: new Date().toISOString(),
-                    },
+                    message: "Authentication token required",
+                    code: "AUTHENTICATION_REQUIRED",
                 })
                 return
             }
 
             const token = authHeader.substring(7) // Remove "Bearer "
-
-            // Autenticar usuário usando o serviço
             const authenticatedUser = await this.authService.authenticate(token)
 
             // Adicionar usuário ao request
             request.user = authenticatedUser
         } catch (error: any) {
-            if (error instanceof ValidationError) {
-                response.status(403).send({
-                    success: false,
-                    error: {
-                        message: error.message,
-                        code: error.code,
-                        timestamp: new Date().toISOString(),
-                    },
-                })
-            } else {
-                response.status(401).send({
-                    success: false,
-                    error: {
-                        message: "Erro de autenticação",
-                        code: "AUTH_ERROR",
-                        timestamp: new Date().toISOString(),
-                    },
-                })
-            }
+            console.error("Authentication middleware error:", error.message)
+
+            response.status(401).send({
+                success: false,
+                message: error.message || "Authentication failed",
+                code: error.code || "AUTH_ERROR",
+            })
+            return
         }
     }
 }
@@ -138,11 +132,9 @@ export function authMiddleware(
             if (!authHeader || !authHeader.startsWith("Bearer ")) {
                 response.status(401).send({
                     success: false,
-                    error: {
-                        message: "Token de autenticação necessário",
-                        code: "AUTHENTICATION_REQUIRED",
-                        timestamp: new Date().toISOString(),
-                    },
+                    error: "Token de autenticação necessário",
+                    code: "AUTHENTICATION_REQUIRED",
+                    timestamp: new Date().toISOString(),
                 })
                 return
             }
@@ -155,17 +147,15 @@ export function authMiddleware(
             // Criar instância do repositório com o adapter
             const userRepository = new UserRepositoryImpl(databaseAdapter)
 
-            // Buscar usuário no banco de dados
+            // Buscar usuário no banco de dados usando o ID como string
             const user = await userRepository.findById(payload.sub)
 
             if (!user) {
                 response.status(401).send({
                     success: false,
-                    error: {
-                        message: "Usuário não encontrado",
-                        code: "USER_NOT_FOUND",
-                        timestamp: new Date().toISOString(),
-                    },
+                    error: "Usuário não encontrado",
+                    code: "USER_NOT_FOUND",
+                    timestamp: new Date().toISOString(),
                 })
                 return
             }
@@ -174,11 +164,9 @@ export function authMiddleware(
             if (user.status?.blocked || user.status?.deleted) {
                 response.status(403).send({
                     success: false,
-                    error: {
-                        message: "Usuário bloqueado ou deletado pelo sistema",
-                        code: "USER_BLOCKED",
-                        timestamp: new Date().toISOString(),
-                    },
+                    error: "Usuário bloqueado ou deletado pelo sistema",
+                    code: "USER_BLOCKED",
+                    timestamp: new Date().toISOString(),
                 })
                 return
             }
@@ -188,17 +176,16 @@ export function authMiddleware(
                 id: payload.sub,
                 device: payload.device as unknown as Device,
                 level: user.status?.accessLevel as unknown as Level,
+                timezone: payload.tz, // Timezone offset em horas
             }
 
             request.user = authenticatedUser
         } catch (error: any) {
             response.status(401).send({
                 success: false,
-                error: {
-                    message: "Erro de autenticação",
-                    code: "AUTH_ERROR",
-                    timestamp: new Date().toISOString(),
-                },
+                error: "Erro de autenticação",
+                code: "AUTH_ERROR",
+                timestamp: new Date().toISOString(),
             })
         }
     }

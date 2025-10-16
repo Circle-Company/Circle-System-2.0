@@ -6,7 +6,6 @@ export enum MomentMetricsCategoryEnum {
     VIRAL = "viral",
     AUDIENCE = "audience",
     CONTENT = "content",
-    MONETIZATION = "monetization",
 }
 
 // Períodos de métricas gerados automaticamente pelo sistema
@@ -20,7 +19,6 @@ export enum MomentMetricsPeriodEnum {
 export enum MomentMetricsSourceEnum {
     USER_INTERACTION = "user_interaction",
     SYSTEM_GENERATED = "system_generated",
-    EXTERNAL_API = "external_api",
     ANALYTICS = "analytics",
 }
 
@@ -43,9 +41,11 @@ export interface EngagementMetrics {
     totalLikes: number
     totalComments: number
     totalReports: number
+    totalClicks: number
     likeRate: number
     commentRate: number
     reportRate: number
+    clickRate: number
     averageCommentLength: number
     topCommenters: Array<{ userId: string; count: number }>
     engagementScore: number
@@ -113,19 +113,6 @@ export interface ContentMetrics {
     lastContentUpdate: Date | null
 }
 
-export interface MonetizationMetrics {
-    totalRevenue: number
-    revenueBySource: Record<string, number>
-    revenueByPeriod: Record<string, number>
-    averageRevenuePerView: number
-    averageRevenuePerUser: number
-    conversionRate: number
-    costPerAcquisition: number
-    returnOnInvestment: number
-    profitMargin: number
-    lastMonetizationUpdate: Date | null
-}
-
 // ===== MAIN METRICS INTERFACE =====
 export interface MomentMetrics {
     views: ViewMetrics
@@ -134,7 +121,6 @@ export interface MomentMetrics {
     viral: ViralMetrics
     audience: AudienceMetrics
     content: ContentMetrics
-    monetization: MonetizationMetrics
     lastMetricsUpdate: Date
     metricsVersion: string
     dataQuality: number
@@ -217,15 +203,7 @@ export interface MetricsAnalyticsResponse {
 
 // ===== METRICS EVENT TYPES =====
 export interface MetricsEvent {
-    type:
-        | "view"
-        | "like"
-        | "comment"
-        | "report"
-        | "completion"
-        | "quality_update"
-        | "revenue"
-        | "cost"
+    type: "view" | "like" | "comment" | "report" | "completion" | "quality_update" | "click"
     momentId: string
     userId?: string
     timestamp: Date

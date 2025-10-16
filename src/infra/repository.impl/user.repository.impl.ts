@@ -12,7 +12,7 @@ import { Op, WhereOptions } from "sequelize"
 
 import { Level } from "@/domain/authorization"
 import { User } from "@/domain/user/entities/user.entity"
-import { UserMapper } from "@/domain/user/mappers/user.mapper"
+import { UserMapper } from "@/domain/user/user.mapper"
 import { DatabaseAdapter } from "@/infra/database/adapter"
 import UserEmbeddingModel from "@/infra/models/swipe.engine/user.embedding.model"
 import UserInteractionSummaryModel from "@/infra/models/swipe.engine/user.interaction.summary.model"
@@ -20,7 +20,7 @@ import UserModel from "@/infra/models/user/user.model"
 import UserPreferencesModel from "@/infra/models/user/user.preferences.model"
 import UserStatisticsModel from "@/infra/models/user/user.statistics.model"
 import UserStatusModel from "@/infra/models/user/user.status.model"
-import UserTermsModel from "@/infra/models/user/user.terms.model"
+import UserTermModel from "@/infra/models/user/user.terms.model"
 
 /**
  * User Repository Implementation
@@ -30,6 +30,20 @@ import UserTermsModel from "@/infra/models/user/user.terms.model"
  */
 export class UserRepositoryImpl implements UserRepositoryInterface {
     constructor(private readonly database: DatabaseAdapter) {}
+
+    /**
+     * Obtém o UserModel do database adapter
+     */
+    private get UserModel() {
+        return this.database.getConnection().models.User
+    }
+
+    /**
+     * Obtém os models do database adapter
+     */
+    private get models() {
+        return this.database.getConnection().models
+    }
 
     // ===== OPERAÇÕES BÁSICAS =====
 
@@ -46,39 +60,48 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
 
             // Criar usuário principal usando o mapper
             const userAttributes = UserMapper.toUserModelAttributes(user)
-            await UserModel.create(userAttributes, { transaction })
+            await this.models.User.create(userAttributes as any, { transaction })
 
             // Criar registros relacionados usando o mapper
             const statusAttributes = UserMapper.toUserStatusAttributes(user)
             if (statusAttributes) {
-                await UserStatusModel.create(statusAttributes, { transaction })
+                await this.models.UserStatus.create(statusAttributes as any, { transaction })
             }
 
             const preferencesAttributes = UserMapper.toUserPreferencesAttributes(user)
             if (preferencesAttributes) {
-                await UserPreferencesModel.create(preferencesAttributes, { transaction })
+                await this.models.UserPreferences.create(preferencesAttributes as any, {
+                    transaction,
+                })
             }
 
             const statisticsAttributes = UserMapper.toUserStatisticsAttributes(user)
             if (statisticsAttributes) {
-                await UserStatisticsModel.create(statisticsAttributes, { transaction })
+                await this.models.UserStatistics.create(statisticsAttributes as any, {
+                    transaction,
+                })
             }
 
-            const termsAttributes = UserMapper.toUserTermsAttributes(user)
+            const termsAttributes = UserMapper.toUserTermAttributes(user)
             if (termsAttributes) {
-                await UserTermsModel.create(termsAttributes, { transaction })
+                await this.models.UserTerm.create(termsAttributes as any, { transaction })
             }
 
             const embeddingAttributes = UserMapper.toUserEmbeddingAttributes(user)
             if (embeddingAttributes) {
-                await UserEmbeddingModel.create(embeddingAttributes, { transaction })
+                await this.models.UserEmbedding.create(embeddingAttributes as any, {
+                    transaction,
+                })
             }
 
             const interactionSummaryAttributes = UserMapper.toUserInteractionSummaryAttributes(user)
             if (interactionSummaryAttributes) {
-                await UserInteractionSummaryModel.create(interactionSummaryAttributes, {
-                    transaction,
-                })
+                await this.models.UserInteractionSummary.create(
+                    interactionSummaryAttributes as any,
+                    {
+                        transaction,
+                    },
+                )
             }
 
             await transaction.commit()
@@ -90,7 +113,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
     }
 
     async findById(id: string): Promise<User | null> {
-        const user = await UserModel.findByPk(BigInt(id), {
+        const user = await this.UserModel.findByPk(BigInt(id), {
             include: this.getIncludeOptions(),
         })
 
@@ -100,9 +123,23 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
     }
 
     async findByUsername(username: string): Promise<User | null> {
-        const user = await UserModel.findOne({
+        // Otimizado: carregar apenas relacionamentos essenciais para autenticação
+        const user = await this.UserModel.findOne({
             where: { username },
-            include: this.getIncludeOptions(),
+            include: [
+                {
+                    model: this.models.UserStatus,
+                    as: "status",
+                    required: false,
+                },
+                {
+                    model: this.models.UserPreferences,
+                    as: "preferences",
+                    required: false,
+                },
+                // Não carregar statistics, embeddings e interaction_summary no login
+                // para reduzir carga de memória
+            ],
         })
 
         if (!user) return null
@@ -111,7 +148,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
     }
 
     async findBySearchTerm(searchTerm: string): Promise<User[]> {
-        const users = await UserModel.findAll({
+        const users = await this.UserModel.findAll({
             where: {
                 search_match_term: {
                     [Op.like]: `%${searchTerm}%`,
@@ -127,6 +164,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
     async update(user: User): Promise<User> {
         const sequelize = this.database.getConnection()
         const transaction = await sequelize.transaction()
+        let committed = false
 
         try {
             const userData = user.toJSON()
@@ -135,52 +173,43 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
                 throw new Error("ID do usuário é obrigatório")
             }
 
-            // Atualizar usuário principal usando o mapper
+            // Atualizar apenas o usuário principal
             const userAttributes = UserMapper.toUserModelAttributes(user)
-            await UserModel.update(userAttributes, {
+            await this.UserModel.update(userAttributes, {
                 where: { id: BigInt(userData.id) },
                 transaction,
             })
 
-            // Atualizar registros relacionados usando o mapper
+            // Apenas fazer upsert se os dados realmente mudaram
+            // Isso reduz drasticamente operações no banco durante signin
             const statusAttributes = UserMapper.toUserStatusAttributes(user)
-            if (statusAttributes) {
-                await UserStatusModel.upsert(statusAttributes, { transaction })
-            }
-
-            const preferencesAttributes = UserMapper.toUserPreferencesAttributes(user)
-            if (preferencesAttributes) {
-                await UserPreferencesModel.upsert(preferencesAttributes, { transaction })
-            }
-
-            const statisticsAttributes = UserMapper.toUserStatisticsAttributes(user)
-            if (statisticsAttributes) {
-                await UserStatisticsModel.upsert(statisticsAttributes, { transaction })
-            }
-
-            const termsAttributes = UserMapper.toUserTermsAttributes(user)
-            if (termsAttributes) {
-                await UserTermsModel.upsert(termsAttributes, { transaction })
-            }
-
-            const embeddingAttributes = UserMapper.toUserEmbeddingAttributes(user)
-            if (embeddingAttributes) {
-                await UserEmbeddingModel.upsert(embeddingAttributes, { transaction })
-            }
-
-            const interactionSummaryAttributes = UserMapper.toUserInteractionSummaryAttributes(user)
-            if (interactionSummaryAttributes) {
-                await UserInteractionSummaryModel.upsert(interactionSummaryAttributes, {
-                    transaction,
-                })
+            if (statusAttributes && this.hasStatusChanges(statusAttributes)) {
+                await this.models.UserStatus.upsert(statusAttributes as any, { transaction })
             }
 
             await transaction.commit()
+            committed = true
             return user
         } catch (error) {
-            await transaction.rollback()
+            if (!committed) {
+                await transaction.rollback()
+            }
             throw error
         }
+    }
+
+    /**
+     * Verifica se há mudanças reais no status
+     * Evita upserts desnecessários que consomem memória
+     */
+    private hasStatusChanges(attributes: any): boolean {
+        // Verificar apenas campos que realmente mudam no login
+        return Boolean(
+            attributes.last_login_at ||
+                attributes.last_login_ip ||
+                attributes.last_login_device ||
+                attributes.last_login_user_agent,
+        )
     }
 
     async delete(id: string): Promise<void> {
@@ -189,7 +218,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
 
         try {
             // Soft delete - marcar como deletado no status
-            await UserStatusModel.update(
+            await this.models.UserStatus.update(
                 {
                     deleted: true,
                 },
@@ -207,14 +236,14 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
     }
 
     async exists(id: string): Promise<boolean> {
-        const count = await UserModel.count({
+        const count = await this.UserModel.count({
             where: { id: BigInt(id) },
         })
         return count > 0
     }
 
     async existsByUsername(username: string): Promise<boolean> {
-        const count = await UserModel.count({
+        const count = await this.UserModel.count({
             where: { username },
         })
         return count > 0
@@ -225,7 +254,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
     async findAll(options?: UserSearchOptions): Promise<User[]> {
         const queryOptions = this.buildQueryOptions(options)
 
-        const users = await UserModel.findAll({
+        const users = await this.UserModel.findAll({
             ...queryOptions,
             include: this.getIncludeOptions(),
         })
@@ -236,12 +265,12 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
     async findActiveUsers(options?: UserSearchOptions): Promise<User[]> {
         const queryOptions = this.buildQueryOptions(options)
 
-        const users = await UserModel.findAll({
+        const users = await this.UserModel.findAll({
             ...queryOptions,
             include: [
                 ...this.getIncludeOptions(),
                 {
-                    model: UserStatusModel,
+                    model: this.models.UserStatus,
                     as: "status",
                     where: {
                         deleted: false,
@@ -258,12 +287,12 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
     async findUsersByStatus(status: Level, options?: UserSearchOptions): Promise<User[]> {
         const queryOptions = this.buildQueryOptions(options)
 
-        const users = await UserModel.findAll({
+        const users = await this.UserModel.findAll({
             ...queryOptions,
             include: [
                 ...this.getIncludeOptions(),
                 {
-                    model: UserStatusModel,
+                    model: this.models.UserStatus,
                     as: "status",
                     where: {
                         access_level: status,
@@ -279,12 +308,12 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
     async findVerifiedUsers(options?: UserSearchOptions): Promise<User[]> {
         const queryOptions = this.buildQueryOptions(options)
 
-        const users = await UserModel.findAll({
+        const users = await this.UserModel.findAll({
             ...queryOptions,
             include: [
                 ...this.getIncludeOptions(),
                 {
-                    model: UserStatusModel,
+                    model: this.models.UserStatus,
                     as: "status",
                     where: {
                         verified: true,
@@ -300,12 +329,12 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
     async findUnverifiedUsers(options?: UserSearchOptions): Promise<User[]> {
         const queryOptions = this.buildQueryOptions(options)
 
-        const users = await UserModel.findAll({
+        const users = await this.UserModel.findAll({
             ...queryOptions,
             include: [
                 ...this.getIncludeOptions(),
                 {
-                    model: UserStatusModel,
+                    model: this.models.UserStatus,
                     as: "status",
                     where: {
                         verified: false,
@@ -321,12 +350,12 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
     async findBlockedUsers(options?: UserSearchOptions): Promise<User[]> {
         const queryOptions = this.buildQueryOptions(options)
 
-        const users = await UserModel.findAll({
+        const users = await this.UserModel.findAll({
             ...queryOptions,
             include: [
                 ...this.getIncludeOptions(),
                 {
-                    model: UserStatusModel,
+                    model: this.models.UserStatus,
                     as: "status",
                     where: {
                         blocked: true,
@@ -342,12 +371,12 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
     async findDeletedUsers(options?: UserSearchOptions): Promise<User[]> {
         const queryOptions = this.buildQueryOptions(options)
 
-        const users = await UserModel.findAll({
+        const users = await this.UserModel.findAll({
             ...queryOptions,
             include: [
                 ...this.getIncludeOptions(),
                 {
-                    model: UserStatusModel,
+                    model: this.models.UserStatus,
                     as: "status",
                     where: {
                         deleted: true,
@@ -368,7 +397,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
     ): Promise<User[]> {
         const queryOptions = this.buildQueryOptions(options)
 
-        const users = await UserModel.findAll({
+        const users = await this.UserModel.findAll({
             ...queryOptions,
             include: this.getIncludeOptions(),
         })
@@ -381,6 +410,212 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
         })
     }
 
+    // ===== OPERAÇÕES DE PERMISSÃO E STATUS =====
+
+    async findUsersWhoCanCreateMoments(options?: UserSearchOptions): Promise<User[]> {
+        const queryOptions = this.buildQueryOptions(options)
+
+        const users = await this.UserModel.findAll({
+            ...queryOptions,
+            include: this.getIncludeOptions(),
+        })
+
+        // Filtrar usuários que podem criar momentos usando a lógica da entidade
+        const domainUsers = UserMapper.toDomainArray(users as any)
+        return domainUsers.filter((user) => user.canCreateMoments())
+    }
+
+    async findUsersWhoCanInteractWithMoments(options?: UserSearchOptions): Promise<User[]> {
+        const queryOptions = this.buildQueryOptions(options)
+
+        const users = await this.UserModel.findAll({
+            ...queryOptions,
+            include: this.getIncludeOptions(),
+        })
+
+        // Filtrar usuários que podem interagir com momentos usando a lógica da entidade
+        const domainUsers = UserMapper.toDomainArray(users as any)
+        return domainUsers.filter((user) => user.canInteractWithMoments())
+    }
+
+    async findUsersWhoCanViewMoments(options?: UserSearchOptions): Promise<User[]> {
+        const queryOptions = this.buildQueryOptions(options)
+
+        const users = await this.UserModel.findAll({
+            ...queryOptions,
+            include: this.getIncludeOptions(),
+        })
+
+        // Filtrar usuários que podem ver momentos usando a lógica da entidade
+        const domainUsers = UserMapper.toDomainArray(users as any)
+        return domainUsers.filter((user) => user.canViewMoments())
+    }
+
+    async findUsersWithAdminAccess(options?: UserSearchOptions): Promise<User[]> {
+        const queryOptions = this.buildQueryOptions(options)
+
+        const users = await this.UserModel.findAll({
+            ...queryOptions,
+            include: [
+                ...this.getIncludeOptions(),
+                {
+                    model: this.models.UserStatus,
+                    as: "status",
+                    where: {
+                        access_level: {
+                            [Op.in]: [Level.ADMIN, Level.SUDO],
+                        },
+                    },
+                    required: true,
+                },
+            ],
+        })
+
+        return UserMapper.toDomainArray(users as any)
+    }
+
+    async findUsersWhoCanMentionUsers(options?: UserSearchOptions): Promise<User[]> {
+        const queryOptions = this.buildQueryOptions(options)
+
+        const users = await this.UserModel.findAll({
+            ...queryOptions,
+            include: this.getIncludeOptions(),
+        })
+
+        // Filtrar usuários que podem mencionar outros usando a lógica da entidade
+        const domainUsers = UserMapper.toDomainArray(users as any)
+        return domainUsers.filter((user) => user.canMentionUsers())
+    }
+
+    async findUsersWhoCanBeMentioned(options?: UserSearchOptions): Promise<User[]> {
+        const queryOptions = this.buildQueryOptions(options)
+
+        const users = await this.UserModel.findAll({
+            ...queryOptions,
+            include: this.getIncludeOptions(),
+        })
+
+        // Filtrar usuários que podem ser mencionados usando a lógica da entidade
+        const domainUsers = UserMapper.toDomainArray(users as any)
+        return domainUsers.filter((user) => user.canBeMentioned())
+    }
+
+    async findUsersByReputationLevel(
+        level: "novice" | "rising" | "established" | "influencer" | "celebrity",
+        options?: UserSearchOptions,
+    ): Promise<User[]> {
+        const queryOptions = this.buildQueryOptions(options)
+
+        const users = await this.UserModel.findAll({
+            ...queryOptions,
+            include: this.getIncludeOptions(),
+        })
+
+        // Filtrar usuários por nível de reputação usando a lógica da entidade
+        const domainUsers = UserMapper.toDomainArray(users as any)
+        return domainUsers.filter((user) => {
+            const reputationDetails = user.getReputationDetails()
+            return reputationDetails.level === level
+        })
+    }
+
+    // ===== OPERAÇÕES DE MÉTRICAS AVANÇADAS =====
+
+    async findUsersByEngagementMetrics(
+        criteria: {
+            minLikesReceived?: number
+            minViewsReceived?: number
+            minCommentsReceived?: number
+            minSharesReceived?: number
+            minEngagementRate?: number
+            minReachRate?: number
+        },
+        options?: UserSearchOptions,
+    ): Promise<User[]> {
+        const queryOptions = this.buildQueryOptions(options)
+
+        const users = await this.UserModel.findAll({
+            ...queryOptions,
+            include: this.getIncludeOptions(),
+        })
+
+        // Filtrar usuários por métricas de engajamento usando a lógica da entidade
+        const domainUsers = UserMapper.toDomainArray(users as any)
+        return domainUsers.filter((user) => {
+            const engagementMetrics = user.getEngagementMetrics()
+
+            if (
+                criteria.minLikesReceived &&
+                engagementMetrics.totalLikesReceived < criteria.minLikesReceived
+            ) {
+                return false
+            }
+            if (
+                criteria.minViewsReceived &&
+                engagementMetrics.totalViewsReceived < criteria.minViewsReceived
+            ) {
+                return false
+            }
+            if (
+                criteria.minCommentsReceived &&
+                engagementMetrics.totalCommentsReceived < criteria.minCommentsReceived
+            ) {
+                return false
+            }
+            if (
+                criteria.minSharesReceived &&
+                engagementMetrics.totalSharesReceived < criteria.minSharesReceived
+            ) {
+                return false
+            }
+            if (
+                criteria.minEngagementRate &&
+                engagementMetrics.engagementRate < criteria.minEngagementRate
+            ) {
+                return false
+            }
+            if (criteria.minReachRate && engagementMetrics.reachRate < criteria.minReachRate) {
+                return false
+            }
+
+            return true
+        })
+    }
+
+    async findInfluencersByCriteria(
+        criteria: {
+            minFollowers?: number
+            minEngagementRate?: number
+            minReputationScore?: number
+        },
+        options?: UserSearchOptions,
+    ): Promise<User[]> {
+        const queryOptions = this.buildQueryOptions(options)
+
+        const users = await this.UserModel.findAll({
+            ...queryOptions,
+            include: this.getIncludeOptions(),
+        })
+
+        // Filtrar influenciadores usando a lógica da entidade
+        const domainUsers = UserMapper.toDomainArray(users as any)
+        return domainUsers.filter((user) => {
+            const isInfluencer = user.isInfluencer(
+                criteria.minFollowers || 1000,
+                criteria.minEngagementRate || 0.05,
+            )
+
+            if (!isInfluencer) return false
+
+            if (criteria.minReputationScore) {
+                const reputationScore = user.getReputationScore()
+                return reputationScore >= criteria.minReputationScore
+            }
+
+            return true
+        })
+    }
+
     async findUsersByReputationScore(
         minScore: number,
         maxScore?: number,
@@ -388,7 +623,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
     ): Promise<User[]> {
         const queryOptions = this.buildQueryOptions(options)
 
-        const users = await UserModel.findAll({
+        const users = await this.UserModel.findAll({
             ...queryOptions,
             include: this.getIncludeOptions(),
         })
@@ -423,7 +658,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
             }
         }
 
-        const users = await UserModel.findAll({
+        const users = await this.UserModel.findAll({
             ...queryOptions,
             where: whereClause,
             include: this.getIncludeOptions(),
@@ -445,7 +680,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
     ): Promise<User[]> {
         const queryOptions = this.buildQueryOptions(options)
 
-        const users = await UserModel.findAll({
+        const users = await this.UserModel.findAll({
             ...queryOptions,
             include: this.getIncludeOptions(),
         })
@@ -471,7 +706,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
     ): Promise<User[]> {
         const queryOptions = this.buildQueryOptions(options)
 
-        const users = await UserModel.findAll({
+        const users = await this.UserModel.findAll({
             ...queryOptions,
             include: [
                 ...this.getIncludeOptions(),
@@ -498,7 +733,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
     ): Promise<User[]> {
         const queryOptions = this.buildQueryOptions(options)
 
-        const users = await UserModel.findAll({
+        const users = await this.UserModel.findAll({
             ...queryOptions,
             include: [
                 ...this.getIncludeOptions(),
@@ -525,7 +760,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
     ): Promise<User[]> {
         const queryOptions = this.buildQueryOptions(options)
 
-        const users = await UserModel.findAll({
+        const users = await this.UserModel.findAll({
             ...queryOptions,
             include: [
                 ...this.getIncludeOptions(),
@@ -548,7 +783,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
     async findTopPerformers(limit: number = 10, options?: UserSearchOptions): Promise<User[]> {
         const queryOptions = this.buildQueryOptions({ ...options, limit })
 
-        const users = await UserModel.findAll({
+        const users = await this.UserModel.findAll({
             ...queryOptions,
             include: this.getIncludeOptions(),
             order: [
@@ -567,7 +802,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
     ): Promise<User[]> {
         const queryOptions = this.buildQueryOptions(options)
 
-        const users = await UserModel.findAll({
+        const users = await this.UserModel.findAll({
             ...queryOptions,
             include: [
                 ...this.getIncludeOptions(),
@@ -592,7 +827,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
     async findUsersWithEmbeddings(options?: UserSearchOptions): Promise<User[]> {
         const queryOptions = this.buildQueryOptions(options)
 
-        const users = await UserModel.findAll({
+        const users = await this.UserModel.findAll({
             ...queryOptions,
             include: [
                 ...this.getIncludeOptions(),
@@ -613,7 +848,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
     async findUsersWithoutEmbeddings(options?: UserSearchOptions): Promise<User[]> {
         const queryOptions = this.buildQueryOptions(options)
 
-        const users = await UserModel.findAll({
+        const users = await this.UserModel.findAll({
             ...queryOptions,
             include: [
                 ...this.getIncludeOptions(),
@@ -637,7 +872,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
     ): Promise<User[]> {
         const queryOptions = this.buildQueryOptions(options)
 
-        const users = await UserModel.findAll({
+        const users = await this.UserModel.findAll({
             ...queryOptions,
             include: [
                 ...this.getIncludeOptions(),
@@ -662,7 +897,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
     async findUsersWithModerationIssues(options?: UserSearchOptions): Promise<User[]> {
         const queryOptions = this.buildQueryOptions(options)
 
-        const users = await UserModel.findAll({
+        const users = await this.UserModel.findAll({
             ...queryOptions,
             include: [
                 ...this.getIncludeOptions(),
@@ -690,7 +925,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
     ): Promise<User[]> {
         const queryOptions = this.buildQueryOptions(options)
 
-        const users = await UserModel.findAll({
+        const users = await this.UserModel.findAll({
             ...queryOptions,
             include: [
                 ...this.getIncludeOptions(),
@@ -717,7 +952,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
     ): Promise<User[]> {
         const queryOptions = this.buildQueryOptions(options)
 
-        const users = await UserModel.findAll({
+        const users = await this.UserModel.findAll({
             ...queryOptions,
             include: [
                 ...this.getIncludeOptions(),
@@ -753,7 +988,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
         return await UserModel.count({
             include: [
                 {
-                    model: UserStatusModel,
+                    model: this.models.UserStatus,
                     as: "status",
                     where: {
                         deleted: false,
@@ -770,7 +1005,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
         return await UserModel.count({
             include: [
                 {
-                    model: UserStatusModel,
+                    model: this.models.UserStatus,
                     as: "status",
                     where: {
                         verified: true,
@@ -786,7 +1021,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
         return await UserModel.count({
             include: [
                 {
-                    model: UserStatusModel,
+                    model: this.models.UserStatus,
                     as: "status",
                     where: {
                         access_level: status,
@@ -917,9 +1152,9 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
                     await UserStatisticsModel.create(statisticsAttributes, { transaction })
                 }
 
-                const termsAttributes = UserMapper.toUserTermsAttributes(user)
+                const termsAttributes = UserMapper.toUserTermAttributes(user)
                 if (termsAttributes) {
-                    await UserTermsModel.create(termsAttributes, { transaction })
+                    await UserTermModel.create(termsAttributes, { transaction })
                 }
 
                 const embeddingAttributes = UserMapper.toUserEmbeddingAttributes(user)
@@ -962,7 +1197,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
 
                 // Atualizar usuário principal
                 const userAttributes = UserMapper.toUserModelAttributes(user)
-                await UserModel.update(userAttributes, {
+                await this.UserModel.update(userAttributes, {
                     where: { id: BigInt(userData.id) },
                     transaction,
                 })
@@ -983,9 +1218,9 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
                     await UserStatisticsModel.upsert(statisticsAttributes, { transaction })
                 }
 
-                const termsAttributes = UserMapper.toUserTermsAttributes(user)
+                const termsAttributes = UserMapper.toUserTermAttributes(user)
                 if (termsAttributes) {
-                    await UserTermsModel.upsert(termsAttributes, { transaction })
+                    await UserTermModel.upsert(termsAttributes, { transaction })
                 }
 
                 const embeddingAttributes = UserMapper.toUserEmbeddingAttributes(user)
@@ -1017,7 +1252,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
         const transaction = await sequelize.transaction()
 
         try {
-            await UserStatusModel.update(
+            await this.models.UserStatus.update(
                 {
                     deleted: true,
                 },
@@ -1043,7 +1278,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
         const transaction = await sequelize.transaction()
 
         try {
-            await UserStatusModel.update(status, {
+            await this.models.UserStatus.update(status, {
                 where: {
                     user_id: {
                         [Op.in]: ids.map((id) => BigInt(id)),
@@ -1064,32 +1299,33 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
     private getIncludeOptions() {
         return [
             {
-                model: UserStatusModel,
+                model: this.models.UserStatus,
                 as: "status",
                 required: false,
             },
             {
-                model: UserPreferencesModel,
+                model: this.models.UserPreferences,
                 as: "preferences",
                 required: false,
             },
             {
-                model: UserStatisticsModel,
+                model: this.models.UserStatistics,
                 as: "statistics",
                 required: false,
             },
+            // Removendo UserTermModel temporariamente para debug
+            // {
+            //     model: this.models.UserTermModel,
+            //     as: "terms",
+            //     required: false,
+            // },
             {
-                model: UserTermsModel,
-                as: "user_terms",
-                required: false,
-            },
-            {
-                model: UserEmbeddingModel,
+                model: this.models.UserEmbedding,
                 as: "user_embedding",
                 required: false,
             },
             {
-                model: UserInteractionSummaryModel,
+                model: this.models.UserInteractionSummary,
                 as: "user_interaction_summary",
                 required: false,
             },
@@ -1105,11 +1341,11 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
         if (options?.orderBy) {
             const orderField =
                 options.orderBy.field === "reputationScore"
-                    ? [{ model: UserStatisticsModel, as: "statistics" }, "engagement_rate"]
+                    ? [{ model: this.models.UserStatistics, as: "statistics" }, "engagement_rate"]
                     : options.orderBy.field === "engagementRate"
-                    ? [{ model: UserStatisticsModel, as: "statistics" }, "engagement_rate"]
+                    ? [{ model: this.models.UserStatistics, as: "statistics" }, "engagement_rate"]
                     : options.orderBy.field === "totalFollowers"
-                    ? [{ model: UserStatisticsModel, as: "statistics" }, "total_followers"]
+                    ? [{ model: this.models.UserStatistics, as: "statistics" }, "total_followers"]
                     : [options.orderBy.field]
 
             queryOptions.order = [[...orderField, options.orderBy.direction]]

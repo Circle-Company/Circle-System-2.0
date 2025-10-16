@@ -1,9 +1,11 @@
 /**
  * Build Processor Ultra Simplificado
- * Apenas Path Fixer
+ * Compila TypeScript e corrige paths
  */
 
-const { AdvancedPathFixer } = require("./core/path-fixer")
+const { AdvancedPathFixer } = require("./core/path.fixer")
+const { execSync } = require("child_process")
+const path = require("path")
 
 class BuildProcessor {
     constructor(options = {}) {
@@ -15,29 +17,49 @@ class BuildProcessor {
     }
 
     /**
-     * Executa apenas o path fixer
+     * Executa compilação TypeScript e correção de paths
      */
     async build() {
-        if (this.options.verbose) {
-            console.log("🔧 Iniciando correção de paths...")
-        }
+        try {
+            // 1. Compilar TypeScript
+            if (this.options.verbose) {
+                console.log("🔨 Compilando TypeScript...")
+            }
 
-        const pathFixer = new AdvancedPathFixer({
-            buildDir: this.options.buildDir,
-            verbose: this.options.verbose,
-            dryRun: this.options.dryRun,
-        })
+            execSync("npx tsc", {
+                stdio: this.options.verbose ? "inherit" : "ignore",
+                cwd: path.resolve(process.cwd()),
+            })
 
-        const fixes = await pathFixer.fix()
+            if (this.options.verbose) {
+                console.log("✅ TypeScript compilado com sucesso")
+            }
 
-        if (this.options.verbose) {
-            console.log(`✅ Path fixer concluído: ${fixes.length} correções aplicadas`)
-        }
+            // 2. Corrigir paths
+            if (this.options.verbose) {
+                console.log("🔧 Iniciando correção de paths...")
+            }
 
-        return {
-            success: true,
-            fixesApplied: fixes.length,
-            fixes: fixes,
+            const pathFixer = new AdvancedPathFixer({
+                buildDir: this.options.buildDir,
+                verbose: this.options.verbose,
+                dryRun: this.options.dryRun,
+            })
+
+            const fixes = await pathFixer.fix()
+
+            if (this.options.verbose) {
+                console.log(`✅ Path fixer concluído: ${fixes.length} correções aplicadas`)
+            }
+
+            return {
+                success: true,
+                fixesApplied: fixes.length,
+                fixes: fixes,
+            }
+        } catch (error) {
+            console.error("❌ Erro no processo de build:", error.message)
+            throw error
         }
     }
 }
@@ -49,6 +71,24 @@ class BuildProcessorFactory {
     static create(options = {}) {
         return new BuildProcessor(options)
     }
+}
+
+// Auto-executar se for chamado diretamente
+if (require.main === module) {
+    const verbose = process.argv.includes("--verbose") || process.argv.includes("-v")
+    const dryRun = process.argv.includes("--dry-run")
+
+    const processor = BuildProcessorFactory.create({ verbose, dryRun })
+    processor
+        .build()
+        .then(() => {
+            console.log("✅ Build completado com sucesso!")
+            process.exit(0)
+        })
+        .catch((error) => {
+            console.error("💥 Build falhou:", error.message)
+            process.exit(1)
+        })
 }
 
 module.exports = {

@@ -103,7 +103,7 @@ export class Logger {
 
 export const logger = new Logger("Api", {
     minLevel: LogLevel.INFO,
-    showTimestamp: true,
-    showComponent: true,
-    enabled: process.env.NODE_ENV !== "production",
+    showTimestamp: process.env.ENABLE_CONSOLE_LOGS === "true",
+    showComponent: process.env.ENABLE_CONSOLE_LOGS === "true",
+    enabled: process.env.ENABLE_CONSOLE_LOGS === "true",
 })

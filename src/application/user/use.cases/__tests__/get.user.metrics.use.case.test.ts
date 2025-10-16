@@ -1,248 +1,243 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import { UserMetrics } from "@/domain/user/entities/user.metrics.entity"
-import { IUserMetricsRepository } from "@/domain/user/repositories/user.metrics.repository"
-import { NotFoundError } from "@/shared/errors/not.found.error"
-import { ValidationError } from "@/shared/errors/validation.error"
+import { IUserRepository } from "../../../../domain/user/repositories/user.repository"
+import { UserService } from "../../services/user.service"
 import { GetUserMetricsUseCase } from "../get.user.metrics.use.case"
 
 describe("GetUserMetricsUseCase", () => {
     let getUserMetricsUseCase: GetUserMetricsUseCase
-    let mockUserMetricsRepository: jest.Mocked<IUserMetricsRepository>
+    let mockUserRepository: IUserRepository
+    let mockUserService: UserService
 
     beforeEach(() => {
-        mockUserMetricsRepository = {
-            create: vi.fn(),
-            findByUserId: vi.fn(),
-            update: vi.fn(),
-            delete: vi.fn(),
-            findAll: vi.fn(),
-            findTopUsers: vi.fn(),
-            findUsersByEngagement: vi.fn(),
-            findUsersByGrowth: vi.fn(),
-        }
+        vi.clearAllMocks()
 
-        getUserMetricsUseCase = new GetUserMetricsUseCase(mockUserMetricsRepository)
+        mockUserRepository = {
+            save: vi.fn(),
+            findById: vi.fn(),
+            findByUsername: vi.fn(),
+            existsByUsername: vi.fn(),
+            update: vi.fn(),
+            isBlocked: vi.fn(),
+            isFollowing: vi.fn(),
+            followUser: vi.fn(),
+            unfollowUser: vi.fn(),
+            blockUser: vi.fn(),
+            unblockUser: vi.fn(),
+        } as any
+
+        mockUserService = {
+            getUserById: vi.fn(),
+            getMetrics: vi.fn(),
+            getMetricsWithAnalysis: vi.fn(),
+        } as any
+
+        getUserMetricsUseCase = new GetUserMetricsUseCase(mockUserRepository, mockUserService)
     })
 
     describe("execute", () => {
-        it("deve retornar métricas do usuário com sucesso", async () => {
+        it("deve retornar métricas do próprio usuário", async () => {
             // Arrange
-            const userId = "user-id"
-            const userMetrics = UserMetrics.create(userId)
+            const request = {
+                userId: "user-id",
+                requestingUserId: "user-id",
+            }
 
-            mockUserMetricsRepository.findByUserId.mockResolvedValue(userMetrics)
+            const mockMetrics = {
+                userId: "user-id",
+                activity: {
+                    loginCount: 10,
+                    profileViews: 100,
+                    profileEdits: 5,
+                    averageSessionDuration: 300,
+                    totalSessions: 50,
+                },
+                social: {
+                    followersCount: 100,
+                    followingCount: 50,
+                    blockedCount: 2,
+                    totalInteractions: 500,
+                    socialScore: 75,
+                },
+                content: {
+                    momentsCreated: 20,
+                    totalLikes: 200,
+                    totalComments: 50,
+                    totalShares: 10,
+                    contentScore: 80,
+                },
+                engagement: {
+                    engagementScore: 85,
+                    retentionRate: 0.9,
+                    growthRate: 0.15,
+                    activityLevel: "high",
+                },
+                behavior: {
+                    preferredDevices: ["mobile", "web"],
+                    peakActivityHours: [9, 12, 18, 21],
+                    averageSessionDuration: 300,
+                    sessionFrequency: 5,
+                },
+                performance: {
+                    viralScore: 70,
+                    influenceScore: 75,
+                    reachScore: 80,
+                    trendingScore: 65,
+                },
+                timeline: [],
+            }
+
+            vi.mocked(mockUserService.getMetrics).mockResolvedValue(mockMetrics)
 
             // Act
-            const result = await getUserMetricsUseCase.execute({ userId })
+            const result = await getUserMetricsUseCase.execute(request)
 
             // Assert
-            expect(result).toEqual(userMetrics)
-            expect(mockUserMetricsRepository.findByUserId).toHaveBeenCalledWith(userId)
+            expect(result.success).toBe(true)
+            expect(result.metrics).toBeDefined()
+            expect(result.metrics?.userId).toBe("user-id")
+            expect(mockUserService.getMetrics).toHaveBeenCalledWith("user-id")
         })
 
-        it("deve lançar NotFoundError quando métricas não existem", async () => {
+        it("deve retornar erro quando usuário não tem permissão", async () => {
             // Arrange
-            const userId = "non-existent-user"
+            const request = {
+                userId: "user-id",
+                requestingUserId: "other-user-id",
+            }
 
-            mockUserMetricsRepository.findByUserId.mockResolvedValue(null)
+            const mockUser = {
+                id: "other-user-id",
+                role: "user",
+            }
 
-            // Act & Assert
-            await expect(getUserMetricsUseCase.execute({ userId })).rejects.toThrow(NotFoundError)
-            expect(mockUserMetricsRepository.findByUserId).toHaveBeenCalledWith(userId)
-        })
-
-        it("deve lançar ValidationError quando userId é inválido", async () => {
-            // Arrange
-            const invalidUserId = ""
-
-            // Act & Assert
-            await expect(getUserMetricsUseCase.execute({ userId: invalidUserId })).rejects.toThrow(
-                ValidationError,
-            )
-            expect(mockUserMetricsRepository.findByUserId).not.toHaveBeenCalled()
-        })
-
-        it("deve retornar métricas com dados completos", async () => {
-            // Arrange
-            const userId = "user-id"
-            const userMetrics = UserMetrics.create(userId)
-
-            // Simular algumas métricas
-            userMetrics.incrementActionMetrics({ likesGiven: 10 })
-            userMetrics.incrementReceivedMetrics({ likesReceived: 5 })
-            userMetrics.incrementCreationMetrics({ momentsCreated: 3 })
-
-            mockUserMetricsRepository.findByUserId.mockResolvedValue(userMetrics)
+            vi.mocked(mockUserService.getUserById).mockResolvedValue(mockUser as any)
 
             // Act
-            const result = await getUserMetricsUseCase.execute({ userId })
+            const result = await getUserMetricsUseCase.execute(request)
 
             // Assert
-            expect(result).toEqual(userMetrics)
-            expect(result.userId).toBe(userId)
-            expect(mockUserMetricsRepository.findByUserId).toHaveBeenCalledWith(userId)
+            expect(result.success).toBe(false)
+            expect(result.error).toBe("Acesso negado às métricas do usuário")
         })
 
-        it("deve retornar métricas vazias para usuário novo", async () => {
+        it("deve permitir admin acessar métricas de outros usuários", async () => {
             // Arrange
-            const userId = "new-user-id"
-            const userMetrics = UserMetrics.create(userId)
+            const request = {
+                userId: "user-id",
+                requestingUserId: "admin-id",
+            }
 
-            mockUserMetricsRepository.findByUserId.mockResolvedValue(userMetrics)
+            const mockAdmin = {
+                id: "admin-id",
+                role: "admin",
+            }
+
+            const mockMetrics = {
+                userId: "user-id",
+                activity: {
+                    loginCount: 5,
+                    profileViews: 50,
+                    profileEdits: 2,
+                    averageSessionDuration: 200,
+                    totalSessions: 20,
+                },
+                social: {
+                    followersCount: 50,
+                    followingCount: 30,
+                    blockedCount: 1,
+                    totalInteractions: 200,
+                    socialScore: 60,
+                },
+                content: {
+                    momentsCreated: 10,
+                    totalLikes: 100,
+                    totalComments: 25,
+                    totalShares: 5,
+                    contentScore: 70,
+                },
+                engagement: {
+                    engagementScore: 70,
+                    retentionRate: 0.8,
+                    growthRate: 0.1,
+                    activityLevel: "medium",
+                },
+                behavior: {
+                    preferredDevices: ["mobile"],
+                    peakActivityHours: [12, 18],
+                    averageSessionDuration: 200,
+                    sessionFrequency: 3,
+                },
+                performance: {
+                    viralScore: 60,
+                    influenceScore: 65,
+                    reachScore: 70,
+                    trendingScore: 55,
+                },
+                timeline: [],
+            }
+
+            vi.mocked(mockUserService.getUserById).mockResolvedValue(mockAdmin as any)
+            vi.mocked(mockUserService.getMetrics).mockResolvedValue(mockMetrics)
 
             // Act
-            const result = await getUserMetricsUseCase.execute({ userId })
+            const result = await getUserMetricsUseCase.execute(request)
 
             // Assert
-            expect(result).toEqual(userMetrics)
-            expect(result.totalLikesGiven).toBe(0)
-            expect(result.totalLikesReceived).toBe(0)
-            expect(result.totalMomentsCreated).toBe(0)
-            expect(result.totalFollowers).toBe(0)
-            expect(result.totalFollowing).toBe(0)
+            expect(result.success).toBe(true)
+            expect(result.metrics).toBeDefined()
+            expect(result.metrics?.userId).toBe("user-id")
         })
 
-        it("deve retornar métricas com crescimento calculado", async () => {
+        it("deve retornar métricas básicas quando não há métricas salvas", async () => {
             // Arrange
-            const userId = "user-id"
-            const userMetrics = UserMetrics.create(userId)
+            const request = {
+                userId: "user-id",
+                requestingUserId: "user-id",
+            }
 
-            // Simular métricas com crescimento
-            userMetrics.incrementReceivedMetrics({ followersReceived: 10 })
-            userMetrics.incrementActionMetrics({ momentsCreated: 5 })
+            const mockUser = {
+                id: "user-id",
+                updatedAt: new Date(),
+                statistics: {
+                    followersCount: 0,
+                    followingCount: 0,
+                    momentsCount: 0,
+                    totalLikes: 0,
+                    totalComments: 0,
+                    totalShares: 0,
+                },
+            }
 
-            mockUserMetricsRepository.findByUserId.mockResolvedValue(userMetrics)
+            vi.mocked(mockUserService.getMetrics).mockResolvedValue(null)
+            vi.mocked(mockUserService.getUserById).mockResolvedValue(mockUser as any)
 
             // Act
-            const result = await getUserMetricsUseCase.execute({ userId })
+            const result = await getUserMetricsUseCase.execute(request)
 
             // Assert
-            expect(result).toEqual(userMetrics)
-            expect(result.totalFollowers).toBe(10)
-            expect(result.totalMomentsCreated).toBe(5)
+            expect(result.success).toBe(true)
+            expect(result.metrics).toBeDefined()
+            expect(result.metrics?.userId).toBe("user-id")
+            expect(result.metrics?.social.followersCount).toBe(0)
         })
 
-        it("deve retornar métricas com engajamento calculado", async () => {
+        it("deve retornar erro quando usuário não existe", async () => {
             // Arrange
-            const userId = "user-id"
-            const userMetrics = UserMetrics.create(userId)
+            const request = {
+                userId: "non-existent-user",
+                requestingUserId: "non-existent-user",
+            }
 
-            // Simular métricas de engajamento
-            userMetrics.incrementActionMetrics({ likesGiven: 20, commentsGiven: 10 })
-            userMetrics.incrementReceivedMetrics({ likesReceived: 15, commentsReceived: 8 })
-
-            mockUserMetricsRepository.findByUserId.mockResolvedValue(userMetrics)
+            vi.mocked(mockUserService.getMetrics).mockResolvedValue(null)
+            vi.mocked(mockUserService.getUserById).mockResolvedValue(null)
 
             // Act
-            const result = await getUserMetricsUseCase.execute({ userId })
+            const result = await getUserMetricsUseCase.execute(request)
 
             // Assert
-            expect(result).toEqual(userMetrics)
-            expect(result.totalLikesGiven).toBe(20)
-            expect(result.totalCommentsGiven).toBe(10)
-            expect(result.totalLikesReceived).toBe(15)
-            expect(result.totalCommentsReceived).toBe(8)
-        })
-
-        it("deve retornar métricas com taxas de crescimento", async () => {
-            // Arrange
-            const userId = "user-id"
-            const userMetrics = UserMetrics.create(userId)
-
-            // Simular métricas com taxas
-            userMetrics.incrementCreationMetrics({ momentsCreated: 10 })
-            userMetrics.incrementReceivedMetrics({ followersReceived: 5 })
-
-            mockUserMetricsRepository.findByUserId.mockResolvedValue(userMetrics)
-
-            // Act
-            const result = await getUserMetricsUseCase.execute({ userId })
-
-            // Assert
-            expect(result).toEqual(userMetrics)
-            expect(result.totalMomentsCreated).toBe(10)
-            expect(result.totalFollowers).toBe(5)
-            expect(result.momentsPerDayAverage).toBeDefined()
-            expect(result.followerGrowthRate30d).toBeDefined()
-        })
-
-        it("deve retornar métricas com dados de visualização", async () => {
-            // Arrange
-            const userId = "user-id"
-            const userMetrics = UserMetrics.create(userId)
-
-            // Simular métricas de visualização
-            userMetrics.incrementReceivedMetrics({ viewsReceived: 100 })
-
-            mockUserMetricsRepository.findByUserId.mockResolvedValue(userMetrics)
-
-            // Act
-            const result = await getUserMetricsUseCase.execute({ userId })
-
-            // Assert
-            expect(result).toEqual(userMetrics)
-            expect(result.totalViewsReceived).toBe(100)
-        })
-
-        it("deve retornar métricas com dados de compartilhamento", async () => {
-            // Arrange
-            const userId = "user-id"
-            const userMetrics = UserMetrics.create(userId)
-
-            // Simular métricas de compartilhamento
-            userMetrics.incrementActionMetrics({ sharesGiven: 5 })
-            userMetrics.incrementReceivedMetrics({ sharesReceived: 3 })
-
-            mockUserMetricsRepository.findByUserId.mockResolvedValue(userMetrics)
-
-            // Act
-            const result = await getUserMetricsUseCase.execute({ userId })
-
-            // Assert
-            expect(result).toEqual(userMetrics)
-            expect(result.totalSharesGiven).toBe(5)
-            expect(result.totalSharesReceived).toBe(3)
-        })
-
-        it("deve retornar métricas com dados de relacionamento", async () => {
-            // Arrange
-            const userId = "user-id"
-            const userMetrics = UserMetrics.create(userId)
-
-            // Simular métricas de relacionamento
-            userMetrics.incrementActionMetrics({ followsGiven: 10 })
-            userMetrics.incrementReceivedMetrics({ followersReceived: 8 })
-
-            mockUserMetricsRepository.findByUserId.mockResolvedValue(userMetrics)
-
-            // Act
-            const result = await getUserMetricsUseCase.execute({ userId })
-
-            // Assert
-            expect(result).toEqual(userMetrics)
-            expect(result.totalFollowing).toBe(10)
-            expect(result.totalFollowers).toBe(8)
-        })
-
-        it("deve retornar métricas com dados de moderação", async () => {
-            // Arrange
-            const userId = "user-id"
-            const userMetrics = UserMetrics.create(userId)
-
-            // Simular métricas de moderação
-            userMetrics.incrementActionMetrics({ reportsGiven: 2 })
-            userMetrics.incrementReceivedMetrics({ reportsReceived: 1 })
-
-            mockUserMetricsRepository.findByUserId.mockResolvedValue(userMetrics)
-
-            // Act
-            const result = await getUserMetricsUseCase.execute({ userId })
-
-            // Assert
-            expect(result).toEqual(userMetrics)
-            expect(result.totalReportsSpecifically).toBe(2)
-            expect(result.reportsReceived).toBe(1)
+            expect(result.success).toBe(false)
+            expect(result.error).toBe("Usuário não encontrado")
         })
     })
 })

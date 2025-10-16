@@ -42,24 +42,24 @@ export interface ModerationPaginationOptions {
 export interface ContentTypeFilters {
     // Filtros para conteúdo humano
     humanContent?: {
-        hasFace?: boolean
-        faceQuality?: "good" | "poor" | "any"
         audioQuality?: "good" | "poor" | "any"
         videoQuality?: "good" | "poor" | "any"
+        contentQuality?: "good" | "poor" | "any"
     }
 
     // Filtros para conteúdo sintético
     syntheticContent?: {
         aiGenerated?: boolean
-        deepfake?: boolean
         syntheticVoice?: boolean
         botGenerated?: boolean
+        lowQualityContent?: boolean
     }
 
     // Filtros para qualidade
     qualityFilters?: {
         minVideoQuality?: number
         minAudioQuality?: number
+        minContentQuality?: number
         maxProcessingTime?: number
         hasAudio?: boolean
         isStatic?: boolean
@@ -195,22 +195,17 @@ export const HUMAN_CONTENT_FILTERS: ModerationSearchFilters = {
     contentType: [ContentTypeEnum.HUMAN],
     isHumanContent: true,
     minConfidence: 80,
-    flagType: [ModerationFlagEnum.NO_FACE_DETECTED],
 }
 
 export const SYNTHETIC_CONTENT_FILTERS: ModerationSearchFilters = {
     contentType: [ContentTypeEnum.AI_GENERATED, ContentTypeEnum.BOT],
     isHumanContent: false,
-    flagType: [ModerationFlagEnum.AI_CONTENT, ModerationFlagEnum.BOT_CONTENT],
-}
-
-export const SPAM_CONTENT_FILTERS: ModerationSearchFilters = {
-    contentType: [ContentTypeEnum.SPAM],
-    flagType: [ModerationFlagEnum.SPAM_CONTENT, ModerationFlagEnum.EXCESSIVE_HASHTAGS],
+    flagType: [ModerationFlagEnum.LOW_QUALITY_CONTENT, ModerationFlagEnum.BOT_CONTENT],
 }
 
 export const LOW_QUALITY_FILTERS: ModerationSearchFilters = {
     flagType: [
+        ModerationFlagEnum.LOW_QUALITY_CONTENT,
         ModerationFlagEnum.LOW_QUALITY_VIDEO,
         ModerationFlagEnum.LOW_QUALITY_AUDIO,
         ModerationFlagEnum.NO_AUDIO,
@@ -218,9 +213,13 @@ export const LOW_QUALITY_FILTERS: ModerationSearchFilters = {
     ],
 }
 
-export const MEME_CONTENT_FILTERS: ModerationSearchFilters = {
-    contentType: [ContentTypeEnum.MEME],
-    flagType: [ModerationFlagEnum.MEME_CONTENT],
+export const SPAM_CONTENT_FILTERS: ModerationSearchFilters = {
+    contentType: [ContentTypeEnum.SPAM],
+    flagType: [
+        ModerationFlagEnum.SPAM_CONTENT,
+        ModerationFlagEnum.EXCESSIVE_HASHTAGS,
+        ModerationFlagEnum.SUSPICIOUS_PATTERNS,
+    ],
 }
 
 export class ModerationFilters {
@@ -440,6 +439,7 @@ export class ModerationFilters {
      */
     static filterByQualityFlags(moderations: ModerationEntity[]): ModerationEntity[] {
         const qualityFlags = [
+            ModerationFlagEnum.LOW_QUALITY_CONTENT,
             ModerationFlagEnum.LOW_QUALITY_VIDEO,
             ModerationFlagEnum.LOW_QUALITY_AUDIO,
             ModerationFlagEnum.NO_AUDIO,
@@ -453,9 +453,9 @@ export class ModerationFilters {
      */
     static filterByAuthenticityFlags(moderations: ModerationEntity[]): ModerationEntity[] {
         const authenticityFlags = [
-            ModerationFlagEnum.NO_FACE_DETECTED,
-            ModerationFlagEnum.AI_CONTENT,
+            ModerationFlagEnum.LOW_QUALITY_CONTENT,
             ModerationFlagEnum.BOT_CONTENT,
+            ModerationFlagEnum.SUSPICIOUS_PATTERNS,
         ]
         return this.filterByFlags(moderations, authenticityFlags)
     }
@@ -467,7 +467,10 @@ export class ModerationFilters {
         const spamFlags = [
             ModerationFlagEnum.SPAM_CONTENT,
             ModerationFlagEnum.EXCESSIVE_HASHTAGS,
-            ModerationFlagEnum.MEME_CONTENT,
+            ModerationFlagEnum.EXCESSIVE_MENTIONS,
+            ModerationFlagEnum.EXCESSIVE_URLS,
+            ModerationFlagEnum.SUSPICIOUS_PATTERNS,
+            ModerationFlagEnum.REPETITIVE_CONTENT,
             ModerationFlagEnum.TEXT_ONLY,
         ]
         return this.filterByFlags(moderations, spamFlags)
@@ -597,10 +600,10 @@ export class ModerationFilters {
     }
 
     /**
-     * Verifica se tem rosto detectado
+     * Verifica se tem conteúdo de baixa qualidade
      */
-    static hasFaceDetected(moderation: ModerationEntity): boolean {
-        return !moderation.flags.some((flag) => flag.type === ModerationFlagEnum.NO_FACE_DETECTED)
+    static hasLowQualityContent(moderation: ModerationEntity): boolean {
+        return moderation.flags.some((flag) => flag.type === ModerationFlagEnum.LOW_QUALITY_CONTENT)
     }
 
     /**

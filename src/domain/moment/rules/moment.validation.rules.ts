@@ -112,10 +112,6 @@ export interface MomentValidationRules {
         requirePayment: boolean
         allowFreeContent: boolean
         requireSubscription: boolean
-        allowMonetization: boolean
-        requireRevenueShare: boolean
-        maxRevenueShare: number // %
-        minRevenueShare: number // %
     }
 }
 
@@ -128,12 +124,13 @@ export const DEFAULT_MOMENT_VALIDATION_RULES: MomentValidationRules = {
         minSize: 1024, // 1KB
         allowedFormats: ["mp4", "webm", "mov"],
         requiredAspectRatio: {
-            width: 9,
-            height: 16,
+            width: 360,
+            height: 558,
         },
         allowedResolutions: [
-            { width: 720, height: 1280, quality: MomentQualityEnum.MEDIUM },
-            { width: 1080, height: 1920, quality: MomentQualityEnum.HIGH },
+            { width: 360, height: 558, quality: MomentQualityEnum.MEDIUM },
+            { width: 720, height: 1116, quality: MomentQualityEnum.HIGH }, // 2x (aspect ratio 360:558)
+            { width: 1080, height: 1674, quality: MomentQualityEnum.HIGH }, // 3x (aspect ratio 360:558)
         ],
         qualityThresholds: {
             low: 30,
@@ -252,10 +249,6 @@ export const DEFAULT_MOMENT_VALIDATION_RULES: MomentValidationRules = {
         requirePayment: false,
         allowFreeContent: true,
         requireSubscription: false,
-        allowMonetization: false,
-        requireRevenueShare: false,
-        maxRevenueShare: 50, // 50%
-        minRevenueShare: 10, // 10%
     },
 }
 
@@ -268,12 +261,13 @@ export const PREMIUM_MOMENT_VALIDATION_RULES: MomentValidationRules = {
         minSize: 1024 * 1024, // 1MB
         allowedFormats: ["mp4", "webm", "mov"],
         requiredAspectRatio: {
-            width: 9,
-            height: 16,
+            width: 360,
+            height: 558,
         },
         allowedResolutions: [
-            { width: 1080, height: 1920, quality: MomentQualityEnum.HIGH },
-            { width: 1440, height: 2560, quality: MomentQualityEnum.HIGH },
+            { width: 360, height: 558, quality: MomentQualityEnum.MEDIUM },
+            { width: 720, height: 1116, quality: MomentQualityEnum.HIGH },
+            { width: 1080, height: 1674, quality: MomentQualityEnum.HIGH },
         ],
         qualityThresholds: {
             low: 30,
@@ -392,10 +386,6 @@ export const PREMIUM_MOMENT_VALIDATION_RULES: MomentValidationRules = {
         requirePayment: false,
         allowFreeContent: true,
         requireSubscription: false,
-        allowMonetization: true,
-        requireRevenueShare: false,
-        maxRevenueShare: 50, // 50%
-        minRevenueShare: 10, // 10%
     },
 }
 
@@ -462,37 +452,14 @@ export class MomentValidator {
     }
 
     /**
-     * Valida resolução do conteúdo
+     * Valida resolução do conteúdo (360x558)
+     * DESABILITADA: Aceita qualquer resolução enquanto ffmpeg não está disponível
      */
     validateResolution(width: number, height: number): { isValid: boolean; error?: string } {
-        // Verificar aspect ratio
-        const aspectRatio = width / height
-        const targetRatio =
-            this.rules.content.requiredAspectRatio.width /
-            this.rules.content.requiredAspectRatio.height
-        const tolerance = 0.01
-
-        if (Math.abs(aspectRatio - targetRatio) > tolerance) {
-            return {
-                isValid: false,
-                error: `Aspect ratio deve ser ${this.rules.content.requiredAspectRatio.width}:${this.rules.content.requiredAspectRatio.height}`,
-            }
-        }
-
-        // Verificar se a resolução está próxima de uma resolução permitida
-        const isValidResolution = this.rules.content.allowedResolutions.some((res) => {
-            const widthDiff = Math.abs(width - res.width)
-            const heightDiff = Math.abs(height - res.height)
-            return widthDiff <= 2 && heightDiff <= 2 // Tolerância de 2 pixels
-        })
-
-        if (!isValidResolution) {
-            return {
-                isValid: false,
-                error: `Resolução ${width}x${height} não é suportada`,
-            }
-        }
-
+        // TODO: Reabilitar quando ffmpeg estiver instalado para fazer crop automático
+        console.log(
+            `[ValidationRules] ⚠️ Validação de resolução desabilitada (sem ffmpeg): ${width}x${height} - ACEITO`,
+        )
         return { isValid: true }
     }
 

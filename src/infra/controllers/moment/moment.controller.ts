@@ -1,13 +1,8 @@
 // Use Cases
 import {
-    CommentMomentUseCase,
     CreateMomentUseCase,
-    DeleteMomentCommentUseCase,
     DeleteMomentUseCase,
-    EditMomentCommentUseCase,
-    GetCommentedMomentsUseCase,
     GetLikedMomentsUseCase,
-    GetMomentCommentsUseCase,
     GetMomentReportsUseCase,
     GetMomentUseCase,
     GetUserMomentReportsUseCase,
@@ -17,20 +12,39 @@ import {
     ListMomentsUseCase,
     PublishMomentUseCase,
     ReportMomentUseCase,
-    SearchMomentsUseCase,
     UnlikeMomentUseCase,
 } from "@/application/moment/use.cases"
 
+import { GetUserMomentsResponse } from "@/application/moment/use.cases/get.user.moments.use.case"
+import { AuthenticatedUser } from "@/infra/middlewares"
 import { z } from "zod"
 
 // Interfaces de Request
 export interface CreateMomentRequest {
+    videoData: Buffer // Dados do vídeo
+    videoMetadata: {
+        filename: string
+        mimeType: string
+        size: number
+    }
     description?: string
     hashtags?: string[]
     mentions?: string[]
     visibility?: "public" | "followers_only" | "private" | "unlisted"
     ageRestriction?: boolean
     contentWarning?: boolean
+    location?: {
+        latitude: number
+        longitude: number
+    }
+    device?: {
+        type: string
+        os: string
+        osVersion: string
+        model: string
+        screenResolution: string
+        orientation: string
+    }
 }
 
 export interface UpdateMomentRequest {
@@ -40,10 +54,6 @@ export interface UpdateMomentRequest {
     visibility?: "public" | "followers_only" | "private" | "unlisted"
     ageRestriction?: boolean
     contentWarning?: boolean
-}
-
-export interface CommentRequest {
-    content: string
 }
 
 export interface ReportRequest {
@@ -65,13 +75,6 @@ export interface ListMomentsQuery {
     sortBy?: "createdAt" | "updatedAt" | "likes" | "views"
     sortOrder?: "asc" | "desc"
     status?: "published" | "archived" | "deleted" | "blocked" | "under_review"
-}
-
-export interface SearchMomentsQuery {
-    q: string
-    page?: number
-    limit?: number
-    type?: "all" | "text" | "hashtag" | "location"
 }
 
 // Interface de Response
@@ -107,70 +110,20 @@ export interface MomentResponse {
         }
         engagement: {
             totalLikes: number
-            totalComments: number
             totalReports: number
             likeRate: number
-            commentRate: number
             reportRate: number
         }
         performance: {
             loadTime: number
             bufferTime: number
             errorRate: number
-            qualitySwitches: number
+            successRate: number
         }
-        viral: {
-            viralScore: number
-            trendingScore: number
-            reachScore: number
-            influenceScore: number
-            growthRate: number
-            totalReach: number
-        }
-        content: {
-            contentQualityScore: number
-            audioQualityScore: number
-            videoQualityScore: number
-            faceDetectionRate: number
-        }
-        lastMetricsUpdate: Date
-        metricsVersion: string
-        dataQuality: number
-        confidenceLevel: number
     }
     createdAt: Date
     updatedAt: Date
-    publishedAt: Date | null
-    archivedAt: Date | null
-    deletedAt: Date | null
 }
-
-// Schemas de validação
-const CreateMomentSchema = z.object({
-    description: z.string().min(1).max(500).optional(),
-    hashtags: z.array(z.string()).max(10).optional(),
-    mentions: z.array(z.string()).max(10).optional(),
-    visibility: z.enum(["public", "followers_only", "private", "unlisted"]).optional(),
-    ageRestriction: z.boolean().optional(),
-    contentWarning: z.boolean().optional(),
-})
-
-const UpdateMomentSchema = z.object({
-    description: z.string().min(1).max(500).optional(),
-    hashtags: z.array(z.string()).max(10).optional(),
-    mentions: z.array(z.string()).max(10).optional(),
-    visibility: z.enum(["public", "followers_only", "private", "unlisted"]).optional(),
-    ageRestriction: z.boolean().optional(),
-    contentWarning: z.boolean().optional(),
-})
-
-const CommentSchema = z.object({
-    content: z.string().min(1).max(500),
-})
-
-const EditCommentSchema = z.object({
-    content: z.string().min(1).max(500),
-})
 
 const ReportSchema = z.object({
     reason: z.enum([
@@ -181,6 +134,7 @@ const ReportSchema = z.object({
         "hate_speech",
         "fake_news",
         "copyright_violation",
+        "pornography",
         "other",
     ]),
     description: z.string().max(1000).optional(),
@@ -196,13 +150,6 @@ const ListMomentsQuerySchema = z.object({
         .default("published"),
 })
 
-const SearchMomentsQuerySchema = z.object({
-    q: z.string().min(1),
-    page: z.coerce.number().min(1).default(1),
-    limit: z.coerce.number().min(1).max(100).default(20),
-    type: z.enum(["all", "text", "hashtag", "location"]).default("all"),
-})
-
 export class MomentController {
     constructor(
         private readonly createMomentUseCase: CreateMomentUseCase,
@@ -211,15 +158,9 @@ export class MomentController {
         private readonly publishMomentUseCase: PublishMomentUseCase,
         private readonly listMomentsUseCase: ListMomentsUseCase,
         private readonly getUserMomentsUseCase: GetUserMomentsUseCase,
-        private readonly searchMomentsUseCase: SearchMomentsUseCase,
         private readonly likeMomentUseCase: LikeMomentUseCase,
         private readonly unlikeMomentUseCase: UnlikeMomentUseCase,
         private readonly getLikedMomentsUseCase: GetLikedMomentsUseCase,
-        private readonly commentMomentUseCase: CommentMomentUseCase,
-        private readonly getMomentCommentsUseCase: GetMomentCommentsUseCase,
-        private readonly editMomentCommentUseCase: EditMomentCommentUseCase,
-        private readonly deleteMomentCommentUseCase: DeleteMomentCommentUseCase,
-        private readonly getCommentedMomentsUseCase: GetCommentedMomentsUseCase,
         private readonly reportMomentUseCase: ReportMomentUseCase,
         private readonly getMomentReportsUseCase: GetMomentReportsUseCase,
         private readonly getUserMomentReportsUseCase: GetUserMomentReportsUseCase,
@@ -233,62 +174,43 @@ export class MomentController {
      */
     async createMoment(request: CreateMomentRequest, userId: string): Promise<MomentResponse> {
         try {
-            // Validação com Zod
-            const validatedData = CreateMomentSchema.parse(request)
+            // Validação básica dos dados obrigatórios
+            if (!request.videoData || request.videoData.length === 0) {
+                throw new Error("Dados do vídeo são obrigatórios")
+            }
+
+            if (!request.videoMetadata) {
+                throw new Error("Metadados do vídeo são obrigatórios")
+            }
+
+            // Validar menções (não pode mencionar a si mesmo)
+            if (request.mentions && request.mentions.includes(userId)) {
+                throw new Error("Você não pode mencionar a si mesmo")
+            }
 
             const result = await this.createMomentUseCase.execute({
                 ownerId: userId,
-                description: validatedData.description,
-                hashtags: validatedData.hashtags,
-                mentions: validatedData.mentions,
-                content: {
-                    duration: 0,
-                    size: 0,
-                    format: "mp4",
-                    hasAudio: true,
-                    codec: "h264",
-                    resolution: {
-                        width: 1080,
-                        height: 1920,
-                        quality: "high",
-                    },
-                },
-                media: {
-                    urls: {
-                        low: "",
-                        medium: "",
-                        high: "",
-                    },
-                    storage: {
-                        provider: "s3",
-                        bucket: "",
-                        key: "",
-                        region: "us-east-1",
-                    },
-                },
-                thumbnail: {
-                    url: "",
-                    width: 1080,
-                    height: 1920,
-                    storage: {
-                        provider: "s3",
-                        bucket: "",
-                        key: "",
-                        region: "us-east-1",
-                    },
-                },
+                videoData: request.videoData,
+                videoMetadata: request.videoMetadata,
+                description: request.description,
+                location: request.location,
+                device: request.device,
             })
 
-            return this.mapToResponse(result)
+            if (!result.success || !result.moment) {
+                throw new Error(result.error || "Error to create moment")
+            }
+
+            return result.moment as any
         } catch (error) {
             if (error instanceof z.ZodError) {
                 throw new Error(
-                    `Erro de validação: ${error.issues.map((e) => e.message).join(", ")}`,
+                    `Validation error: ${error.issues.map((e) => e.message).join(", ")}`,
                 )
             }
             throw new Error(
-                `Erro ao criar momento: ${
-                    error instanceof Error ? error.message : "Erro desconhecido"
+                `Error to create moment: ${
+                    error instanceof Error ? error.message : "Unknown error"
                 }`,
             )
         }
@@ -310,9 +232,7 @@ export class MomentController {
                 return null
             }
             throw new Error(
-                `Erro ao buscar momento: ${
-                    error instanceof Error ? error.message : "Erro desconhecido"
-                }`,
+                `Error to get moment: ${error instanceof Error ? error.message : "Unknown error"}`,
             )
         }
     }
@@ -328,14 +248,14 @@ export class MomentController {
             })
         } catch (error) {
             if (error instanceof Error && error.message === "Moment not found") {
-                throw new Error("Momento não encontrado")
+                throw new Error("Moment not found")
             }
             if (error instanceof Error && error.message === "Unauthorized") {
-                throw new Error("Não autorizado")
+                throw new Error("Unauthorized")
             }
             throw new Error(
-                `Erro ao deletar momento: ${
-                    error instanceof Error ? error.message : "Erro desconhecido"
+                `Error to delete moment: ${
+                    error instanceof Error ? error.message : "Unknown error"
                 }`,
             )
         }
@@ -354,14 +274,14 @@ export class MomentController {
             return this.mapToResponse(result)
         } catch (error) {
             if (error instanceof Error && error.message === "Moment not found") {
-                throw new Error("Momento não encontrado")
+                throw new Error("Moment not found")
             }
             if (error instanceof Error && error.message === "Unauthorized") {
-                throw new Error("Não autorizado")
+                throw new Error("Unauthorized")
             }
             throw new Error(
-                `Erro ao publicar momento: ${
-                    error instanceof Error ? error.message : "Erro desconhecido"
+                `Error to publish moment: ${
+                    error instanceof Error ? error.message : "Unknown error"
                 }`,
             )
         }
@@ -386,19 +306,19 @@ export class MomentController {
             })
 
             if (!result.success || !result.moments) {
-                throw new Error(result.error || "Erro ao listar momentos")
+                throw new Error(result.error || "Error to list moments")
             }
 
             return result.moments.map((moment) => this.mapToResponse(moment))
         } catch (error) {
             if (error instanceof z.ZodError) {
                 throw new Error(
-                    `Erro de validação: ${error.issues.map((e) => e.message).join(", ")}`,
+                    `Validation error: ${error.issues.map((e) => e.message).join(", ")}`,
                 )
             }
             throw new Error(
-                `Erro ao listar momentos: ${
-                    error instanceof Error ? error.message : "Erro desconhecido"
+                `Error to list moments: ${
+                    error instanceof Error ? error.message : "Unknown error"
                 }`,
             )
         }
@@ -407,13 +327,18 @@ export class MomentController {
     /**
      * Lista momentos de um usuário específico
      */
-    async getUserMoments(userId: string, query: ListMomentsQuery): Promise<MomentResponse[]> {
+    async getUserMoments(
+        userId: string,
+        requestingUser: AuthenticatedUser,
+        query: ListMomentsQuery,
+    ): Promise<GetUserMomentsResponse> {
         try {
             // Validação com Zod
             const validatedQuery = ListMomentsQuerySchema.parse(query)
 
             const result = await this.getUserMomentsUseCase.execute({
-                userId: userId,
+                ownerId: userId,
+                requestingUser: requestingUser,
                 limit: validatedQuery.limit,
                 offset: (validatedQuery.page - 1) * validatedQuery.limit,
                 sortBy: validatedQuery.sortBy,
@@ -422,57 +347,19 @@ export class MomentController {
             })
 
             if (!result.success || !result.moments) {
-                throw new Error(result.error || "Erro ao listar momentos do usuário")
+                throw new Error(result.error || "Error to list moments of user")
             }
 
-            return result.moments.map((moment) => this.mapToResponse(moment))
+            return result
         } catch (error) {
             if (error instanceof z.ZodError) {
                 throw new Error(
-                    `Erro de validação: ${error.issues.map((e) => e.message).join(", ")}`,
+                    `Validation error: ${error.issues.map((e) => e.message).join(", ")}`,
                 )
             }
             throw new Error(
-                `Erro ao listar momentos do usuário: ${
-                    error instanceof Error ? error.message : "Erro desconhecido"
-                }`,
-            )
-        }
-    }
-
-    /**
-     * Busca momentos
-     */
-    async searchMoments(query: SearchMomentsQuery): Promise<MomentResponse[]> {
-        try {
-            // Validação com Zod
-            const validatedQuery = SearchMomentsQuerySchema.parse(query)
-
-            const result = await this.searchMomentsUseCase.execute({
-                term: validatedQuery.q,
-                filters: {
-                    status: validatedQuery.type === "all" ? undefined : [validatedQuery.type],
-                },
-                pagination: {
-                    limit: validatedQuery.limit,
-                    offset: (validatedQuery.page - 1) * validatedQuery.limit,
-                },
-            })
-
-            if (!result.success || !result.results) {
-                throw new Error(result.error || "Erro ao buscar momentos")
-            }
-
-            return result.results.moments.map((moment) => this.mapToResponse(moment))
-        } catch (error) {
-            if (error instanceof z.ZodError) {
-                throw new Error(
-                    `Erro de validação: ${error.issues.map((e) => e.message).join(", ")}`,
-                )
-            }
-            throw new Error(
-                `Erro ao buscar momentos: ${
-                    error instanceof Error ? error.message : "Erro desconhecido"
+                `Error to list moments of user: ${
+                    error instanceof Error ? error.message : "Unknown error"
                 }`,
             )
         }
@@ -493,12 +380,10 @@ export class MomentController {
             return this.mapToResponse(result)
         } catch (error) {
             if (error instanceof Error && error.message === "Moment not found") {
-                throw new Error("Momento não encontrado")
+                throw new Error("Moment not found")
             }
             throw new Error(
-                `Erro ao curtir momento: ${
-                    error instanceof Error ? error.message : "Erro desconhecido"
-                }`,
+                `Error to like moment: ${error instanceof Error ? error.message : "Unknown error"}`,
             )
         }
     }
@@ -516,11 +401,11 @@ export class MomentController {
             return this.mapToResponse(result)
         } catch (error) {
             if (error instanceof Error && error.message === "Moment not found") {
-                throw new Error("Momento não encontrado")
+                throw new Error("Moment not found")
             }
             throw new Error(
-                `Erro ao descurtir momento: ${
-                    error instanceof Error ? error.message : "Erro desconhecido"
+                `Error to unlike moment: ${
+                    error instanceof Error ? error.message : "Unknown error"
                 }`,
             )
         }
@@ -541,196 +426,19 @@ export class MomentController {
             })
 
             if (!result.success || !result.moments) {
-                throw new Error(result.error || "Erro ao listar momentos curtidos")
+                throw new Error(result.error || "Error to list liked moments")
             }
 
             return result.moments.map((moment) => this.mapToResponse(moment))
         } catch (error) {
             if (error instanceof z.ZodError) {
                 throw new Error(
-                    `Erro de validação: ${error.issues.map((e) => e.message).join(", ")}`,
+                    `Validation error: ${error.issues.map((e) => e.message).join(", ")}`,
                 )
             }
             throw new Error(
-                `Erro ao listar momentos curtidos: ${
-                    error instanceof Error ? error.message : "Erro desconhecido"
-                }`,
-            )
-        }
-    }
-
-    // ===== COMMENTS =====
-
-    /**
-     * Comentar em um momento
-     */
-    async commentMoment(
-        momentId: string,
-        userId: string,
-        request: CommentRequest,
-    ): Promise<MomentResponse> {
-        try {
-            // Validação com Zod
-            const validatedData = CommentSchema.parse(request)
-
-            const result = await this.commentMomentUseCase.execute({
-                momentId: momentId,
-                userId: userId,
-                content: validatedData.content,
-            })
-
-            return this.mapToResponse(result)
-        } catch (error) {
-            if (error instanceof z.ZodError) {
-                throw new Error(
-                    `Erro de validação: ${error.issues.map((e) => e.message).join(", ")}`,
-                )
-            }
-            if (error instanceof Error && error.message === "Moment not found") {
-                throw new Error("Momento não encontrado")
-            }
-            throw new Error(
-                `Erro ao comentar no momento: ${
-                    error instanceof Error ? error.message : "Erro desconhecido"
-                }`,
-            )
-        }
-    }
-
-    /**
-     * Lista comentários de um momento
-     */
-    async getMomentComments(momentId: string, query: ListMomentsQuery): Promise<MomentResponse[]> {
-        try {
-            // Validação com Zod
-            const validatedQuery = ListMomentsQuerySchema.parse(query)
-
-            const result = await this.getMomentCommentsUseCase.execute({
-                momentId: momentId,
-                userId: "", // TODO: Passar userId correto
-                page: validatedQuery.page,
-                limit: validatedQuery.limit,
-            })
-
-            // Retornar array vazio por enquanto, pois este use case retorna comentários, não momentos
-            return []
-        } catch (error) {
-            if (error instanceof z.ZodError) {
-                throw new Error(
-                    `Erro de validação: ${error.issues.map((e) => e.message).join(", ")}`,
-                )
-            }
-            if (error instanceof Error && error.message === "Moment not found") {
-                throw new Error("Momento não encontrado")
-            }
-            throw new Error(
-                `Erro ao listar comentários do momento: ${
-                    error instanceof Error ? error.message : "Erro desconhecido"
-                }`,
-            )
-        }
-    }
-
-    /**
-     * Editar comentário de um momento
-     */
-    async editMomentComment(
-        momentId: string,
-        commentId: string,
-        userId: string,
-        request: CommentRequest,
-    ): Promise<MomentResponse> {
-        try {
-            // Validação com Zod
-            const validatedData = EditCommentSchema.parse(request)
-
-            const result = await this.editMomentCommentUseCase.execute({
-                momentId: momentId,
-                commentId: commentId,
-                userId: userId,
-                content: validatedData.content,
-            })
-
-            return this.mapToResponse(result)
-        } catch (error) {
-            if (error instanceof z.ZodError) {
-                throw new Error(
-                    `Erro de validação: ${error.issues.map((e) => e.message).join(", ")}`,
-                )
-            }
-            if (error instanceof Error && error.message === "Moment not found") {
-                throw new Error("Momento não encontrado")
-            }
-            if (error instanceof Error && error.message === "Comment not found") {
-                throw new Error("Comentário não encontrado")
-            }
-            if (error instanceof Error && error.message === "Unauthorized") {
-                throw new Error("Não autorizado")
-            }
-            throw new Error(
-                `Erro ao editar comentário: ${
-                    error instanceof Error ? error.message : "Erro desconhecido"
-                }`,
-            )
-        }
-    }
-
-    /**
-     * Deletar comentário de um momento
-     */
-    async deleteMomentComment(momentId: string, commentId: string, userId: string): Promise<void> {
-        try {
-            await this.deleteMomentCommentUseCase.execute({
-                momentId: momentId,
-                commentId: commentId,
-                userId: userId,
-            })
-        } catch (error) {
-            if (error instanceof Error && error.message === "Moment not found") {
-                throw new Error("Momento não encontrado")
-            }
-            if (error instanceof Error && error.message === "Comment not found") {
-                throw new Error("Comentário não encontrado")
-            }
-            if (error instanceof Error && error.message === "Unauthorized") {
-                throw new Error("Não autorizado")
-            }
-            throw new Error(
-                `Erro ao deletar comentário: ${
-                    error instanceof Error ? error.message : "Erro desconhecido"
-                }`,
-            )
-        }
-    }
-
-    /**
-     * Lista momentos comentados por um usuário
-     */
-    async getCommentedMoments(userId: string, query: ListMomentsQuery): Promise<MomentResponse[]> {
-        try {
-            // Validação com Zod
-            const validatedQuery = ListMomentsQuerySchema.parse(query)
-
-            const result = await this.getCommentedMomentsUseCase.execute({
-                userId: userId,
-                limit: validatedQuery.limit,
-                offset: (validatedQuery.page - 1) * validatedQuery.limit,
-            })
-
-            if (!result.success || !result.moments) {
-                throw new Error(result.error || "Erro ao listar momentos comentados")
-            }
-
-            return result.moments.map((moment) => this.mapToResponse(moment))
-        } catch (error) {
-            if (error instanceof z.ZodError) {
-                throw new Error(
-                    `Erro de validação: ${error.issues.map((e) => e.message).join(", ")}`,
-                )
-            }
-            throw new Error(
-                `Erro ao listar momentos comentados: ${
-                    error instanceof Error ? error.message : "Erro desconhecido"
+                `Error to list liked moments: ${
+                    error instanceof Error ? error.message : "Unknown error"
                 }`,
             )
         }
@@ -758,27 +466,27 @@ export class MomentController {
             })
 
             if (!result.success) {
-                throw new Error(result.error || "Erro ao reportar momento")
+                throw new Error(result.error || "Error to report moment")
             }
 
             // Retornar o momento reportado
             const moment = await this.getMoment(momentId, userId)
             if (!moment) {
-                throw new Error("Momento não encontrado")
+                throw new Error("Moment not found")
             }
             return moment
         } catch (error) {
             if (error instanceof z.ZodError) {
                 throw new Error(
-                    `Erro de validação: ${error.issues.map((e) => e.message).join(", ")}`,
+                    `Validation error: ${error.issues.map((e) => e.message).join(", ")}`,
                 )
             }
             if (error instanceof Error && error.message === "Moment not found") {
-                throw new Error("Momento não encontrado")
+                throw new Error("Moment not found")
             }
             throw new Error(
-                `Erro ao reportar momento: ${
-                    error instanceof Error ? error.message : "Erro desconhecido"
+                `Error to report moment: ${
+                    error instanceof Error ? error.message : "Unknown error"
                 }`,
             )
         }
@@ -804,7 +512,7 @@ export class MomentController {
             })
 
             if (!result.success) {
-                throw new Error(result.error || "Erro ao listar reports do momento")
+                throw new Error(result.error || "Error to list reports of moment")
             }
 
             // Retornar array vazio por enquanto, pois este use case retorna reports, não momentos
@@ -812,18 +520,18 @@ export class MomentController {
         } catch (error) {
             if (error instanceof z.ZodError) {
                 throw new Error(
-                    `Erro de validação: ${error.issues.map((e) => e.message).join(", ")}`,
+                    `Validation error: ${error.issues.map((e) => e.message).join(", ")}`,
                 )
             }
             if (error instanceof Error && error.message === "Moment not found") {
-                throw new Error("Momento não encontrado")
+                throw new Error("Moment not found")
             }
             if (error instanceof Error && error.message === "Unauthorized") {
-                throw new Error("Não autorizado")
+                throw new Error("Unauthorized")
             }
             throw new Error(
-                `Erro ao listar reports do momento: ${
-                    error instanceof Error ? error.message : "Erro desconhecido"
+                `Error to list reports of moment: ${
+                    error instanceof Error ? error.message : "Unknown error"
                 }`,
             )
         }
@@ -833,8 +541,7 @@ export class MomentController {
      * Lista reports dos momentos de um usuário (apenas owner)
      */
     async getUserMomentReports(
-        userId: string,
-        currentUserId: string,
+        ownerId: string,
         query: ListMomentsQuery,
     ): Promise<MomentResponse[]> {
         try {
@@ -842,13 +549,13 @@ export class MomentController {
             const validatedQuery = ListMomentsQuerySchema.parse(query)
 
             const result = await this.getUserMomentReportsUseCase.execute({
-                userId: userId,
+                userId: ownerId,
                 limit: validatedQuery.limit,
                 offset: (validatedQuery.page - 1) * validatedQuery.limit,
             })
 
             if (!result.success) {
-                throw new Error(result.error || "Erro ao listar reports dos momentos do usuário")
+                throw new Error(result.error || "Error to list reports of user's moments")
             }
 
             // Retornar array vazio por enquanto, pois este use case retorna reports, não momentos
@@ -856,15 +563,15 @@ export class MomentController {
         } catch (error) {
             if (error instanceof z.ZodError) {
                 throw new Error(
-                    `Erro de validação: ${error.issues.map((e) => e.message).join(", ")}`,
+                    `Validation error: ${error.issues.map((e) => e.message).join(", ")}`,
                 )
             }
             if (error instanceof Error && error.message === "Unauthorized") {
-                throw new Error("Não autorizado")
+                throw new Error("Unauthorized")
             }
             throw new Error(
-                `Erro ao listar reports dos momentos do usuário: ${
-                    error instanceof Error ? error.message : "Erro desconhecido"
+                `Error to list reports of user's moments: ${
+                    error instanceof Error ? error.message : "Unknown error"
                 }`,
             )
         }
@@ -889,7 +596,7 @@ export class MomentController {
             })
 
             if (!result.success) {
-                throw new Error(result.error || "Erro ao listar momentos reportados pelo usuário")
+                throw new Error(result.error || "Error to list reported moments of user")
             }
 
             // Retornar array vazio por enquanto, pois este use case retorna reports, não momentos
@@ -897,22 +604,22 @@ export class MomentController {
         } catch (error) {
             if (error instanceof z.ZodError) {
                 throw new Error(
-                    `Erro de validação: ${error.issues.map((e) => e.message).join(", ")}`,
+                    `Validation error: ${error.issues.map((e) => e.message).join(", ")}`,
                 )
             }
             if (error instanceof Error && error.message === "Unauthorized") {
-                throw new Error("Não autorizado")
+                throw new Error("Unauthorized")
             }
             throw new Error(
-                `Erro ao listar momentos reportados pelo usuário: ${
-                    error instanceof Error ? error.message : "Erro desconhecido"
+                `Error to list reported moments of user: ${
+                    error instanceof Error ? error.message : "Unknown error"
                 }`,
             )
         }
     }
 
     /**
-     * Mapeia entidade Moment para MomentResponse
+     * Map entity Moment to MomentResponse
      */
     private mapToResponse(moment: any): MomentResponse {
         const momentData = moment.toEntity ? moment.toEntity() : moment
@@ -967,36 +674,16 @@ export class MomentController {
                       },
                       engagement: {
                           totalLikes: momentData.metrics.engagement?.totalLikes || 0,
-                          totalComments: momentData.metrics.engagement?.totalComments || 0,
                           totalReports: momentData.metrics.engagement?.totalReports || 0,
                           likeRate: momentData.metrics.engagement?.likeRate || 0,
-                          commentRate: momentData.metrics.engagement?.commentRate || 0,
                           reportRate: momentData.metrics.engagement?.reportRate || 0,
                       },
                       performance: {
                           loadTime: momentData.metrics.performance?.loadTime || 0,
                           bufferTime: momentData.metrics.performance?.bufferTime || 0,
                           errorRate: momentData.metrics.performance?.errorRate || 0,
-                          qualitySwitches: momentData.metrics.performance?.qualitySwitches || 0,
+                          successRate: momentData.metrics.performance?.successRate || 0,
                       },
-                      viral: {
-                          viralScore: momentData.metrics.viral?.viralScore || 0,
-                          trendingScore: momentData.metrics.viral?.trendingScore || 0,
-                          reachScore: momentData.metrics.viral?.reachScore || 0,
-                          influenceScore: momentData.metrics.viral?.influenceScore || 0,
-                          growthRate: momentData.metrics.viral?.growthRate || 0,
-                          totalReach: momentData.metrics.viral?.totalReach || 0,
-                      },
-                      content: {
-                          contentQualityScore: momentData.metrics.content?.contentQualityScore || 0,
-                          audioQualityScore: momentData.metrics.content?.audioQualityScore || 0,
-                          videoQualityScore: momentData.metrics.content?.videoQualityScore || 0,
-                          faceDetectionRate: momentData.metrics.content?.faceDetectionRate || 0,
-                      },
-                      lastMetricsUpdate: momentData.metrics.lastMetricsUpdate || new Date(),
-                      metricsVersion: momentData.metrics.metricsVersion || "1.0.0",
-                      dataQuality: momentData.metrics.dataQuality || 0,
-                      confidenceLevel: momentData.metrics.confidenceLevel || 0,
                   }
                 : {
                       views: {
@@ -1010,42 +697,19 @@ export class MomentController {
                       },
                       engagement: {
                           totalLikes: 0,
-                          totalComments: 0,
                           totalReports: 0,
                           likeRate: 0,
-                          commentRate: 0,
                           reportRate: 0,
                       },
                       performance: {
                           loadTime: 0,
                           bufferTime: 0,
                           errorRate: 0,
-                          qualitySwitches: 0,
+                          successRate: 0,
                       },
-                      viral: {
-                          viralScore: 0,
-                          trendingScore: 0,
-                          reachScore: 0,
-                          influenceScore: 0,
-                          growthRate: 0,
-                          totalReach: 0,
-                      },
-                      content: {
-                          contentQualityScore: 0,
-                          audioQualityScore: 0,
-                          videoQualityScore: 0,
-                          faceDetectionRate: 0,
-                      },
-                      lastMetricsUpdate: new Date(),
-                      metricsVersion: "1.0.0",
-                      dataQuality: 0,
-                      confidenceLevel: 0,
                   },
             createdAt: momentData.createdAt,
             updatedAt: momentData.updatedAt,
-            publishedAt: momentData.publishedAt,
-            archivedAt: momentData.archivedAt,
-            deletedAt: momentData.deletedAt,
         }
     }
 }

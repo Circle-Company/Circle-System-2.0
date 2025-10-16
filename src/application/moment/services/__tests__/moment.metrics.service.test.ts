@@ -146,8 +146,6 @@ describe("MomentMetricsService", () => {
         updateAudioQualityScore: vi.fn(),
         updateVideoQualityScore: vi.fn(),
         updateFaceDetectionRate: vi.fn(),
-        addRevenue: vi.fn(),
-        addCost: vi.fn(),
         calculateEngagementRate: vi.fn().mockReturnValue(0.15),
     } as any
 
@@ -328,70 +326,6 @@ describe("MomentMetricsService", () => {
         })
     })
 
-    describe("recordRevenue", () => {
-        it("deve registrar receita quando monetização está habilitada", async () => {
-            // Arrange
-            const revenueData = {
-                amount: 100,
-                type: "ad" as const,
-                source: "google",
-                timestamp: new Date(),
-            }
-
-            mockRepository.findByMomentId.mockResolvedValue(mockMetrics)
-            mockRepository.update.mockResolvedValue(mockMetrics)
-
-            // Act
-            await metricsService.recordRevenue("moment_123", revenueData)
-
-            // Assert
-            expect(mockMetrics.addRevenue).toHaveBeenCalledWith(100, "ad")
-            expect(mockRepository.update).toHaveBeenCalledWith(mockMetrics)
-        })
-
-        it("não deve registrar receita quando monetização está desabilitada", async () => {
-            // Arrange
-            const serviceWithoutMonetization = new MomentMetricsService(mockRepository, {
-                enableMonetizationTracking: false,
-            })
-
-            const revenueData = {
-                amount: 100,
-                type: "ad" as const,
-                source: "google",
-                timestamp: new Date(),
-            }
-
-            // Act
-            await serviceWithoutMonetization.recordRevenue("moment_123", revenueData)
-
-            // Assert
-            expect(mockRepository.findByMomentId).not.toHaveBeenCalled()
-        })
-    })
-
-    describe("recordCost", () => {
-        it("deve registrar custo quando monetização está habilitada", async () => {
-            // Arrange
-            const costData = {
-                amount: 50,
-                type: "production" as const,
-                description: "Video editing",
-                timestamp: new Date(),
-            }
-
-            mockRepository.findByMomentId.mockResolvedValue(mockMetrics)
-            mockRepository.update.mockResolvedValue(mockMetrics)
-
-            // Act
-            await metricsService.recordCost("moment_123", costData)
-
-            // Assert
-            expect(mockMetrics.addCost).toHaveBeenCalledWith(50, "production")
-            expect(mockRepository.update).toHaveBeenCalledWith(mockMetrics)
-        })
-    })
-
     describe("getMetrics", () => {
         it("deve retornar métricas do momento", async () => {
             // Arrange
@@ -488,14 +422,12 @@ describe("MomentMetricsService", () => {
                 views: { ...mockMetrics.views, totalViews: 100 },
                 engagement: { ...mockMetrics.engagement, totalLikes: 10, totalComments: 5 },
                 viral: { ...mockMetrics.viral, viralScore: 70, trendingScore: 75 },
-                monetization: { ...mockMetrics.monetization, totalRevenue: 50 },
             }
             const metrics2 = {
                 ...mockMetrics,
                 views: { ...mockMetrics.views, totalViews: 200 },
                 engagement: { ...mockMetrics.engagement, totalLikes: 20, totalComments: 10 },
                 viral: { ...mockMetrics.viral, viralScore: 80, trendingScore: 85 },
-                monetization: { ...mockMetrics.monetization, totalRevenue: 100 },
             }
 
             mockRepository.findByMomentId
@@ -510,7 +442,6 @@ describe("MomentMetricsService", () => {
                 totalViews: 300,
                 totalLikes: 30,
                 totalComments: 15,
-                totalRevenue: 150,
                 averageEngagement: 0.15,
                 averageViralScore: 75,
                 averageTrendingScore: 80,
@@ -526,7 +457,6 @@ describe("MomentMetricsService", () => {
                 totalViews: 0,
                 totalLikes: 0,
                 totalComments: 0,
-                totalRevenue: 0,
                 averageEngagement: 0,
                 averageViralScore: 0,
                 averageTrendingScore: 0,

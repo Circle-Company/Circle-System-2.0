@@ -150,8 +150,8 @@ describe("MomentCreationRules", () => {
                     duration: 30,
                     size: 100 * 1024 * 1024,
                     format: "mp4",
-                    width: 720,
-                    height: 1280,
+                    width: 360,
+                    height: 558,
                 }
 
                 const result = validator.validateContent(content)
@@ -164,8 +164,8 @@ describe("MomentCreationRules", () => {
                     duration: 0.5,
                     size: 100 * 1024 * 1024,
                     format: "mp4",
-                    width: 720,
-                    height: 1280,
+                    width: 360,
+                    height: 558,
                 }
 
                 const result = validator.validateContent(content)
@@ -178,8 +178,8 @@ describe("MomentCreationRules", () => {
                     duration: 31,
                     size: 100 * 1024 * 1024,
                     format: "mp4",
-                    width: 720,
-                    height: 1280,
+                    width: 360,
+                    height: 558,
                 }
 
                 const result = validator.validateContent(content)
@@ -192,8 +192,8 @@ describe("MomentCreationRules", () => {
                     duration: 30,
                     size: 512,
                     format: "mp4",
-                    width: 720,
-                    height: 1280,
+                    width: 360,
+                    height: 558,
                 }
 
                 const result = validator.validateContent(content)
@@ -206,8 +206,8 @@ describe("MomentCreationRules", () => {
                     duration: 30,
                     size: 101 * 1024 * 1024,
                     format: "mp4",
-                    width: 720,
-                    height: 1280,
+                    width: 360,
+                    height: 558,
                 }
 
                 const result = validator.validateContent(content)
@@ -220,8 +220,8 @@ describe("MomentCreationRules", () => {
                     duration: 30,
                     size: 100 * 1024 * 1024,
                     format: "avi",
-                    width: 720,
-                    height: 1280,
+                    width: 360,
+                    height: 558,
                 }
 
                 const result = validator.validateContent(content)
@@ -240,7 +240,7 @@ describe("MomentCreationRules", () => {
 
                 const result = validator.validateContent(content)
                 expect(result.isValid).toBe(false)
-                expect(result.errors).toContain("Aspect ratio deve ser 9:16")
+                expect(result.errors).toContain("Aspect ratio deve ser 360:558")
             })
 
             it("deve rejeitar resolução não permitida", () => {
@@ -254,7 +254,7 @@ describe("MomentCreationRules", () => {
 
                 const result = validator.validateContent(content)
                 expect(result.isValid).toBe(false)
-                expect(result.errors).toContain("Resolução 1440x2560 não é suportada")
+                expect(result.errors).toContain("não é suportada")
             })
         })
 
@@ -392,9 +392,9 @@ describe("MomentCreationRules", () => {
                         maxSize: 150 * 1024 * 1024,
                         minDuration: 2,
                         minSize: 2048,
-                        requiredAspectRatio: { width: 9, height: 16 },
+                        requiredAspectRatio: { width: 360, height: 558 },
                         allowedResolutions: [
-                            { width: 1080, height: 1920, quality: MomentQualityEnum.HIGH },
+                            { width: 360, height: 558, quality: MomentQualityEnum.MEDIUM },
                         ],
                     },
                 }

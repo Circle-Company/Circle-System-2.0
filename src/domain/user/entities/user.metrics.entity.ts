@@ -347,7 +347,7 @@ export class UserMetrics {
     /**
      * Verifica se o usuário está ativo baseado nas métricas
      */
-    public isActiveUser(daysThreshold: number = 30): boolean {
+    public isRecentlyActiveUser(daysThreshold: number = 30): boolean {
         const currentDate = new Date()
         const daysSinceUpdate = Math.floor(
             (currentDate.getTime() - this._lastMetricsUpdate.getTime()) / (1000 * 60 * 60 * 24),
@@ -357,17 +357,10 @@ export class UserMetrics {
     }
 
     /**
-     * Verifica se o usuário é considerado influencer
+     * Verifica se o usuário é considerado influencer (para Swipe Engine)
      */
     public isInfluencer(minFollowers: number = 10000, minEngagementRate: number = 0.1): boolean {
         return this._totalFollowers >= minFollowers && this._engagementRate >= minEngagementRate
-    }
-
-    /**
-     * Verifica se há problemas de moderação
-     */
-    public hasModerationIssues(): boolean {
-        return this._reportsReceived > 5 || this._violationsCount > 3
     }
 
     // ===== MÉTODOS PRIVADOS =====

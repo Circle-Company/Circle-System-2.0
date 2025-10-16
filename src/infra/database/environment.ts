@@ -6,32 +6,10 @@ import { Dialect } from "sequelize"
 // Carregar variáveis de ambiente
 config()
 
-// Configurações padrão simplificadas
-const defaultConfig = {
-    DB_HOST: "localhost",
-    DB_USERNAME: "root",
-    DB_PASSWORD: "",
-    DB_NAME: "test_access_controller_db",
-    DB_SSL: "false",
-    DB_TIMEOUT: "60000",
-    TIMEZONE: "UTC",
-    ENABLE_LOGGER: "true",
-    DIALECT: "mysql",
-    NODE_ENV: "development",
-    PORT: "3000",
-    ENABLE_LOGGING: "true",
-}
-
-// Aplicar configurações padrão se não estiverem definidas
-Object.keys(defaultConfig).forEach((key) => {
-    if (!process.env[key]) {
-        process.env[key] = defaultConfig[key as keyof typeof defaultConfig]
-    }
-})
-
 // Variáveis obrigatórias apenas para produção
 const requiredEnvVars = [
     "DB_HOST",
+    "DB_PORT",
     "DB_USERNAME",
     "DB_PASSWORD",
     "DB_NAME",
@@ -72,29 +50,25 @@ if (process.env.NODE_ENV === "production") {
 // Configurações base para todos os ambientes
 const baseConfig = {
     define: {
-        timestamps: true,
-        underscored: true, // Usar snake_case para timestamps (created_at, updated_at)
+        timestamps: false, // Desabilitar timestamps automáticos
+        underscored: false, // Não usar snake_case para evitar conflitos
         paranoid: false,
         freezeTableName: true,
     },
     dialectOptions: {
-        charset: "utf8mb4",
-        collate: "utf8mb4_unicode_ci",
         connectTimeout: 60000,
-        acquireTimeout: 60000,
-        timeout: process.env.DB_TIMEOUT!,
-        timezone: process.env.TIMEZONE!,
+        // Opções específicas do PostgreSQL
     },
 }
 
 export const CONFIGS = {
     development: {
-        ...baseConfig,
-        dialect: (process.env.DIALECT || "mysql") as Dialect,
+        dialect: (process.env.DIALECT || "postgres") as Dialect,
         host: process.env.DB_HOST || "localhost",
-        username: process.env.DB_USERNAME || "root",
-        password: process.env.DB_PASSWORD || "",
-        database: process.env.DB_NAME || "test_access_controller_db",
+        username: process.env.DB_USERNAME || "admin",
+        password: process.env.DB_PASSWORD || "admin",
+        database: process.env.DB_NAME || "circle_db",
+        port: parseInt(process.env.DB_PORT || "5422"),
         logging:
             process.env.ENABLE_LOGGING === "true"
                 ? (sql: string, timing?: number) => {
@@ -102,27 +76,30 @@ export const CONFIGS = {
                   }
                 : false,
         pool: {
-            max: 5,
-            min: 0,
-            acquire: 30000,
-            idle: 10000,
+            max: 5, // Máximo de conexões simultâneas
+            min: 0, // Mínimo de conexões
+            acquire: 30000, // Timeout para adquirir conexão
+            idle: 10000, // Tempo antes de liberar conexão inativa
+            evict: 1000, // Intervalo para verificar conexões ociosas
+            handleDisconnects: true, // Recriar conexões perdidas
         },
     },
 
     production: {
-        ...baseConfig,
-        dialect: (process.env.DIALECT || "mysql") as Dialect,
+        dialect: (process.env.DIALECT || "postgres") as Dialect,
         host: process.env.DB_HOST || "localhost",
-        username: process.env.DB_USERNAME || "root",
-        password: process.env.DB_PASSWORD || "",
-        database: process.env.DB_NAME || "test_access_controller_db",
+        username: process.env.DB_USERNAME || "admin",
+        password: process.env.DB_PASSWORD || "admin",
+        database: process.env.DB_NAME || "circle_db",
+        port: parseInt(process.env.DB_PORT || "5422"),
         logging: false,
         pool: {
-            max: 20,
-            min: 5,
-            acquire: 30000,
-            idle: 10000,
-            evict: 1000,
+            max: 20, // Máximo de conexões para produção
+            min: 2, // Manter pelo menos 2 conexões abertas
+            acquire: 30000, // Timeout para adquirir conexão
+            idle: 10000, // Tempo antes de liberar conexão inativa
+            evict: 1000, // Intervalo para verificar conexões ociosas
+            handleDisconnects: true, // Recriar conexões perdidas
         },
         dialectOptions: {
             ...baseConfig.dialectOptions,
@@ -138,11 +115,12 @@ export const CONFIGS = {
 
     test: {
         ...baseConfig,
-        dialect: (process.env.DIALECT || "mysql") as Dialect,
+        dialect: (process.env.DIALECT || "postgres") as Dialect,
         host: process.env.DB_HOST || "localhost",
-        username: process.env.DB_USERNAME || "root",
-        password: process.env.DB_PASSWORD || "",
-        database: process.env.DB_NAME || "test_access_controller_db",
+        username: process.env.DB_USERNAME || "admin",
+        password: process.env.DB_PASSWORD || "admin",
+        database: process.env.DB_NAME || "circle_db_test",
+        port: parseInt(process.env.DB_PORT || "5422"),
         logging: false,
         pool: {
             max: 1,

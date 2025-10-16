@@ -1,68 +1,68 @@
-import { UserProfilePicture, UserStatus, UserTerms } from "@/domain/user/types/user.type"
-export interface SignUpInputDto {
+import {
+    UserPreferences,
+    UserPublicProfile,
+    UserStatus,
+    UserTerm,
+} from "@/domain/user/types/user.type"
+
+import { Device } from "./auth.type"
+import { UserMetrics } from "../user/entities/user.metrics.entity"
+
+export interface SignRequest {
     username: string
     password: string
-    metadata: {
-        termsAccepted: boolean
-        forwardedFor: string
-        userAgent?: string
-        machineId?: string
-        timezone?: string
-        latitude?: number
-        longitude?: number
-    }
+    termsAccepted: boolean
+    signType: string
+    ipAddress: string
+    machineId: string
+    userAgent?: string
+    timezone: string
+    latitude: number
+    longitude: number
+}
+export interface SecurityInfo {
+    riskLevel: string
+    status: string
+    message: string
+    additionalData?: any
 }
 
-export interface SignUpOutputDto {
-    session: {
-        user: {
-            id: string
-            username: string
-            name: string
-            description: string
-            profilePicture: Omit<UserProfilePicture, "createdAt" | "updatedAt">
-            status: Omit<UserStatus, "createdAt" | "updatedAt">
-            metrics: {
-                totalLikesReceived: number
-                totalViewsReceived: number
-                totalSharesReceived: number
-                totalCommentsReceived: number
-                totalMemoriesCreated: number
-                totalMomentsCreated: number
-                totalFollowers: number
-                totalFollowing: number
-                lastMetricsUpdate: Date
-            }
-            terms: Omit<UserTerms, "createdAt" | "updatedAt">
-            lastLogin: Date
-            lastPasswordUpdate: Date
-        }
-        preferences: {
-            appTimezone: number
-            language: {
-                appLanguage: string
-                translationLanguage: string
-            }
-            content: {
-                disableAutoplay: boolean
-                disableHaptics: boolean
-                disableTranslation: boolean
-            }
-            pushNotifications: {
-                disableLikeMomentPushNotification: boolean
-                disableNewMemoryPushNotification: boolean
-                disableAddToMemoryPushNotification: boolean
-                disableFollowUserPushNotification: boolean
-                disableViewUserPushNotification: boolean
-                disableNewsPushNotification: boolean
-                disableSugestionsPushNotification: boolean
-                disableAroundYouPushNotification: boolean
-            }
-            creation: {
-                defaultMomentVisibility: "public" | "followers_only" | "private"
-            }
-        }
-        jwtToken: string
-        jwtExpiration: string
-    }
+export interface Metadata {
+    device?: Device
+    language?: string
+    termsAccepted?: boolean
+    ipAddress?: string
+    userAgent?: string
+    machineId?: string
+    timezone?: string
+    latitude?: number
+    longitude?: number
+}
+
+export interface SignInputDto {
+    username: string
+    password: string
+    metadata?: Metadata
+}
+
+export interface SignOutputDto {
+    user: UserPublicProfile
+    preferences: UserPreferences
+    metrics: UserMetrics
+    status: UserStatus
+    terms: UserTerm
+}
+
+export interface SignUpInputDto extends SignInputDto {}
+export interface SignInInputDto extends SignInputDto {}
+
+export interface SignUpOutputDto extends SignOutputDto {
+    token: string
+    expiresIn: number
+    securityInfo?: SecurityInfo
+}
+export interface SignInOutputDto extends SignOutputDto {
+    token: string
+    expiresIn: number
+    securityInfo?: SecurityInfo
 }

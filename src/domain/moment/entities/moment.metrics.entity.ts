@@ -34,11 +34,13 @@ export interface EngagementMetrics {
     totalLikes: number
     totalComments: number
     totalReports: number
+    totalClicks: number
 
     // Engajamento qualitativo
     likeRate: number // likes / views
     commentRate: number // comments / views
     reportRate: number // reports / views
+    clickRate: number // clicks / views
 
     // Análise de comentários
     positiveComments: number
@@ -151,38 +153,6 @@ export interface ContentMetrics {
     descriptionEngagement: number // 0-100
 }
 
-// ===== MÉTRICAS DE MONETIZAÇÃO =====
-export interface MonetizationMetrics {
-    // Receita
-    totalRevenue: number
-    adRevenue: number
-    subscriptionRevenue: number
-    tipRevenue: number
-    merchandiseRevenue: number
-
-    // Performance financeira
-    revenuePerView: number
-    revenuePerUser: number
-    averageOrderValue: number
-
-    // Conversões
-    adClickRate: number // %
-    subscriptionConversionRate: number // %
-    tipConversionRate: number // %
-    merchandiseConversionRate: number // %
-
-    // Custos
-    productionCost: number
-    distributionCost: number
-    marketingCost: number
-    totalCost: number
-
-    // ROI
-    returnOnInvestment: number // %
-    profitMargin: number // %
-    breakEvenPoint: Date
-}
-
 // ===== MÉTRICAS COMPLETAS =====
 export interface MomentMetrics {
     // Métricas principais
@@ -192,7 +162,6 @@ export interface MomentMetrics {
     viral: ViralMetrics
     audience: AudienceMetrics
     content: ContentMetrics
-    monetization: MonetizationMetrics
 
     // Metadados
     lastMetricsUpdate: Date
@@ -215,7 +184,6 @@ export class MomentMetricsEntity {
     private _viral: ViralMetrics
     private _audience: AudienceMetrics
     private _content: ContentMetrics
-    private _monetization: MonetizationMetrics
     private _lastMetricsUpdate: Date
     private _metricsVersion: string
     private _dataQuality: number
@@ -232,7 +200,6 @@ export class MomentMetricsEntity {
         viral: ViralMetrics
         audience: AudienceMetrics
         content: ContentMetrics
-        monetization: MonetizationMetrics
         lastMetricsUpdate: Date
         metricsVersion: string
         dataQuality: number
@@ -248,7 +215,6 @@ export class MomentMetricsEntity {
         this._viral = props.viral
         this._audience = props.audience
         this._content = props.content
-        this._monetization = props.monetization
         this._lastMetricsUpdate = props.lastMetricsUpdate
         this._metricsVersion = props.metricsVersion
         this._dataQuality = props.dataQuality
@@ -281,9 +247,6 @@ export class MomentMetricsEntity {
     }
     get content(): ContentMetrics {
         return this._content
-    }
-    get monetization(): MonetizationMetrics {
-        return this._monetization
     }
     get lastMetricsUpdate(): Date {
         return this._lastMetricsUpdate
@@ -411,48 +374,6 @@ export class MomentMetricsEntity {
         this._updateMetricsTimestamp()
     }
 
-    // Métodos de negócio para métricas de monetização
-    addRevenue(amount: number, type: "ad" | "subscription" | "tip" | "merchandise"): void {
-        this._monetization.totalRevenue += amount
-
-        switch (type) {
-            case "ad":
-                this._monetization.adRevenue += amount
-                break
-            case "subscription":
-                this._monetization.subscriptionRevenue += amount
-                break
-            case "tip":
-                this._monetization.tipRevenue += amount
-                break
-            case "merchandise":
-                this._monetization.merchandiseRevenue += amount
-                break
-        }
-
-        this._recalculateMonetizationMetrics()
-        this._updateMetricsTimestamp()
-    }
-
-    addCost(amount: number, type: "production" | "distribution" | "marketing"): void {
-        this._monetization.totalCost += amount
-
-        switch (type) {
-            case "production":
-                this._monetization.productionCost += amount
-                break
-            case "distribution":
-                this._monetization.distributionCost += amount
-                break
-            case "marketing":
-                this._monetization.marketingCost += amount
-                break
-        }
-
-        this._recalculateMonetizationMetrics()
-        this._updateMetricsTimestamp()
-    }
-
     // Métodos de cálculo
     calculateEngagementRate(): number {
         if (this._views.totalViews === 0) return 0
@@ -467,10 +388,6 @@ export class MomentMetricsEntity {
 
     calculateContentQualityScore(): number {
         return MomentMetricsCalculator.calculateContentQualityScore(this.toMetrics())
-    }
-
-    calculateROI(): number {
-        return MomentMetricsCalculator.calculateROI(this.toMetrics())
     }
 
     calculateEngagementScore(): number {
@@ -506,7 +423,6 @@ export class MomentMetricsEntity {
             viral: { ...this._viral },
             audience: { ...this._audience },
             content: { ...this._content },
-            monetization: { ...this._monetization },
             lastMetricsUpdate: this._lastMetricsUpdate,
             metricsVersion: this._metricsVersion,
             dataQuality: this._dataQuality,
@@ -525,7 +441,6 @@ export class MomentMetricsEntity {
         viral: ViralMetrics
         audience: AudienceMetrics
         content: ContentMetrics
-        monetization: MonetizationMetrics
         lastMetricsUpdate: Date
         metricsVersion: string
         dataQuality: number
@@ -542,7 +457,6 @@ export class MomentMetricsEntity {
             viral: { ...this._viral },
             audience: { ...this._audience },
             content: { ...this._content },
-            monetization: { ...this._monetization },
             lastMetricsUpdate: this._lastMetricsUpdate,
             metricsVersion: this._metricsVersion,
             dataQuality: this._dataQuality,
@@ -558,19 +472,6 @@ export class MomentMetricsEntity {
             this._engagement.likeRate = this._engagement.totalLikes / this._views.totalViews
             this._engagement.commentRate = this._engagement.totalComments / this._views.totalViews
             this._engagement.reportRate = this._engagement.totalReports / this._views.totalViews
-        }
-    }
-
-    private _recalculateMonetizationMetrics(): void {
-        if (this._views.totalViews > 0) {
-            this._monetization.revenuePerView =
-                this._monetization.totalRevenue / this._views.totalViews
-        }
-
-        if (this._monetization.totalCost > 0) {
-            const profit = this._monetization.totalRevenue - this._monetization.totalCost
-            this._monetization.returnOnInvestment = (profit / this._monetization.totalCost) * 100
-            this._monetization.profitMargin = (profit / this._monetization.totalRevenue) * 100
         }
     }
 
@@ -593,7 +494,6 @@ export class MomentMetricsEntity {
             viral: metrics.viral,
             audience: metrics.audience,
             content: metrics.content,
-            monetization: metrics.monetization,
             lastMetricsUpdate: metrics.lastMetricsUpdate,
             metricsVersion: metrics.metricsVersion,
             dataQuality: metrics.dataQuality,
@@ -613,7 +513,6 @@ export class MomentMetricsEntity {
             viral: metrics.viral,
             audience: metrics.audience,
             content: metrics.content,
-            monetization: metrics.monetization,
             lastMetricsUpdate: metrics.lastMetricsUpdate,
             metricsVersion: metrics.metricsVersion,
             dataQuality: metrics.dataQuality,
@@ -649,9 +548,11 @@ export const DEFAULT_ENGAGEMENT_METRICS: EngagementMetrics = {
     totalLikes: 0,
     totalComments: 0,
     totalReports: 0,
+    totalClicks: 0,
     likeRate: 0,
     commentRate: 0,
     reportRate: 0,
+    clickRate: 0,
     positiveComments: 0,
     negativeComments: 0,
     neutralComments: 0,
@@ -728,28 +629,6 @@ export const DEFAULT_CONTENT_METRICS: ContentMetrics = {
     descriptionEngagement: 0,
 }
 
-export const DEFAULT_MONETIZATION_METRICS: MonetizationMetrics = {
-    totalRevenue: 0,
-    adRevenue: 0,
-    subscriptionRevenue: 0,
-    tipRevenue: 0,
-    merchandiseRevenue: 0,
-    revenuePerView: 0,
-    revenuePerUser: 0,
-    averageOrderValue: 0,
-    adClickRate: 0,
-    subscriptionConversionRate: 0,
-    tipConversionRate: 0,
-    merchandiseConversionRate: 0,
-    productionCost: 0,
-    distributionCost: 0,
-    marketingCost: 0,
-    totalCost: 0,
-    returnOnInvestment: 0,
-    profitMargin: 0,
-    breakEvenPoint: new Date(),
-}
-
 export const DEFAULT_MOMENT_METRICS: MomentMetrics = {
     views: DEFAULT_VIEW_METRICS,
     engagement: DEFAULT_ENGAGEMENT_METRICS,
@@ -757,7 +636,6 @@ export const DEFAULT_MOMENT_METRICS: MomentMetrics = {
     viral: DEFAULT_VIRAL_METRICS,
     audience: DEFAULT_AUDIENCE_METRICS,
     content: DEFAULT_CONTENT_METRICS,
-    monetization: DEFAULT_MONETIZATION_METRICS,
     lastMetricsUpdate: new Date(),
     metricsVersion: "1.0.0",
     dataQuality: 100,
@@ -810,18 +688,6 @@ export class MomentMetricsCalculator {
             (content.hashtagEffectiveness + content.mentionEffectiveness) * 0.2
 
         return Math.round(technicalQuality + audioQuality + videoQuality + engagementQuality)
-    }
-
-    /**
-     * Calcula ROI baseado nas métricas de monetização
-     */
-    static calculateROI(metrics: MomentMetrics): number {
-        const { monetization } = metrics
-
-        if (monetization.totalCost === 0) return 0
-
-        const profit = monetization.totalRevenue - monetization.totalCost
-        return Math.round((profit / monetization.totalCost) * 100)
     }
 
     /**
@@ -902,17 +768,6 @@ export class MomentMetricsFactory {
     }
 
     /**
-     * Cria métricas para conteúdo premium
-     */
-    static createForPremiumContent(): MomentMetrics {
-        const metrics = this.createDefault()
-        metrics.content.contentQualityScore = 95
-        metrics.performance.errorRate = 0.1
-        metrics.monetization.subscriptionConversionRate = 5
-        return metrics
-    }
-
-    /**
      * Cria métricas customizadas
      */
     static createCustom(overrides: Partial<MomentMetrics>): MomentMetrics {
@@ -942,10 +797,6 @@ export class MomentMetricsFactory {
             content: {
                 ...DEFAULT_CONTENT_METRICS,
                 ...overrides.content,
-            },
-            monetization: {
-                ...DEFAULT_MONETIZATION_METRICS,
-                ...overrides.monetization,
             },
         }
     }

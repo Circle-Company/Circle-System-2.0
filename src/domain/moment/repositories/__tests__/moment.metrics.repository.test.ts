@@ -388,25 +388,12 @@ function createTestMetrics(
             contentComplexity: 0.6,
             lastContentUpdate: null,
         },
-        monetization: {
-            totalRevenue: 0,
-            revenueBySource: {},
-            revenueByPeriod: {},
-            averageRevenuePerView: 0,
-            averageRevenuePerUser: 0,
-            conversionRate: 0,
-            costPerAcquisition: 0,
-            returnOnInvestment: 0,
-            profitMargin: 0,
-            lastMonetizationUpdate: null,
-        },
         lastMetricsUpdate: new Date(),
         metricsVersion: "1.0",
         dataQuality: 95,
         confidenceLevel: 90,
         calculateEngagementRate: vi.fn().mockReturnValue(0.15),
         calculateViralScore: vi.fn().mockReturnValue(50),
-        calculateROI: vi.fn().mockReturnValue(0),
     }
 
     const metrics = {

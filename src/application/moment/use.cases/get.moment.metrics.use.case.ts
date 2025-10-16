@@ -58,13 +58,13 @@ export class GetMomentMetricsUseCase {
         try {
             // Validar parâmetros obrigatórios
             if (!request.momentId) {
-                return { success: false, error: "ID do momento é obrigatório" }
+                return { success: false, error: "Moment ID is required" }
             }
 
             // Buscar o momento
             const moment = await this.momentService.getMomentById(request.momentId)
             if (!moment) {
-                return { success: false, error: "Momento não encontrado" }
+                return { success: false, error: "Moment not found" }
             }
 
             // Verificar permissões
@@ -79,7 +79,7 @@ export class GetMomentMetricsUseCase {
             if (moment.status.current !== MomentStatusEnum.PUBLISHED) {
                 return {
                     success: false,
-                    error: "Métricas só estão disponíveis para momentos publicados",
+                    error: "Metrics are only available for published moments",
                 }
             }
 
@@ -97,7 +97,7 @@ export class GetMomentMetricsUseCase {
         } catch (error) {
             return {
                 success: false,
-                error: error instanceof Error ? error.message : "Erro interno do servidor",
+                error: error instanceof Error ? error.message : "Internal server error",
             }
         }
     }

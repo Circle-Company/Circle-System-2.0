@@ -48,7 +48,7 @@ export default class MomentContent
                     field: "moment_id",
                 },
                 duration: {
-                    type: DataTypes.INTEGER,
+                    type: DataTypes.FLOAT,
                     allowNull: false,
                     comment: "Duração em segundos",
                 },

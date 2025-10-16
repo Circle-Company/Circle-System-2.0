@@ -1,6 +1,14 @@
-import { DatabaseAdapter } from "@/infra/database/adapter"
-import { UserController } from "@/infra/controllers/user.controller"
+import { MomentMetricsService } from "@/application/moment/services/moment.metrics.service"
+import { MomentService } from "@/application/moment/services/moment.service"
+import { GetUserMomentsUseCase } from "@/application/moment/use.cases/get.user.moments.use.case"
+import { GetUserProfileUseCase } from "@/application/user/use.cases/get.user.profile.use.case"
+import { IMomentRepository } from "@/domain/moment"
+import { IMomentMetricsRepository } from "@/domain/moment/repositories/moment.metrics.repository"
 import { UserRepository } from "@/domain/user"
+import { UserController } from "@/infra/controllers/user.controller"
+import { DatabaseAdapter } from "@/infra/database/adapter"
+import { MomentMetricsRepositoryImpl } from "@/infra/repository.impl/moment.metrics.repository.impl"
+import { MomentRepositoryImpl } from "@/infra/repository.impl/moment.repository.impl"
 
 /**
  * Factory para criar componentes relacionados ao usuário
@@ -14,18 +22,98 @@ export class UserFactory {
     }
 
     /**
-     * Cria um UserController com UserRepository
+     * Cria MomentRepository com DatabaseAdapter
      */
-    static createUserController(userRepository: UserRepository): UserController {
-        return new UserController(userRepository)
+    static createMomentRepository(database: DatabaseAdapter): IMomentRepository {
+        return new MomentRepositoryImpl(database)
+    }
+
+    /**
+     * Cria MomentMetricsRepository com DatabaseAdapter
+     */
+    static createMomentMetricsRepository(database: DatabaseAdapter): IMomentMetricsRepository {
+        return new MomentMetricsRepositoryImpl(database)
+    }
+
+    /**
+     * Cria MomentMetricsService com MomentMetricsRepository
+     */
+    static createMomentMetricsService(database: DatabaseAdapter): MomentMetricsService {
+        const momentMetricsRepository = this.createMomentMetricsRepository(database)
+        return new MomentMetricsService(momentMetricsRepository)
+    }
+
+    /**
+     * Cria MomentService com MomentRepository e MomentMetricsService
+     */
+    static createMomentService(database: DatabaseAdapter): MomentService {
+        const momentRepository = this.createMomentRepository(database)
+        const metricsService = this.createMomentMetricsService(database)
+
+        // Importar StorageAdapterFactory dinamicamente para evitar circular dependency
+        const { StorageAdapterFactory } = require("@/core/content.processor/storage.adapter")
+        const storageAdapter = StorageAdapterFactory.create("local")
+
+        return new MomentService(
+            momentRepository,
+            metricsService,
+            undefined, // config
+            storageAdapter, // storageAdapter
+            undefined, // moderationEngine (opcional)
+        )
+    }
+
+    /**
+     * Cria GetUserProfileUseCase com UserRepository
+     */
+    static createGetUserProfileUseCase(userRepository: UserRepository): GetUserProfileUseCase {
+        return new GetUserProfileUseCase(userRepository)
+    }
+
+    /**
+     * Cria GetUserMomentsUseCase com DatabaseAdapter
+     */
+    static createGetUserMomentsUseCase(database: DatabaseAdapter): GetUserMomentsUseCase {
+        const momentRepository = this.createMomentRepository(database)
+        const momentService = this.createMomentService(database)
+        return new GetUserMomentsUseCase(momentRepository, momentService)
+    }
+
+    /**
+     * Cria um UserController com GetUserProfileUseCase e GetUserMomentsUseCase
+     */
+    static createUserController(getUserProfileUseCase: GetUserProfileUseCase): UserController {
+        return new UserController(getUserProfileUseCase)
     }
 
     /**
      * Cria um UserController completo com todas as dependências
      */
-    static createUserControllerWithDependencies(database: DatabaseAdapter): UserController {
+    static createUserControllerWithDeps(database: DatabaseAdapter): UserController {
         const userRepository = this.createUserRepository(database)
-        return this.createUserController(userRepository)
+        const getUserProfileUseCase = this.createGetUserProfileUseCase(userRepository)
+        return this.createUserController(getUserProfileUseCase)
+    }
+
+    /**
+     * Cria um UserRepository com funcionalidades de permissão
+     */
+    static createUserPermissionRepository(database: DatabaseAdapter): UserRepository {
+        return new UserRepository(database)
+    }
+
+    /**
+     * Cria um UserRepository com funcionalidades de métricas
+     */
+    static createUserMetricsRepository(database: DatabaseAdapter): UserRepository {
+        return new UserRepository(database)
+    }
+
+    /**
+     * Cria um UserRepository com funcionalidades de admin
+     */
+    static createUserAdminRepository(database: DatabaseAdapter): UserRepository {
+        return new UserRepository(database)
     }
 
     /**
@@ -36,7 +124,8 @@ export class UserFactory {
         userController: UserController
     } {
         const userRepository = this.createUserRepository(database)
-        const userController = this.createUserController(userRepository)
+        const getUserProfileUseCase = this.createGetUserProfileUseCase(userRepository)
+        const userController = this.createUserController(getUserProfileUseCase)
 
         return {
             userRepository,
@@ -69,6 +158,74 @@ export class UserFactory {
             ? this.createForTest(database)
             : this.createForProduction(database)
     }
+
+    /**
+     * Cria componentes com funcionalidades de permissão
+     */
+    static createWithPermissions(database: DatabaseAdapter): {
+        userRepository: UserRepository
+        userController: UserController
+    } {
+        const userRepository = this.createUserPermissionRepository(database)
+        const getUserProfileUseCase = this.createGetUserProfileUseCase(userRepository)
+        const userController = this.createUserController(getUserProfileUseCase)
+
+        return {
+            userRepository,
+            userController,
+        }
+    }
+
+    /**
+     * Cria componentes com funcionalidades de métricas
+     */
+    static createWithMetrics(database: DatabaseAdapter): {
+        userRepository: UserRepository
+        userController: UserController
+    } {
+        const userRepository = this.createUserMetricsRepository(database)
+        const getUserProfileUseCase = this.createGetUserProfileUseCase(userRepository)
+        const userController = this.createUserController(getUserProfileUseCase)
+
+        return {
+            userRepository,
+            userController,
+        }
+    }
+
+    /**
+     * Cria componentes com funcionalidades de admin
+     */
+    static createWithAdmin(database: DatabaseAdapter): {
+        userRepository: UserRepository
+        userController: UserController
+    } {
+        const userRepository = this.createUserAdminRepository(database)
+        const getUserProfileUseCase = this.createGetUserProfileUseCase(userRepository)
+        const userController = this.createUserController(getUserProfileUseCase)
+
+        return {
+            userRepository,
+            userController,
+        }
+    }
+
+    /**
+     * Cria componentes completos com todas as funcionalidades
+     */
+    static createComplete(database: DatabaseAdapter): {
+        userRepository: UserRepository
+        userController: UserController
+    } {
+        const userRepository = this.createUserRepository(database)
+        const getUserProfileUseCase = this.createGetUserProfileUseCase(userRepository)
+        const userController = this.createUserController(getUserProfileUseCase)
+
+        return {
+            userRepository,
+            userController,
+        }
+    }
 }
 
 /**
@@ -83,14 +240,14 @@ export const createUser = {
     /**
      * Cria UserController para produção
      */
-    controller: (userRepository: UserRepository) =>
-        UserFactory.createUserController(userRepository),
+    controller: (getUserProfileUseCase: GetUserProfileUseCase) =>
+        UserFactory.createUserController(getUserProfileUseCase),
 
     /**
      * Cria UserController completo com dependências
      */
-    controllerWithDependencies: (database: DatabaseAdapter) =>
-        UserFactory.createUserControllerWithDependencies(database),
+    controllerWithDeps: (database: DatabaseAdapter) =>
+        UserFactory.createUserControllerWithDeps(database),
 
     /**
      * Cria componentes para produção
@@ -107,6 +264,43 @@ export const createUser = {
      */
     forEnvironment: (env: string, database: DatabaseAdapter) =>
         UserFactory.createForEnvironment(env, database),
+
+    /**
+     * Cria componentes com funcionalidades de permissão
+     */
+    withPermissions: (database: DatabaseAdapter) => UserFactory.createWithPermissions(database),
+
+    /**
+     * Cria componentes com funcionalidades de métricas
+     */
+    withMetrics: (database: DatabaseAdapter) => UserFactory.createWithMetrics(database),
+
+    /**
+     * Cria componentes com funcionalidades de admin
+     */
+    withAdmin: (database: DatabaseAdapter) => UserFactory.createWithAdmin(database),
+
+    /**
+     * Cria componentes completos com todas as funcionalidades
+     */
+    complete: (database: DatabaseAdapter) => UserFactory.createComplete(database),
+
+    /**
+     * Cria UserRepository com funcionalidades de permissão
+     */
+    permissionRepository: (database: DatabaseAdapter) =>
+        UserFactory.createUserPermissionRepository(database),
+
+    /**
+     * Cria UserRepository com funcionalidades de métricas
+     */
+    metricsRepository: (database: DatabaseAdapter) =>
+        UserFactory.createUserMetricsRepository(database),
+
+    /**
+     * Cria UserRepository com funcionalidades de admin
+     */
+    adminRepository: (database: DatabaseAdapter) => UserFactory.createUserAdminRepository(database),
 }
 
 /**

@@ -1,110 +1,136 @@
-import { MomentEntity, MomentStatusEnum, MomentVisibilityEnum } from "@/domain/moment"
+import {
+    MomentEntity,
+    MomentMedia,
+    MomentStatusEnum,
+    MomentThumbnail,
+    MomentVisibilityEnum,
+} from "@/domain/moment"
+import { Timezone } from "@/shared/circle.text.library"
 
 import { IMomentRepository } from "@/domain/moment/repositories/moment.repository"
-import { MomentService } from "../services/moment.service"
+import { IUserRepository, User } from "@/domain/user"
+import { AuthenticatedUser } from "@/infra/middlewares"
 
 export interface GetUserMomentsRequest {
-    userId: string
-    requestingUserId?: string // Para verificar permissões
-    status?: MomentStatusEnum
-    visibility?: MomentVisibilityEnum
-    includeDeleted?: boolean
+    requestingUser: AuthenticatedUser
+    query: {
+        status: MomentStatusEnum
+        visibility: MomentVisibilityEnum
+        includeDeleted?: boolean
+        sortBy?: "createdAt" | "updatedAt" | "views" | "likes"
+        sortOrder?: "asc" | "desc"
+    }
     limit?: number
     offset?: number
-    sortBy?: "createdAt" | "updatedAt" | "views" | "likes"
-    sortOrder?: "asc" | "desc"
+}
+
+export interface MomentPreview {
+    id: string
+    description: string
+    video: Omit<MomentMedia, "storage" | "createdAt" | "updatedAt">
+    thumbnail: Omit<MomentThumbnail, "storage" | "createdAt" | "updatedAt">
+    publishedAt: Date | null
 }
 
 export interface GetUserMomentsResponse {
     success: boolean
-    moments?: MomentEntity[]
-    total?: number
-    page?: number
-    limit?: number
-    totalPages?: number
+    moments?: MomentPreview[]
+    pagination?: {
+        total?: number
+        page?: number
+        limit?: number
+        totalPages?: number
+    }
+
     error?: string
 }
 
 export class GetUserMomentsUseCase {
     constructor(
         private readonly momentRepository: IMomentRepository,
-        private readonly momentService: MomentService,
+        private readonly userRepository: IUserRepository,
     ) {}
 
     async execute(request: GetUserMomentsRequest): Promise<GetUserMomentsResponse> {
         try {
             // Validar parâmetros obrigatórios
-            if (!request.userId) {
-                return { success: false, error: "ID do usuário é obrigatório" }
+            if (!request.requestingUser.id) {
+                return { success: false, error: "User ID is required" }
             }
 
             // Validar limites
             if (request.limit !== undefined && (request.limit < 1 || request.limit > 100)) {
-                return { success: false, error: "Limite deve estar entre 1 e 100" }
+                return { success: false, error: "Limit must be between 1 and 100" }
             }
 
             if (request.offset !== undefined && request.offset < 0) {
-                return { success: false, error: "Offset deve ser maior ou igual a 0" }
+                return { success: false, error: "Offset must be greater than or equal to 0" }
             }
 
             const limit = request.limit || 20
             const offset = request.offset || 0
-            const sortBy = request.sortBy || "createdAt"
-            const sortOrder = request.sortOrder || "desc"
 
-            // Verificar permissões
-            const isOwner = request.requestingUserId === request.userId
-            const isAdmin = false // TODO: Implementar verificação de admin
-
-            // Construir filtros baseado nas permissões
-            const filters = this.buildFilters(request, isOwner, isAdmin)
+            const tz = this.setLocalTimezone(request.requestingUser)
+            const requestingUser = await this.userRepository.findById(request.requestingUser.id)
 
             // Buscar momentos do usuário
-            const result = await this.momentService.findByOwnerId(
-                request.userId,
+            const moments = await this.momentRepository.findByOwnerId(
+                request.requestingUser.id,
                 limit,
                 offset,
-                filters,
             )
 
+            const filteredMoments = this.filterResult(moments, request, requestingUser!)
+            const momentsPreview = this.mapToPreview(tz, filteredMoments)
             return {
                 success: true,
-                moments: result.moments,
-                total: result.total,
-                page: Math.floor(offset / limit) + 1,
-                limit,
-                totalPages: Math.ceil(result.total / limit),
+                moments: momentsPreview,
+                pagination: {
+                    total: momentsPreview.length,
+                    page: Math.floor(offset / limit) + 1,
+                    limit,
+                    totalPages: Math.ceil(momentsPreview.length / limit),
+                },
             }
         } catch (error) {
             return {
                 success: false,
-                error: error instanceof Error ? error.message : "Erro interno do servidor",
+                error: error instanceof Error ? error.message : "Internal server error",
             }
         }
     }
 
-    private buildFilters(request: GetUserMomentsRequest, isOwner: boolean, isAdmin: boolean): any {
-        const filters: any = {}
+    private filterResult(
+        result: MomentEntity[],
+        request: GetUserMomentsRequest,
+        requestingUser: User,
+    ): MomentEntity[] {
+        return result
+            .filter((moment) => moment.status.current === request.query.status)
+            .filter((moment) => moment.visibility.level === request.query.visibility)
+            .filter((moment) => moment.isViewable(requestingUser, this.userRepository))
+    }
 
-        // Se não é o dono nem admin, só mostra momentos públicos
-        if (!isOwner && !isAdmin) {
-            filters.visibility = MomentVisibilityEnum.PUBLIC
-            filters.status = MomentStatusEnum.PUBLISHED
-        } else {
-            // Owner e admin podem ver todos os momentos
-            if (request.status) {
-                filters.status = request.status
-            }
+    private setLocalTimezone(user: AuthenticatedUser): Timezone {
+        const tz = new Timezone()
+        const code = tz.getCodeFromOffset(user.timezone)
+        tz.setLocalTimezone(code)
+        return tz
+    }
 
-            if (request.visibility) {
-                filters.visibility = request.visibility
-            }
-
-            if (request.includeDeleted) {
-                filters.includeDeleted = true
-            }
-        }
-
-        return filters
+    private mapToPreview(tz: Timezone, moments: MomentEntity[]): MomentPreview[] {
+        return moments.map((moment) => ({
+            id: moment.id,
+            description: moment.description,
+            video: {
+                urls: moment.media.urls,
+            },
+            thumbnail: {
+                url: moment.thumbnail.url,
+                width: moment.thumbnail.width,
+                height: moment.thumbnail.height,
+            },
+            publishedAt: moment.publishedAt && tz.UTCToLocal(moment.publishedAt),
+        }))
     }
 }

@@ -12,7 +12,7 @@ export type {
     UserRole,
     UserStatus,
     UserStatusEnum,
-    UserTerms,
+    UserTerm,
 } from "./user.type"
 
 export type {

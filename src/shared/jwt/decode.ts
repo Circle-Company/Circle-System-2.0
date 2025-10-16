@@ -1,6 +1,6 @@
 import { ErrorCode, ValidationError } from "@/shared/errors"
 
-import { Device } from "@/domain/auth"
+import { Device, Level } from "@/domain/authorization"
 import { jwtVerify } from "jose"
 
 interface JwtConfig {
@@ -12,6 +12,8 @@ interface JwtConfig {
 interface JwtPayload {
     sub: string
     device: Device
+    level: Level
+    tz: number // Timezone offset em horas
     iat?: number
     exp?: number
     iss?: string
@@ -20,22 +22,9 @@ interface JwtPayload {
 
 function getJwtConfig(): JwtConfig {
     const config = {
-        secret: process.env.JWT_SECRET || "default-secret-key",
-        issuer: process.env.JWT_ISSUER || "access-controller-api",
-        audience: process.env.JWT_AUDIENCE || "access-controller-client",
-    }
-
-    if (!config.secret || config.secret === "default-secret-key") {
-        throw new ValidationError({
-            message: "JWT_SECRET environment variable is required",
-            code: ErrorCode.CONFIGURATION_ERROR,
-            action: "Set JWT_SECRET environment variable",
-            context: {
-                additionalData: {
-                    missingEnvVar: "JWT_SECRET",
-                },
-            },
-        })
+        secret: process.env.JWT_SECRET || "giIOw90192Gkdzc463FF4rhgwrdghdftt",
+        issuer: process.env.JWT_ISSUER || "circle.company",
+        audience: process.env.JWT_AUDIENCE || "circle.company",
     }
 
     return config
@@ -66,9 +55,15 @@ export async function jwtDecoder(token: string): Promise<JwtPayload> {
             })
         }
 
+        // Normalizar device e level para UPPERCASE
+        const normalizedDevice = (payload.device as string).toUpperCase() as Device
+        const normalizedLevel = (payload.level as string).toUpperCase() as Level
+
         return {
             sub: payload.sub as string,
-            device: payload.device as Device,
+            device: normalizedDevice,
+            level: normalizedLevel,
+            tz: (payload.tz as number) || 0, // Fallback para 0 se não existir
             iat: payload.iat,
             exp: payload.exp,
             iss: payload.iss as string,

@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { AuthLogRepository, AuthLogStatus, AuthLogType, Device } from "../../../domain/auth"
+import { AuthLogRepository, AuthLogStatus, AuthLogType } from "../../../domain/auth"
+import { SecurityRisk, SignStatus } from "../../../domain/auth/auth.type"
+import { Device } from "../../../domain/authorization"
 import { IUserRepository, User, UserRole } from "../../../domain/user"
-import { SecurityRisk, SignStatus } from "../../../infra/models/auth/sign.logs.model"
 import {
     InvalidCredentialsError,
     SecurityRiskError,
@@ -31,7 +32,6 @@ describe("SignInUseCase", () => {
             id: "123",
             username: "test@example.com",
             name: "Test User",
-            email: "test@example.com",
             password: "hashed-password",
             status: { accessLevel: "user", blocked: false, deleted: false },
             validatePassword: vi.fn(),
@@ -47,7 +47,8 @@ describe("SignInUseCase", () => {
         mockUserRepository = {
             save: vi.fn(),
             findById: vi.fn(),
-            findByEmail: vi.fn(),
+            findByUsername: vi.fn(),
+            existsByUsername: vi.fn(),
             update: vi.fn(),
             deleteUser: vi.fn(),
             exists: vi.fn(),
@@ -100,7 +101,7 @@ describe("SignInUseCase", () => {
         it("deve fazer login com credenciais válidas e atualizar propriedades do usuário", async () => {
             // Arrange
             const input: InputDto = {
-                email: "test@example.com",
+                username: "test@example.com",
                 password: "password123",
                 device: Device.WEB,
                 logContext: {
@@ -109,7 +110,7 @@ describe("SignInUseCase", () => {
                 },
             }
 
-            vi.mocked(mockUserRepository.findByEmail).mockResolvedValue(mockUser)
+            vi.mocked(mockUserRepository.findByUsername).mockResolvedValue(mockUser)
             vi.mocked(mockUser.validatePassword).mockResolvedValue(true)
             vi.mocked(mockUserRepository.update).mockResolvedValue(mockUser)
 
@@ -124,7 +125,6 @@ describe("SignInUseCase", () => {
                     id: "123",
                     username: "test@example.com",
                     name: "Test User",
-                    email: "test@example.com",
                     role: UserRole.USER,
                     status: "active",
                     lastLogin: expect.any(Date),
@@ -132,7 +132,7 @@ describe("SignInUseCase", () => {
                 },
             })
 
-            expect(mockUserRepository.findByEmail).toHaveBeenCalledWith("test@example.com")
+            expect(mockUserRepository.findByUsername).toHaveBeenCalledWith("test@example.com")
             expect(mockUser.validatePassword).toHaveBeenCalledWith("password123")
             expect(mockUser.recordLogin).toHaveBeenCalledWith({
                 device: Device.WEB,
@@ -150,7 +150,6 @@ describe("SignInUseCase", () => {
                 deviceType: Device.WEB,
                 deviceId: "unknown",
                 deviceTimezone: "UTC",
-                createdAt: expect.any(Date),
             })
         })
 
@@ -165,12 +164,12 @@ describe("SignInUseCase", () => {
             } as any
 
             const input: InputDto = {
-                email: "admin@example.com",
+                username: "admin@example.com",
                 password: "admin123",
-                device: Device.DESKTOP,
+                device: Device.WEB,
             }
 
-            vi.mocked(mockUserRepository.findByEmail).mockResolvedValue(superAdminUser)
+            vi.mocked(mockUserRepository.findByUsername).mockResolvedValue(superAdminUser)
             vi.mocked(superAdminUser.validatePassword).mockResolvedValue(true)
             vi.mocked(mockUserRepository.update).mockResolvedValue(superAdminUser)
 
@@ -187,7 +186,7 @@ describe("SignInUseCase", () => {
         it("deve falhar quando usuário não existe", async () => {
             // Arrange
             const input: InputDto = {
-                email: "nonexistent@example.com",
+                username: "nonexistent@example.com",
                 password: "password123",
                 device: Device.WEB,
                 logContext: {
@@ -196,7 +195,7 @@ describe("SignInUseCase", () => {
                 },
             }
 
-            vi.mocked(mockUserRepository.findByEmail).mockResolvedValue(null)
+            vi.mocked(mockUserRepository.findByUsername).mockResolvedValue(null)
 
             // Act & Assert
             await expect(signInUseCase.execute(input)).rejects.toThrow(InvalidCredentialsError)
@@ -211,14 +210,13 @@ describe("SignInUseCase", () => {
                 deviceType: Device.WEB,
                 deviceId: "unknown",
                 deviceTimezone: "UTC",
-                createdAt: expect.any(Date),
             })
         })
 
         it("deve falhar quando senha está incorreta", async () => {
             // Arrange
             const input: InputDto = {
-                email: "test@example.com",
+                username: "test@example.com",
                 password: "wrongpassword",
                 device: Device.WEB,
                 logContext: {
@@ -227,7 +225,7 @@ describe("SignInUseCase", () => {
                 },
             }
 
-            vi.mocked(mockUserRepository.findByEmail).mockResolvedValue(mockUser)
+            vi.mocked(mockUserRepository.findByUsername).mockResolvedValue(mockUser)
             vi.mocked(mockUser.validatePassword).mockResolvedValue(false)
 
             // Act & Assert
@@ -243,7 +241,6 @@ describe("SignInUseCase", () => {
                 deviceType: Device.WEB,
                 deviceId: "unknown",
                 deviceTimezone: "UTC",
-                createdAt: expect.any(Date),
             })
         })
 
@@ -255,7 +252,7 @@ describe("SignInUseCase", () => {
             } as any
 
             const input: InputDto = {
-                email: "test@example.com",
+                username: "test@example.com",
                 password: "password123",
                 device: Device.WEB,
                 logContext: {
@@ -264,7 +261,7 @@ describe("SignInUseCase", () => {
                 },
             }
 
-            vi.mocked(mockUserRepository.findByEmail).mockResolvedValue(inactiveUser)
+            vi.mocked(mockUserRepository.findByUsername).mockResolvedValue(inactiveUser)
             inactiveUser.validatePassword.mockResolvedValue(true)
 
             // Act & Assert
@@ -280,7 +277,6 @@ describe("SignInUseCase", () => {
                 deviceType: Device.WEB,
                 deviceId: "unknown",
                 deviceTimezone: "UTC",
-                createdAt: expect.any(Date),
             })
         })
     })
@@ -289,7 +285,7 @@ describe("SignInUseCase", () => {
         it("deve atualizar lastLogin e outras propriedades após login bem-sucedido", async () => {
             // Arrange
             const input: InputDto = {
-                email: "test@example.com",
+                username: "test@example.com",
                 password: "password123",
                 device: Device.MOBILE,
                 logContext: {
@@ -303,7 +299,7 @@ describe("SignInUseCase", () => {
                 shouldUpdatePassword: vi.fn().mockReturnValue(true),
             } as any
 
-            vi.mocked(mockUserRepository.findByEmail).mockResolvedValue(userWithPasswordUpdate)
+            vi.mocked(mockUserRepository.findByUsername).mockResolvedValue(userWithPasswordUpdate)
             vi.mocked(userWithPasswordUpdate.validatePassword).mockResolvedValue(true)
             vi.mocked(mockUserRepository.update).mockResolvedValue(userWithPasswordUpdate)
 
@@ -325,9 +321,9 @@ describe("SignInUseCase", () => {
         it("deve verificar se senha precisa ser atualizada", async () => {
             // Arrange
             const input: InputDto = {
-                email: "test@example.com",
+                username: "test@example.com",
                 password: "password123",
-                device: Device.DESKTOP,
+                device: Device.WEB,
             }
 
             const userWithOldPassword = {
@@ -335,7 +331,7 @@ describe("SignInUseCase", () => {
                 shouldUpdatePassword: vi.fn().mockReturnValue(true),
             } as any
 
-            vi.mocked(mockUserRepository.findByEmail).mockResolvedValue(userWithOldPassword)
+            vi.mocked(mockUserRepository.findByUsername).mockResolvedValue(userWithOldPassword)
             vi.mocked(userWithOldPassword.validatePassword).mockResolvedValue(true)
             vi.mocked(mockUserRepository.update).mockResolvedValue(userWithOldPassword)
 
@@ -352,13 +348,13 @@ describe("SignInUseCase", () => {
         it("deve funcionar sem logContext", async () => {
             // Arrange
             const input: InputDto = {
-                email: "test@example.com",
+                username: "test@example.com",
                 password: "password123",
                 device: Device.WEB,
                 // sem logContext
             }
 
-            vi.mocked(mockUserRepository.findByEmail).mockResolvedValue(mockUser)
+            vi.mocked(mockUserRepository.findByUsername).mockResolvedValue(mockUser)
             vi.mocked(mockUser.validatePassword).mockResolvedValue(true)
 
             // Act
@@ -373,7 +369,7 @@ describe("SignInUseCase", () => {
             // Arrange
             const signInUseCaseWithoutLogRepo = new SignInUseCase(mockUserRepository)
             const input: InputDto = {
-                email: "test@example.com",
+                username: "test@example.com",
                 password: "password123",
                 device: Device.WEB,
                 logContext: {
@@ -382,7 +378,7 @@ describe("SignInUseCase", () => {
                 },
             }
 
-            vi.mocked(mockUserRepository.findByEmail).mockResolvedValue(mockUser)
+            vi.mocked(mockUserRepository.findByUsername).mockResolvedValue(mockUser)
             vi.mocked(mockUser.validatePassword).mockResolvedValue(true)
 
             // Act
@@ -397,12 +393,12 @@ describe("SignInUseCase", () => {
         it("deve funcionar com device WEB", async () => {
             // Arrange
             const input: InputDto = {
-                email: "test@example.com",
+                username: "test@example.com",
                 password: "password123",
                 device: Device.WEB,
             }
 
-            vi.mocked(mockUserRepository.findByEmail).mockResolvedValue(mockUser)
+            vi.mocked(mockUserRepository.findByUsername).mockResolvedValue(mockUser)
             vi.mocked(mockUser.validatePassword).mockResolvedValue(true)
 
             // Act
@@ -415,12 +411,12 @@ describe("SignInUseCase", () => {
         it("deve funcionar com device DESKTOP", async () => {
             // Arrange
             const input: InputDto = {
-                email: "test@example.com",
+                username: "test@example.com",
                 password: "password123",
-                device: Device.DESKTOP,
+                device: Device.WEB,
             }
 
-            vi.mocked(mockUserRepository.findByEmail).mockResolvedValue(mockUser)
+            vi.mocked(mockUserRepository.findByUsername).mockResolvedValue(mockUser)
             vi.mocked(mockUser.validatePassword).mockResolvedValue(true)
 
             // Act
@@ -435,19 +431,19 @@ describe("SignInUseCase", () => {
         it("deve processar email em lowercase", async () => {
             // Arrange
             const input: InputDto = {
-                email: "TEST@EXAMPLE.COM",
+                username: "TEST@EXAMPLE.COM",
                 password: "password123",
                 device: Device.WEB,
             }
 
-            vi.mocked(mockUserRepository.findByEmail).mockResolvedValue(mockUser)
+            vi.mocked(mockUserRepository.findByUsername).mockResolvedValue(mockUser)
             vi.mocked(mockUser.validatePassword).mockResolvedValue(true)
 
             // Act
             await signInUseCase.execute(input)
 
             // Assert
-            expect(mockUserRepository.findByEmail).toHaveBeenCalledWith("TEST@EXAMPLE.COM")
+            expect(mockUserRepository.findByUsername).toHaveBeenCalledWith("TEST@EXAMPLE.COM")
         })
     })
 
@@ -455,7 +451,7 @@ describe("SignInUseCase", () => {
         it("deve processar solicitação com dados de segurança válidos", async () => {
             // Arrange
             const input: InputDto = {
-                email: "test@example.com",
+                username: "test@example.com",
                 password: "password123",
                 device: Device.WEB,
                 securityData: {
@@ -479,7 +475,7 @@ describe("SignInUseCase", () => {
                 },
             }
 
-            vi.mocked(mockUserRepository.findByEmail).mockResolvedValue(mockUser)
+            vi.mocked(mockUserRepository.findByUsername).mockResolvedValue(mockUser)
             vi.mocked(mockUser.validatePassword).mockResolvedValue(true)
             vi.mocked(mockUserRepository.update).mockResolvedValue(mockUser)
             vi.mocked(mockProcessSignRequest.setSignRequest).mockResolvedValue()
@@ -507,7 +503,7 @@ describe("SignInUseCase", () => {
         it("deve rejeitar solicitação com risco crítico de segurança", async () => {
             // Arrange
             const input: InputDto = {
-                email: "test@example.com",
+                username: "test@example.com",
                 password: "password123",
                 device: Device.WEB,
                 securityData: {
@@ -555,7 +551,7 @@ describe("SignInUseCase", () => {
         it("deve permitir login com atividade suspeita mas com alerta", async () => {
             // Arrange
             const input: InputDto = {
-                email: "test@example.com",
+                username: "test@example.com",
                 password: "password123",
                 device: Device.WEB,
                 securityData: {
@@ -586,7 +582,7 @@ describe("SignInUseCase", () => {
                 },
             }
 
-            vi.mocked(mockUserRepository.findByEmail).mockResolvedValue(mockUser)
+            vi.mocked(mockUserRepository.findByUsername).mockResolvedValue(mockUser)
             vi.mocked(mockUser.validatePassword).mockResolvedValue(true)
             vi.mocked(mockUserRepository.update).mockResolvedValue(mockUser)
             vi.mocked(mockProcessSignRequest.setSignRequest).mockResolvedValue()
@@ -609,12 +605,12 @@ describe("SignInUseCase", () => {
                 mockAuthLogRepository,
             )
             const input: InputDto = {
-                email: "test@example.com",
+                username: "test@example.com",
                 password: "password123",
                 device: Device.WEB,
             }
 
-            vi.mocked(mockUserRepository.findByEmail).mockResolvedValue(mockUser)
+            vi.mocked(mockUserRepository.findByUsername).mockResolvedValue(mockUser)
             vi.mocked(mockUser.validatePassword).mockResolvedValue(true)
             vi.mocked(mockUserRepository.update).mockResolvedValue(mockUser)
 

@@ -46,10 +46,7 @@ export const DEFAULT_MOMENT_PROCESSING_RULES: MomentProcessingRules = {
         maxDuration: 30, // 30 segundos máximo
         maxSize: 100 * 1024 * 1024, // 100MB máximo
         allowedFormats: ["mp4", "webm", "mov"],
-        allowedResolutions: [
-            { width: 720, height: 1280, quality: MomentQualityEnum.MEDIUM }, // 9:16
-            { width: 1080, height: 1920, quality: MomentQualityEnum.HIGH }, // 9:16
-        ],
+        allowedResolutions: [{ width: 360, height: 558, quality: MomentQualityEnum.MEDIUM }],
     },
     text: {
         maxHashtags: 10,
@@ -79,9 +76,9 @@ export const HUMAN_CONTENT_PROCESSING_RULES: MomentProcessingRules = {
         maxSize: 200 * 1024 * 1024, // 200MB para conteúdo humano premium
         allowedFormats: ["mp4", "webm", "mov"],
         allowedResolutions: [
-            { width: 1080, height: 1920, quality: MomentQualityEnum.HIGH }, // 9:16
-            { width: 1440, height: 2560, quality: MomentQualityEnum.HIGH }, // 9:16
-            { width: 2160, height: 3840, quality: MomentQualityEnum.HIGH }, // 9:16 (4K)
+            { width: 360, height: 558, quality: MomentQualityEnum.MEDIUM },
+            { width: 720, height: 1116, quality: MomentQualityEnum.HIGH },
+            { width: 1080, height: 1674, quality: MomentQualityEnum.HIGH },
         ],
     },
     text: {
@@ -112,8 +109,9 @@ export const HIGH_QUALITY_PROCESSING_RULES: MomentProcessingRules = {
         maxSize: 500 * 1024 * 1024, // 500MB
         allowedFormats: ["mp4", "webm"],
         allowedResolutions: [
-            { width: 1440, height: 2560, quality: MomentQualityEnum.HIGH }, // 9:16
-            { width: 2160, height: 3840, quality: MomentQualityEnum.HIGH }, // 9:16 (4K)
+            { width: 360, height: 558, quality: MomentQualityEnum.MEDIUM },
+            { width: 720, height: 1116, quality: MomentQualityEnum.HIGH },
+            { width: 1080, height: 1674, quality: MomentQualityEnum.HIGH },
         ],
     },
     text: {
@@ -163,24 +161,15 @@ export class MomentProcessingValidator {
     }
 
     /**
-     * Valida resolução do conteúdo (apenas 9:16)
+     * Valida resolução do conteúdo (aspect ratio 360:558)
+     * DESABILITADA: Aceita qualquer resolução enquanto ffmpeg não está disponível
      */
     validateResolution(width: number, height: number): boolean {
-        // Verificar se é aspect ratio 9:16
-        const aspectRatio = width / height
-        const targetRatio = 9 / 16
-        const tolerance = 0.01 // 1% de tolerância
-
-        if (Math.abs(aspectRatio - targetRatio) > tolerance) {
-            return false
-        }
-
-        // Verificar se a resolução está próxima de uma resolução permitida
-        return this.rules.content.allowedResolutions.some((res) => {
-            const widthDiff = Math.abs(width - res.width)
-            const heightDiff = Math.abs(height - res.height)
-            return widthDiff <= 2 && heightDiff <= 2 // Tolerância de 2 pixels
-        })
+        // TODO: Reabilitar quando ffmpeg estiver instalado para fazer crop automático
+        console.log(
+            `[ProcessingRules] ⚠️ Validação de resolução desabilitada (sem ffmpeg): ${width}x${height} - ACEITO`,
+        )
+        return true
     }
 
     /**

@@ -2,7 +2,7 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import { MomentService } from "@/application/moment/moment.service"
+import { MomentService } from "../../../services/moment.service"
 import { ListAllMomentsUseCase } from "../list.all.moments.use.case"
 
 // Mock do MomentService

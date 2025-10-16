@@ -252,3 +252,150 @@ export class SuspiciousActivityError extends BaseError {
         return 403 // Forbidden
     }
 }
+
+/**
+ * Erro lançado quando usuário tenta fazer login sem aceitar os termos de uso
+ */
+export class TermsNotAcceptedError extends BaseError {
+    constructor() {
+        super({
+            message: "Terms of use must be accepted to proceed",
+            type: ErrorType.VALIDATION,
+            code: ErrorCode.INVALID_INPUT,
+            action: "AUTHENTICATE_USER",
+            context: {
+                additionalData: {
+                    field: "termsAccepted",
+                    required: true,
+                },
+            },
+            metadata: {
+                severity: "low",
+                retryable: true,
+                logLevel: "info",
+            },
+        })
+    }
+
+    protected getHttpStatusCode(): number {
+        return 400 // Bad Request
+    }
+}
+
+/**
+ * Erro lançado quando o IP address é inválido ou não fornecido
+ */
+export class InvalidIpAddressError extends BaseError {
+    constructor(ipAddress?: string) {
+        super({
+            message: ipAddress ? `Invalid IP address: ${ipAddress}` : "IP address is required",
+            type: ErrorType.VALIDATION,
+            code: ErrorCode.INVALID_INPUT,
+            action: "VALIDATE_IP_ADDRESS",
+            context: {
+                additionalData: {
+                    ipAddress,
+                    field: "ipAddress",
+                    required: true,
+                },
+            },
+            metadata: {
+                severity: "low",
+                retryable: false,
+                logLevel: "info",
+            },
+        })
+    }
+
+    protected getHttpStatusCode(): number {
+        return 400 // Bad Request
+    }
+}
+
+/**
+ * Erro lançado quando metadata está ausente
+ */
+export class InvalidMetadataError extends BaseError {
+    constructor(message?: string) {
+        super({
+            message: message || "Metadata is required",
+            type: ErrorType.VALIDATION,
+            code: ErrorCode.INVALID_INPUT,
+            action: "VALIDATE_METADATA",
+            context: {
+                additionalData: {
+                    field: "metadata",
+                    required: true,
+                },
+            },
+            metadata: {
+                severity: "low",
+                retryable: false,
+                logLevel: "info",
+            },
+        })
+    }
+
+    protected getHttpStatusCode(): number {
+        return 400 // Bad Request
+    }
+}
+
+/**
+ * Erro lançado quando timezone é inválido
+ */
+export class InvalidTimezoneError extends BaseError {
+    constructor(timezone: string) {
+        super({
+            message: `Invalid timezone: ${timezone}`,
+            type: ErrorType.VALIDATION,
+            code: ErrorCode.INVALID_INPUT,
+            action: "VALIDATE_TIMEZONE",
+            context: {
+                additionalData: {
+                    timezone,
+                    field: "timezone",
+                },
+            },
+            metadata: {
+                severity: "low",
+                retryable: false,
+                logLevel: "info",
+            },
+        })
+    }
+
+    protected getHttpStatusCode(): number {
+        return 400 // Bad Request
+    }
+}
+
+/**
+ * Erro lançado quando coordenadas geográficas são inválidas
+ */
+export class InvalidCoordinatesError extends BaseError {
+    constructor(latitude?: number, longitude?: number) {
+        super({
+            message: `Invalid coordinates: latitude ${latitude}, longitude ${longitude}`,
+            type: ErrorType.VALIDATION,
+            code: ErrorCode.INVALID_INPUT,
+            action: "VALIDATE_COORDINATES",
+            context: {
+                additionalData: {
+                    latitude,
+                    longitude,
+                    validRange: "Latitude: -90 to 90, Longitude: -180 to 180",
+                },
+            },
+            metadata: {
+                severity: "low",
+                retryable: false,
+                logLevel: "info",
+            },
+        })
+    }
+
+    protected getHttpStatusCode(): number {
+        return 400 // Bad Request
+    }
+}

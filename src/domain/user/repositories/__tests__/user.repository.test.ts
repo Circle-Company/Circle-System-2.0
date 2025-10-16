@@ -15,7 +15,7 @@ import UserModel from "../../../../infra/models/user/user.model"
 import UserPreferencesModel from "../../../../infra/models/user/user.preferences.model"
 import UserStatisticsModel from "../../../../infra/models/user/user.statistics.model"
 import UserStatusModel from "../../../../infra/models/user/user.status.model"
-import UserTermsModel from "../../../../infra/models/user/user.terms.model"
+import UserTermModel from "../../../../infra/models/user/user.terms.model"
 import { Level } from "../../../authorization/authorization.type"
 import { User } from "../../entities/user.entity"
 import { UserMapper } from "../../mappers/user.mapper"
@@ -100,7 +100,7 @@ vi.mock("../../mappers/user.mapper", () => ({
         toUserStatusAttributes: vi.fn(),
         toUserPreferencesAttributes: vi.fn(),
         toUserStatisticsAttributes: vi.fn(),
-        toUserTermsAttributes: vi.fn(),
+        toUserTermAttributes: vi.fn(),
         toUserEmbeddingAttributes: vi.fn(),
         toUserInteractionSummaryAttributes: vi.fn(),
     },
@@ -135,8 +135,8 @@ describe("UserRepository", () => {
         vi.mocked(UserStatisticsModel.create).mockClear()
         vi.mocked(UserStatisticsModel.upsert).mockClear()
 
-        vi.mocked(UserTermsModel.create).mockClear()
-        vi.mocked(UserTermsModel.upsert).mockClear()
+        vi.mocked(UserTermModel.create).mockClear()
+        vi.mocked(UserTermModel.upsert).mockClear()
 
         vi.mocked(UserEmbeddingModel.create).mockClear()
         vi.mocked(UserEmbeddingModel.upsert).mockClear()
@@ -256,7 +256,7 @@ describe("UserRepository", () => {
                 last_metrics_update: new Date(),
             })
 
-            UserMapper.toUserTermsAttributes = vi.fn().mockReturnValue({
+            UserMapper.toUserTermAttributes = vi.fn().mockReturnValue({
                 user_id: BigInt(userData.id!),
                 terms_and_conditions_agreed: true,
                 terms_and_conditions_agreed_version: "1.0",
@@ -270,7 +270,7 @@ describe("UserRepository", () => {
             vi.mocked(UserStatusModel.create).mockResolvedValue({})
             vi.mocked(UserPreferencesModel.create).mockResolvedValue({})
             vi.mocked(UserStatisticsModel.create).mockResolvedValue({})
-            vi.mocked(UserTermsModel.create).mockResolvedValue({})
+            vi.mocked(UserTermModel.create).mockResolvedValue({})
 
             // Act
             const result = await repository.create(mockUser)
@@ -283,7 +283,7 @@ describe("UserRepository", () => {
             expect(UserStatusModel.create).toHaveBeenCalled()
             expect(UserPreferencesModel.create).toHaveBeenCalled()
             expect(UserStatisticsModel.create).toHaveBeenCalled()
-            expect(UserTermsModel.create).toHaveBeenCalled()
+            expect(UserTermModel.create).toHaveBeenCalled()
         })
 
         it("deve encontrar usuário por ID", async () => {
@@ -601,7 +601,7 @@ describe("UserRepository", () => {
             UserMapper.toUserStatusAttributes = vi.fn().mockReturnValue(null)
             UserMapper.toUserPreferencesAttributes = vi.fn().mockReturnValue(null)
             UserMapper.toUserStatisticsAttributes = vi.fn().mockReturnValue(null)
-            UserMapper.toUserTermsAttributes = vi.fn().mockReturnValue(null)
+            UserMapper.toUserTermAttributes = vi.fn().mockReturnValue(null)
             UserMapper.toUserEmbeddingAttributes = vi.fn().mockReturnValue(null)
             UserMapper.toUserInteractionSummaryAttributes = vi.fn().mockReturnValue(null)
 

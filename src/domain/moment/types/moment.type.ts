@@ -21,6 +21,10 @@ export enum MomentContentTypeEnum {
 export enum MomentProcessingStatusEnum {
     PENDING = "pending",
     PROCESSING = "processing",
+    UPLOADED = "uploaded",
+    MEDIA_PROCESSED = "media_processed",
+    EMBEDDINGS_QUEUED = "embeddings_queued",
+    EMBEDDINGS_PROCESSED = "embeddings_processed",
     COMPLETED = "completed",
     FAILED = "failed",
 }
@@ -209,7 +213,17 @@ export interface MomentEmbedding {
     updatedAt: Date
 }
 
+// ===== TIPOS PARA VISUALIZAÇÃO =====
+export interface ViewabilityResult {
+    allowed: boolean
+    reason: string
+    message: string
+    metadata?: any
+    timestamp: Date
+    momentId: string
+}
+
 // ===== IMPORT METRICS =====
 // Importar métricas robustas do arquivo separado
-import { MomentMetrics } from "../entities/moment.metrics.entity"
+import { MomentMetrics } from "./moment.metrics.type"
 export { MomentMetrics }

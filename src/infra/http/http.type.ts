@@ -2,6 +2,17 @@
  * Tipos e interfaces para o sistema de API adapters
  */
 
+/**
+ * Interface para arquivos multipart
+ */
+export interface MultipartFile {
+    file?: any // Stream do arquivo
+    filename?: string
+    encoding?: string
+    mimetype?: string
+    fieldname?: string
+}
+
 export interface HttpRequest {
     method: string
     url: string
@@ -12,6 +23,7 @@ export interface HttpRequest {
     user?: any // Para autenticação
     ip?: string // IP do cliente
     id?: string // ID da requisição
+    files?: MultipartFile[] // Arquivos multipart (quando aplicável)
 }
 
 export interface HttpResponse {
@@ -78,6 +90,17 @@ export interface HttpAdapter {
      * Fechar servidor
      */
     close(): Promise<void>
+
+    /**
+     * Obtém a instância nativa do framework (se disponível)
+     * Útil para funcionalidades específicas do framework como plugins
+     */
+    getFastifyInstance?(): any
+
+    /**
+     * Registra um plugin específico do framework (se disponível)
+     */
+    registerPlugin?(plugin: any, options?: any): Promise<void>
 }
 
 export type AdapterType = "fastify" | "mock"
