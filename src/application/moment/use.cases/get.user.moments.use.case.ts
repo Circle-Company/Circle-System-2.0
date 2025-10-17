@@ -108,30 +108,30 @@ export class GetUserMomentsUseCase {
     ): Promise<MomentEntity[]> {
         // Converter entidades para objetos de domínio para usar métodos de negócio
         const domainMoments = result.map((entity) => Moment.fromEntity(entity))
-        
+
         // Aplicar filtros
         const filteredDomainMoments: Moment[] = []
-        
+
         for (const moment of domainMoments) {
             // Filtro por status
             if (moment.status.current !== request.query.status) {
                 continue
             }
-            
+
             // Filtro por visibilidade
             if (moment.visibility.level !== request.query.visibility) {
                 continue
             }
-            
+
             // Filtro por visualização (método de negócio)
             const viewabilityResult = await moment.isViewable(requestingUser, this.userRepository)
             if (!viewabilityResult.allowed) {
                 continue
             }
-            
+
             filteredDomainMoments.push(moment)
         }
-        
+
         // Converter de volta para entidades
         return filteredDomainMoments.map((moment) => moment.toEntity())
     }
