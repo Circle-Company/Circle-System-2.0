@@ -7,10 +7,10 @@ import Bull, { Job, Queue } from "bull"
 import {
     VideoCompressionJobData,
     VideoCompressionJobResult,
-} from "./types/video.compression.job.types"
+} from "../workers/types/video.compression.job.types"
 
+import { EmbeddingJobPriority } from "@/infra/workers/types/embedding.job.types"
 import { bullConfig } from "./bull.config"
-import { EmbeddingJobPriority } from "./types/embedding.job.types"
 
 export class VideoCompressionQueue {
     private queue: Queue<VideoCompressionJobData>

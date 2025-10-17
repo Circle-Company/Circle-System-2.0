@@ -1,15 +1,16 @@
 import {
+    Moment,
     MomentEntity,
     MomentMedia,
     MomentStatusEnum,
     MomentThumbnail,
     MomentVisibilityEnum,
 } from "@/domain/moment"
-import { Timezone } from "@/shared/circle.text.library"
+import { IUserRepository, User } from "@/domain/user"
 
 import { IMomentRepository } from "@/domain/moment/repositories/moment.repository"
-import { IUserRepository, User } from "@/domain/user"
 import { AuthenticatedUser } from "@/infra/middlewares"
+import { Timezone } from "@/shared/circle.text.library"
 
 export interface GetUserMomentsRequest {
     requestingUser: AuthenticatedUser
@@ -80,7 +81,7 @@ export class GetUserMomentsUseCase {
                 offset,
             )
 
-            const filteredMoments = this.filterResult(moments, request, requestingUser!)
+            const filteredMoments = await this.filterResult(moments, request, requestingUser!)
             const momentsPreview = this.mapToPreview(tz, filteredMoments)
             return {
                 success: true,
@@ -100,15 +101,39 @@ export class GetUserMomentsUseCase {
         }
     }
 
-    private filterResult(
+    private async filterResult(
         result: MomentEntity[],
         request: GetUserMomentsRequest,
         requestingUser: User,
-    ): MomentEntity[] {
-        return result
-            .filter((moment) => moment.status.current === request.query.status)
-            .filter((moment) => moment.visibility.level === request.query.visibility)
-            .filter((moment) => moment.isViewable(requestingUser, this.userRepository))
+    ): Promise<MomentEntity[]> {
+        // Converter entidades para objetos de domínio para usar métodos de negócio
+        const domainMoments = result.map((entity) => Moment.fromEntity(entity))
+        
+        // Aplicar filtros
+        const filteredDomainMoments: Moment[] = []
+        
+        for (const moment of domainMoments) {
+            // Filtro por status
+            if (moment.status.current !== request.query.status) {
+                continue
+            }
+            
+            // Filtro por visibilidade
+            if (moment.visibility.level !== request.query.visibility) {
+                continue
+            }
+            
+            // Filtro por visualização (método de negócio)
+            const viewabilityResult = await moment.isViewable(requestingUser, this.userRepository)
+            if (!viewabilityResult.allowed) {
+                continue
+            }
+            
+            filteredDomainMoments.push(moment)
+        }
+        
+        // Converter de volta para entidades
+        return filteredDomainMoments.map((moment) => moment.toEntity())
     }
 
     private setLocalTimezone(user: AuthenticatedUser): Timezone {
@@ -123,11 +148,7 @@ export class GetUserMomentsUseCase {
             id: moment.id,
             description: moment.description,
             video: {
-                urls: {
-                    low: moment.media.url,
-                    medium: moment.media.url,
-                    high: moment.media.url,
-                },
+                url: moment.media.url,
             },
             thumbnail: {
                 url: moment.thumbnail.url,

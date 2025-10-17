@@ -471,11 +471,11 @@ export class MomentMapper {
         // Mapear mídia
         if (sequelizeMoment.media) {
             momentData.media = {
-                urls: {
-                    low: sequelizeMoment.media.lowUrl,
-                    medium: sequelizeMoment.media.mediumUrl,
-                    high: sequelizeMoment.media.highUrl,
-                },
+                url:
+                    sequelizeMoment.media.highUrl ||
+                    sequelizeMoment.media.mediumUrl ||
+                    sequelizeMoment.media.lowUrl ||
+                    "",
                 storage: {
                     provider: sequelizeMoment.media.storageProvider as any,
                     bucket: sequelizeMoment.media.bucket,

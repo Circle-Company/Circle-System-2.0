@@ -158,11 +158,7 @@ export class ViewMomentUseCase {
                         contentWarning: moment.visibility.contentWarning,
                     },
                     media: {
-                        urls: {
-                            low: moment.media.url,
-                            medium: moment.media.url,
-                            high: moment.media.url,
-                        },
+                        url: moment.media.url,
                         duration: moment.content.duration,
                     },
                     thumbnail: {

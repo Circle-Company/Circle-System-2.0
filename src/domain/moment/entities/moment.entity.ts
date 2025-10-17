@@ -838,11 +838,207 @@ export class Moment {
     }
 
     /**
-     * Verifica se o momento tem visualizações suficientes para ser considerado popular
+     * Sistema de pontuação sofisticado com visualizações, engajamento e decaimento exponencial
      */
-    async isPopular(minViews: number = 1000, minCompleteViewRate: number = 60): Promise<boolean> {
+
+    /**
+     * Configurações do algoritmo de pontuação
+     */
+    private static readonly SCORING_CONFIG = {
+        // Pesos para diferentes métricas
+        weights: {
+            views: 1.0, // Visualizações base
+            completeViews: 2.5, // Visualizações completas (mais valiosas)
+            likes: 3.0, // Likes
+            comments: 4.0, // Comentários (mais engajamento)
+            shares: 5.0, // Shares (máximo engajamento)
+            reports: -2.0, // Reports (penalização)
+        },
+        // Decaimento exponencial por tempo
+        timeDecay: {
+            halfLifeHours: 24, // Meia-vida de 24 horas
+            maxAgeHours: 168, // 7 dias máximo
+        },
+        // Limites para normalização
+        limits: {
+            maxViews: 100000,
+            maxLikes: 10000,
+            maxComments: 1000,
+            maxShares: 500,
+        },
+    }
+
+    /**
+     * Calcula a pontuação sofisticada do momento
+     */
+    async calculateSophisticatedScore(): Promise<number> {
         const stats = await this.getViewStatistics()
-        return stats.totalViews >= minViews && stats.completeViewRate >= minCompleteViewRate
+        const engagement = this.getMockEngagementMetrics() // Usar dados mockados temporariamente
+
+        // 1. Calcular pontuação base por engajamento
+        const engagementScore = this.calculateEngagementScore(stats, engagement)
+
+        // 2. Aplicar decaimento exponencial por tempo
+        const timeDecayFactor = this.calculateTimeDecay()
+
+        // 3. Calcular pontuação final
+        const finalScore = engagementScore * timeDecayFactor
+
+        return Math.max(0, finalScore) // Garantir que não seja negativo
+    }
+
+    /**
+     * Método temporário para obter métricas de engajamento (mock)
+     */
+    private getMockEngagementMetrics(): any {
+        // Dados mockados temporariamente - implementar métricas reais depois
+        return {
+            totalLikes: Math.floor(Math.random() * 1000),
+            totalComments: Math.floor(Math.random() * 100),
+            totalShares: Math.floor(Math.random() * 50),
+            totalReports: Math.floor(Math.random() * 10),
+        }
+    }
+
+    /**
+     * Calcula a pontuação de engajamento
+     */
+    private calculateEngagementScore(viewStats: any, engagement: any): number {
+        // Configuração inline para evitar problemas de referência estática
+        const config = {
+            weights: {
+                views: 1.0,
+                completeViews: 2.5,
+                likes: 3.0,
+                comments: 4.0,
+                shares: 5.0,
+                reports: -2.0,
+            },
+            limits: {
+                maxViews: 100000,
+                maxLikes: 10000,
+                maxComments: 1000,
+                maxShares: 500,
+                maxReports: 100,
+            },
+        }
+
+        // Normalizar métricas de visualização
+        const normalizedViews =
+            Math.min(viewStats.totalViews, config.limits.maxViews) / config.limits.maxViews
+        const normalizedCompleteViews =
+            Math.min(viewStats.completeViewRate, config.limits.maxViews) / config.limits.maxViews
+
+        // Normalizar métricas de engajamento
+        const normalizedLikes =
+            Math.min(engagement.totalLikes, config.limits.maxLikes) / config.limits.maxLikes
+        const normalizedComments =
+            Math.min(engagement.totalComments, config.limits.maxComments) /
+            config.limits.maxComments
+        const normalizedShares =
+            Math.min(engagement.totalShares || 0, config.limits.maxShares) / config.limits.maxShares
+        const normalizedReports =
+            Math.min(engagement.totalReports || 0, config.limits.maxReports || 100) /
+            (config.limits.maxReports || 100)
+
+        // Calcular pontuação ponderada
+        const engagementScore =
+            normalizedViews * config.weights.views +
+            normalizedCompleteViews * config.weights.completeViews +
+            normalizedLikes * config.weights.likes +
+            normalizedComments * config.weights.comments +
+            normalizedShares * config.weights.shares +
+            normalizedReports * config.weights.reports
+
+        return engagementScore
+    }
+
+    /**
+     * Calcula o fator de decaimento exponencial baseado no tempo
+     */
+    private calculateTimeDecay(): number {
+        // Configuração inline para evitar problemas de referência estática
+        const config = {
+            timeDecay: {
+                halfLifeHours: 24,
+                maxAgeHours: 168,
+            },
+        }
+        const now = new Date()
+        const publishedAt = this.publishedAt || this.createdAt
+
+        // Calcular horas desde a publicação
+        const hoursSincePublished = (now.getTime() - publishedAt.getTime()) / (1000 * 60 * 60)
+
+        // Se muito antigo, pontuação mínima
+        if (hoursSincePublished > config.timeDecay.maxAgeHours) {
+            return 0.1
+        }
+
+        // Decaimento exponencial: score = 2^(-t/halfLife)
+        const decayFactor = Math.pow(2, -hoursSincePublished / config.timeDecay.halfLifeHours)
+
+        // Garantir pontuação mínima de 10%
+        return Math.max(0.1, decayFactor)
+    }
+
+    /**
+     * Verifica se o momento é popular usando pontuação sofisticada
+     */
+    async isPopular(minScore: number = 50.0): Promise<boolean> {
+        const score = await this.calculateSophisticatedScore()
+        return score >= minScore
+    }
+
+    /**
+     * Retorna a pontuação e detalhes do cálculo
+     */
+    async getPopularityDetails(): Promise<{
+        score: number
+        engagementScore: number
+        timeDecayFactor: number
+        isPopular: boolean
+        metrics: {
+            views: number
+            completeViews: number
+            likes: number
+            comments: number
+            shares: number
+            reports: number
+        }
+        timeInfo: {
+            hoursSincePublished: number
+            publishedAt: Date
+        }
+    }> {
+        const stats = await this.getViewStatistics()
+        const engagement = this.getMockEngagementMetrics()
+        const publishedAt = this.publishedAt || this.createdAt
+        const now = new Date()
+        const hoursSincePublished = (now.getTime() - publishedAt.getTime()) / (1000 * 60 * 60)
+
+        const engagementScore = this.calculateEngagementScore(stats, engagement)
+        const timeDecayFactor = this.calculateTimeDecay()
+        const finalScore = engagementScore * timeDecayFactor
+
+        return {
+            score: Math.max(0, finalScore),
+            engagementScore,
+            timeDecayFactor,
+            isPopular: finalScore >= 50.0,
+            metrics: {
+                views: stats.totalViews,
+                completeViews: stats.completeViewRate, // Usar completeViewRate em vez de completeViews
+                likes: engagement.totalLikes,
+                comments: engagement.totalComments,
+                shares: engagement.totalShares || 0,
+                reports: engagement.totalReports || 0,
+            },
+            timeInfo: {
+                hoursSincePublished,
+                publishedAt,
+            },
+        }
     }
 
     /**
@@ -1121,11 +1317,7 @@ export class Moment {
 
     private createDefaultMedia(): MomentMedia {
         return {
-            urls: {
-                low: null,
-                medium: null,
-                high: null,
-            },
+            url: "",
             storage: {
                 provider: "aws" as any,
                 bucket: "",

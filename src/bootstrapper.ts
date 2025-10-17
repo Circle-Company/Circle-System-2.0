@@ -1,11 +1,11 @@
 import { api } from "@/infra/api"
 import { DatabaseAdapterFactory } from "@/infra/database"
 import { MomentFactory } from "@/infra/factories/moment.factory"
-import { EmbeddingsWorker } from "@/infra/queue/embeddings.worker"
-import { VideoCompressionWorker } from "@/infra/queue/video.compression.worker"
 import { initialize as initializeRoutes } from "@/infra/routes"
 import { setupSwagger } from "@/infra/swagger"
 import { resetSwaggerRegistration } from "@/infra/swagger/swagger.config"
+import { EmbeddingsWorker } from "@/infra/workers/embeddings.worker"
+import { VideoCompressionWorker } from "@/infra/workers/video.compression.worker"
 import { logger } from "@/shared/logger"
 import fastifyStatic from "@fastify/static"
 import path from "path"
@@ -472,7 +472,7 @@ export class ApplicationBootstrapper {
             this.embeddingsWorker.start()
 
             this.log("info", "Embeddings worker started successfully", {
-                scheduleTime: process.env.EMBEDDINGS_SCHEDULE_TIME || "01:00",
+                scheduleTime: process.env.EMBEDDINGS_SCHEDULE_TIME || "10:00",
             })
         } catch (error) {
             this.log("error", "Failed to start embeddings worker", {

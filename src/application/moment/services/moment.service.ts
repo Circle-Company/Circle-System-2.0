@@ -20,7 +20,7 @@ import { generateId, textLib } from "@/shared"
 import { AudioExtractor } from "@/core/content.processor/audio.extractor"
 import { IMomentRepository } from "@/domain/moment/repositories/moment.repository"
 import { EmbeddingsQueue } from "@/infra/queue/embeddings.queue"
-import { EmbeddingJobPriority } from "@/infra/queue/types/embedding.job.types"
+import { EmbeddingJobPriority } from "@/infra/workers/types/embedding.job.types"
 // Redis Queue para processamento assíncrono
 import { ModerationEngine } from "@/core/content.moderation"
 import { MomentMetricsService } from "./moment.metrics.service"

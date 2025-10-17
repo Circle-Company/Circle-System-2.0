@@ -4,12 +4,13 @@
  */
 
 import Bull, { Job, Queue } from "bull"
-import { bullConfig } from "./bull.config"
 import {
     EmbeddingJobData,
     EmbeddingJobPriority,
     EmbeddingJobResult,
-} from "./types/embedding.job.types"
+} from "../workers/types/embedding.job.types"
+
+import { bullConfig } from "./bull.config"
 
 export class EmbeddingsQueue {
     private queue: Queue<EmbeddingJobData>
