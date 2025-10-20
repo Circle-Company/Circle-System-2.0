@@ -1,8 +1,6 @@
 import { generateId, logger } from "@/shared"
 import { DataTypes, Model, Op, Sequelize } from "sequelize"
 
-import databaseManager from "../../database"
-
 interface MomentViewAttributes {
     id: bigint
     momentId: string
@@ -133,8 +131,7 @@ export default class MomentView
 export class MomentViewPersistenceService {
     private model: typeof MomentView
 
-    constructor() {
-        const sequelize = databaseManager.getSequelize()
+    constructor(sequelize: Sequelize) {
         this.model = sequelize.models.MomentView as typeof MomentView
     }
 

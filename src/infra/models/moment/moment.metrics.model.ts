@@ -7,6 +7,7 @@ interface MomentMetricsAttributes {
     momentId: string
     // Métricas de visualização
     totalViews: number
+    totalClicks: number
     uniqueViews: number
     repeatViews: number
     completionViews: number
@@ -19,6 +20,7 @@ interface MomentMetricsAttributes {
     totalComments: number
     totalReports: number
     likeRate: number
+    clickRate: number
     commentRate: number
     reportRate: number
 
@@ -26,21 +28,13 @@ interface MomentMetricsAttributes {
     loadTime: number
     bufferTime: number
     errorRate: number
-    qualitySwitches: number
 
     // Métricas de viralidade
     viralScore: number
-    trendingScore: number
-    reachScore: number
-    influenceScore: number
-    growthRate: number
     totalReach: number
 
     // Métricas de qualidade do conteúdo
     contentQualityScore: number
-    audioQualityScore: number
-    videoQualityScore: number
-    faceDetectionRate: number
 
     // Metadados
     lastMetricsUpdate: Date
@@ -63,6 +57,7 @@ export default class MomentMetrics
     public id!: string
     public momentId!: string
     public totalViews!: number
+    public totalClicks!: number
     public uniqueViews!: number
     public repeatViews!: number
     public completionViews!: number
@@ -73,22 +68,15 @@ export default class MomentMetrics
     public totalComments!: number
     public totalReports!: number
     public likeRate!: number
+    public clickRate!: number
     public commentRate!: number
     public reportRate!: number
     public loadTime!: number
     public bufferTime!: number
     public errorRate!: number
-    public qualitySwitches!: number
     public viralScore!: number
-    public trendingScore!: number
-    public reachScore!: number
-    public influenceScore!: number
-    public growthRate!: number
     public totalReach!: number
     public contentQualityScore!: number
-    public audioQualityScore!: number
-    public videoQualityScore!: number
-    public faceDetectionRate!: number
     public lastMetricsUpdate!: Date
     public metricsVersion!: string
     public dataQuality!: number
@@ -116,6 +104,12 @@ export default class MomentMetrics
                     allowNull: false,
                     defaultValue: 0,
                     field: "total_views",
+                },
+                totalClicks: {
+                    type: DataTypes.INTEGER,
+                    allowNull: false,
+                    defaultValue: 0,
+                    field: "total_clicks",
                 },
                 uniqueViews: {
                     type: DataTypes.INTEGER,
@@ -178,6 +172,12 @@ export default class MomentMetrics
                     defaultValue: 0,
                     field: "like_rate",
                 },
+                clickRate: {
+                    type: DataTypes.FLOAT,
+                    allowNull: false,
+                    defaultValue: 0,
+                    field: "click_rate",
+                },
                 commentRate: {
                     type: DataTypes.FLOAT,
                     allowNull: false,
@@ -209,42 +209,12 @@ export default class MomentMetrics
                     defaultValue: 0,
                     field: "error_rate",
                 },
-                qualitySwitches: {
-                    type: DataTypes.INTEGER,
-                    allowNull: false,
-                    defaultValue: 0,
-                    field: "quality_switches",
-                },
                 // Métricas de viralidade
                 viralScore: {
                     type: DataTypes.FLOAT,
                     allowNull: false,
                     defaultValue: 0,
                     field: "viral_score",
-                },
-                trendingScore: {
-                    type: DataTypes.FLOAT,
-                    allowNull: false,
-                    defaultValue: 0,
-                    field: "trending_score",
-                },
-                reachScore: {
-                    type: DataTypes.FLOAT,
-                    allowNull: false,
-                    defaultValue: 0,
-                    field: "reach_score",
-                },
-                influenceScore: {
-                    type: DataTypes.FLOAT,
-                    allowNull: false,
-                    defaultValue: 0,
-                    field: "influence_score",
-                },
-                growthRate: {
-                    type: DataTypes.FLOAT,
-                    allowNull: false,
-                    defaultValue: 0,
-                    field: "growth_rate",
                 },
                 totalReach: {
                     type: DataTypes.INTEGER,
@@ -258,24 +228,6 @@ export default class MomentMetrics
                     allowNull: false,
                     defaultValue: 0,
                     field: "content_quality_score",
-                },
-                audioQualityScore: {
-                    type: DataTypes.FLOAT,
-                    allowNull: false,
-                    defaultValue: 0,
-                    field: "audio_quality_score",
-                },
-                videoQualityScore: {
-                    type: DataTypes.FLOAT,
-                    allowNull: false,
-                    defaultValue: 0,
-                    field: "video_quality_score",
-                },
-                faceDetectionRate: {
-                    type: DataTypes.FLOAT,
-                    allowNull: false,
-                    defaultValue: 0,
-                    field: "face_detection_rate",
                 },
                 // Metadados
                 lastMetricsUpdate: {
@@ -326,9 +278,6 @@ export default class MomentMetrics
                     },
                     {
                         fields: ["viral_score"],
-                    },
-                    {
-                        fields: ["trending_score"],
                     },
                     {
                         fields: ["last_metrics_update"],

@@ -5,9 +5,7 @@ import { generateId } from "@/shared"
 interface MomentMediaAttributes {
     id: string
     momentId: string
-    lowUrl: string | null
-    mediumUrl: string | null
-    highUrl: string | null
+    url: string
     storageProvider: string
     bucket: string
     key: string
@@ -27,9 +25,7 @@ export default class MomentMedia
 {
     public id!: string
     public momentId!: string
-    public lowUrl!: string | null
-    public mediumUrl!: string | null
-    public highUrl!: string | null
+    public url!: string
     public storageProvider!: string
     public bucket!: string
     public key!: string
@@ -51,23 +47,10 @@ export default class MomentMedia
                     allowNull: false,
                     field: "moment_id",
                 },
-                lowUrl: {
+                url: {
                     type: DataTypes.TEXT,
-                    allowNull: true,
-                    field: "low_url",
-                    comment: "URL da versão de baixa qualidade",
-                },
-                mediumUrl: {
-                    type: DataTypes.TEXT,
-                    allowNull: true,
-                    field: "medium_url",
-                    comment: "URL da versão de qualidade média",
-                },
-                highUrl: {
-                    type: DataTypes.TEXT,
-                    allowNull: true,
-                    field: "high_url",
-                    comment: "URL da versão de alta qualidade",
+                    allowNull: false,
+                    comment: "URL única do vídeo",
                 },
                 storageProvider: {
                     type: DataTypes.STRING(50),
