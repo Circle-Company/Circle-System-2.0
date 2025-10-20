@@ -1,7 +1,6 @@
 import {
     CommentMomentUseCase,
     DeleteMomentCommentUseCase,
-    EditMomentCommentUseCase,
     GetCommentedMomentsUseCase,
     GetMomentCommentsUseCase,
 } from "@/application/moment/use.cases"
@@ -62,7 +61,6 @@ export class MomentCommentController {
     constructor(
         private readonly commentMomentUseCase: CommentMomentUseCase,
         private readonly getMomentCommentsUseCase: GetMomentCommentsUseCase,
-        private readonly editMomentCommentUseCase: EditMomentCommentUseCase,
         private readonly deleteMomentCommentUseCase: DeleteMomentCommentUseCase,
         private readonly getCommentedMomentsUseCase: GetCommentedMomentsUseCase,
     ) {}
@@ -132,37 +130,6 @@ export class MomentCommentController {
         } catch (error) {
             throw new Error(
                 `Erro ao buscar comentários: ${
-                    error instanceof Error ? error.message : "Erro desconhecido"
-                }`,
-            )
-        }
-    }
-
-    /**
-     * Editar um comentário
-     */
-    async editComment(
-        momentId: string,
-        commentId: string,
-        userId: string,
-        request: EditCommentRequest,
-    ): Promise<CommentResponse | null> {
-        try {
-            const result = await this.editMomentCommentUseCase.execute({
-                momentId,
-                commentId,
-                userId,
-                content: request.content,
-            })
-
-            if (!result.success || !result.comment) {
-                throw new Error(result.error || "Erro ao editar comentário")
-            }
-
-            return this.mapCommentToResponse(result.comment)
-        } catch (error) {
-            throw new Error(
-                `Erro ao editar comentário: ${
                     error instanceof Error ? error.message : "Erro desconhecido"
                 }`,
             )

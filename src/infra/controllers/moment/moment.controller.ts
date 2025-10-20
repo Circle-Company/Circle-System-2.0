@@ -5,17 +5,14 @@ import {
     GetLikedMomentsUseCase,
     GetMomentReportsUseCase,
     GetMomentUseCase,
-    GetUserMomentReportsUseCase,
     GetUserMomentsUseCase,
-    GetUserReportedMomentsUseCase,
     LikeMomentUseCase,
-    ListMomentsUseCase,
-    PublishMomentUseCase,
     ReportMomentUseCase,
     UnlikeMomentUseCase,
 } from "@/application/moment/use.cases"
 
 import { GetUserMomentsResponse } from "@/application/moment/use.cases/get.user.moments.use.case"
+import { MomentVisibilityEnum } from "@/domain/moment"
 import { AuthenticatedUser } from "@/infra/middlewares"
 import { z } from "zod"
 
@@ -155,16 +152,12 @@ export class MomentController {
         private readonly createMomentUseCase: CreateMomentUseCase,
         private readonly getMomentUseCase: GetMomentUseCase,
         private readonly deleteMomentUseCase: DeleteMomentUseCase,
-        private readonly publishMomentUseCase: PublishMomentUseCase,
-        private readonly listMomentsUseCase: ListMomentsUseCase,
         private readonly getUserMomentsUseCase: GetUserMomentsUseCase,
         private readonly likeMomentUseCase: LikeMomentUseCase,
         private readonly unlikeMomentUseCase: UnlikeMomentUseCase,
         private readonly getLikedMomentsUseCase: GetLikedMomentsUseCase,
         private readonly reportMomentUseCase: ReportMomentUseCase,
         private readonly getMomentReportsUseCase: GetMomentReportsUseCase,
-        private readonly getUserMomentReportsUseCase: GetUserMomentReportsUseCase,
-        private readonly getUserReportedMomentsUseCase: GetUserReportedMomentsUseCase,
     ) {}
 
     // ===== CRUD OPERATIONS =====
@@ -262,73 +255,9 @@ export class MomentController {
     }
 
     /**
-     * Publica um momento
-     */
-    async publishMoment(momentId: string, userId: string): Promise<MomentResponse> {
-        try {
-            const result = await this.publishMomentUseCase.execute({
-                momentId: momentId,
-                userId: userId,
-            })
-
-            return this.mapToResponse(result)
-        } catch (error) {
-            if (error instanceof Error && error.message === "Moment not found") {
-                throw new Error("Moment not found")
-            }
-            if (error instanceof Error && error.message === "Unauthorized") {
-                throw new Error("Unauthorized")
-            }
-            throw new Error(
-                `Error to publish moment: ${
-                    error instanceof Error ? error.message : "Unknown error"
-                }`,
-            )
-        }
-    }
-
-    // ===== LISTING AND SEARCH =====
-
-    /**
-     * Lista momentos com filtros
-     */
-    async listMoments(query: ListMomentsQuery): Promise<MomentResponse[]> {
-        try {
-            // Validação com Zod
-            const validatedQuery = ListMomentsQuerySchema.parse(query)
-
-            const result = await this.listMomentsUseCase.execute({
-                limit: validatedQuery.limit,
-                offset: (validatedQuery.page - 1) * validatedQuery.limit,
-                sortBy: validatedQuery.sortBy,
-                sortOrder: validatedQuery.sortOrder,
-                status: validatedQuery.status as any,
-            })
-
-            if (!result.success || !result.moments) {
-                throw new Error(result.error || "Error to list moments")
-            }
-
-            return result.moments.map((moment) => this.mapToResponse(moment))
-        } catch (error) {
-            if (error instanceof z.ZodError) {
-                throw new Error(
-                    `Validation error: ${error.issues.map((e) => e.message).join(", ")}`,
-                )
-            }
-            throw new Error(
-                `Error to list moments: ${
-                    error instanceof Error ? error.message : "Unknown error"
-                }`,
-            )
-        }
-    }
-
-    /**
      * Lista momentos de um usuário específico
      */
     async getUserMoments(
-        userId: string,
         requestingUser: AuthenticatedUser,
         query: ListMomentsQuery,
     ): Promise<GetUserMomentsResponse> {
@@ -337,13 +266,14 @@ export class MomentController {
             const validatedQuery = ListMomentsQuerySchema.parse(query)
 
             const result = await this.getUserMomentsUseCase.execute({
-                ownerId: userId,
                 requestingUser: requestingUser,
-                limit: validatedQuery.limit,
-                offset: (validatedQuery.page - 1) * validatedQuery.limit,
-                sortBy: validatedQuery.sortBy,
-                sortOrder: validatedQuery.sortOrder,
-                status: validatedQuery.status as any,
+                query: {
+                    status: validatedQuery.status as any,
+                    visibility: MomentVisibilityEnum.PUBLIC,
+                    includeDeleted: false,
+                    sortBy: validatedQuery.sortBy,
+                    sortOrder: validatedQuery.sortOrder,
+                },
             })
 
             if (!result.success || !result.moments) {
@@ -531,87 +461,6 @@ export class MomentController {
             }
             throw new Error(
                 `Error to list reports of moment: ${
-                    error instanceof Error ? error.message : "Unknown error"
-                }`,
-            )
-        }
-    }
-
-    /**
-     * Lista reports dos momentos de um usuário (apenas owner)
-     */
-    async getUserMomentReports(
-        ownerId: string,
-        query: ListMomentsQuery,
-    ): Promise<MomentResponse[]> {
-        try {
-            // Validação com Zod
-            const validatedQuery = ListMomentsQuerySchema.parse(query)
-
-            const result = await this.getUserMomentReportsUseCase.execute({
-                userId: ownerId,
-                limit: validatedQuery.limit,
-                offset: (validatedQuery.page - 1) * validatedQuery.limit,
-            })
-
-            if (!result.success) {
-                throw new Error(result.error || "Error to list reports of user's moments")
-            }
-
-            // Retornar array vazio por enquanto, pois este use case retorna reports, não momentos
-            return []
-        } catch (error) {
-            if (error instanceof z.ZodError) {
-                throw new Error(
-                    `Validation error: ${error.issues.map((e) => e.message).join(", ")}`,
-                )
-            }
-            if (error instanceof Error && error.message === "Unauthorized") {
-                throw new Error("Unauthorized")
-            }
-            throw new Error(
-                `Error to list reports of user's moments: ${
-                    error instanceof Error ? error.message : "Unknown error"
-                }`,
-            )
-        }
-    }
-
-    /**
-     * Lista momentos reportados por um usuário
-     */
-    async getUserReportedMoments(
-        userId: string,
-        currentUserId: string,
-        query: ListMomentsQuery,
-    ): Promise<MomentResponse[]> {
-        try {
-            // Validação com Zod
-            const validatedQuery = ListMomentsQuerySchema.parse(query)
-
-            const result = await this.getUserReportedMomentsUseCase.execute({
-                userId: userId,
-                limit: validatedQuery.limit,
-                offset: (validatedQuery.page - 1) * validatedQuery.limit,
-            })
-
-            if (!result.success) {
-                throw new Error(result.error || "Error to list reported moments of user")
-            }
-
-            // Retornar array vazio por enquanto, pois este use case retorna reports, não momentos
-            return []
-        } catch (error) {
-            if (error instanceof z.ZodError) {
-                throw new Error(
-                    `Validation error: ${error.issues.map((e) => e.message).join(", ")}`,
-                )
-            }
-            if (error instanceof Error && error.message === "Unauthorized") {
-                throw new Error("Unauthorized")
-            }
-            throw new Error(
-                `Error to list reported moments of user: ${
                     error instanceof Error ? error.message : "Unknown error"
                 }`,
             )
