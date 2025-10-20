@@ -3,10 +3,10 @@
  * Implementação REAL de storage local (salva arquivos em disco)
  */
 
+import { logger } from "@/shared"
 import { existsSync, mkdirSync, writeFileSync } from "fs"
 import { StorageAdapter, StorageUploadResult } from "./type"
 
-import { generateId } from "@/shared"
 import { join } from "path"
 
 interface StorageUploadOptions {
@@ -15,7 +15,7 @@ interface StorageUploadOptions {
     metadata?: Record<string, any>
 }
 
-export class RealLocalStorageAdapter implements StorageAdapter {
+export class LocalStorageAdapter implements StorageAdapter {
     private baseDir: string
     private baseUrl: string
 
@@ -31,14 +31,13 @@ export class RealLocalStorageAdapter implements StorageAdapter {
      * Upload de vídeo
      */
     async uploadVideo(
-        key: string,
+        baseKey: string,
         videoData: Buffer,
         options: StorageUploadOptions,
     ): Promise<StorageUploadResult> {
         try {
-            const videoId = generateId()
-            const extension = this.getExtension(options.mimeType)
-            const filename = `${videoId}.${extension}`
+            // Organizar arquivo usando baseKey: ownerId/contentId -> videos/ownerId_contentId.mp4
+            const filename = this.generateFilename(baseKey, "video", options.mimeType)
             const filePath = join(this.baseDir, "videos", filename)
 
             // Salvar arquivo
@@ -46,51 +45,51 @@ export class RealLocalStorageAdapter implements StorageAdapter {
 
             const url = `${this.baseUrl}/videos/${filename}`
 
-            console.log(
-                `[RealLocalStorage] ✅ Vídeo salvo: ${filename} (${(
-                    videoData.length /
-                    1024 /
-                    1024
-                ).toFixed(2)}MB)`,
-            )
-
             return {
                 success: true,
                 url,
-                key: `videos/${filename}`,
+                key: baseKey,
                 provider: "local",
                 bucket: "uploads",
                 metadata: {
                     path: filePath,
                     filename,
                     mimeType: options.mimeType,
+                    baseKey: baseKey,
                 },
             }
         } catch (error) {
-            console.error("[RealLocalStorage] ❌ Erro ao salvar vídeo:", error)
-
+            logger.error("[LocalStorage] ❌ Erro ao salvar vídeo:", error)
             return {
                 success: false,
                 url: "",
-                key: "",
+                key: baseKey,
                 provider: "local",
                 error: error instanceof Error ? error.message : String(error),
             }
         }
     }
 
+    private generateFilename(
+        baseKey: string,
+        type: "video" | "thumbnail",
+        mimeType: string,
+    ): string {
+        return `${type}_${baseKey.replace(/\//g, "_")}.${this.getExtension(mimeType)}`
+    }
+
     /**
      * Upload de thumbnail (alias para uploadImage)
      */
     async uploadThumbnail(
-        key: string,
+        baseKey: string,
         data: Buffer,
         metadata: Record<string, any>,
     ): Promise<StorageUploadResult> {
         return this.uploadImage(data, {
-            filename: key,
+            filename: baseKey,
             mimeType: metadata.mimeType || "image/jpeg",
-            metadata,
+            metadata: { ...metadata, baseKey },
         })
     }
 
@@ -102,9 +101,9 @@ export class RealLocalStorageAdapter implements StorageAdapter {
         options: StorageUploadOptions,
     ): Promise<StorageUploadResult> {
         try {
-            const imageId = generateId()
+            // Organizar arquivo usando baseKey: ownerId/contentId -> thumbnails/ownerId_contentId.jpg
             const extension = this.getExtension(options.mimeType)
-            const filename = `${imageId}.${extension}`
+            const filename = `${options.filename.replace(/\//g, "_")}.${extension}`
             const filePath = join(this.baseDir, "thumbnails", filename)
 
             // Salvar arquivo
@@ -113,21 +112,22 @@ export class RealLocalStorageAdapter implements StorageAdapter {
             const url = `${this.baseUrl}/thumbnails/${filename}`
 
             console.log(
-                `[RealLocalStorage] ✅ Thumbnail salva: ${filename} (${(
+                `[LocalStorage] ✅ Thumbnail salva: ${filename} (${(
                     imageData.length / 1024
-                ).toFixed(2)}KB)`,
+                ).toFixed(2)}KB) - BaseKey: ${options.filename}`,
             )
 
             return {
                 success: true,
                 url,
-                key: `thumbnails/${filename}`,
+                key: options.filename, // Retornar baseKey original
                 provider: "local",
                 bucket: "uploads",
                 metadata: {
                     path: filePath,
                     filename,
                     mimeType: options.mimeType,
+                    baseKey: options.filename,
                 },
             }
         } catch (error) {
@@ -136,7 +136,7 @@ export class RealLocalStorageAdapter implements StorageAdapter {
             return {
                 success: false,
                 url: "",
-                key: "",
+                key: options.filename,
                 provider: "local",
                 error: error instanceof Error ? error.message : String(error),
             }
@@ -168,31 +168,35 @@ export class RealLocalStorageAdapter implements StorageAdapter {
     /**
      * Delete de vídeo
      */
-    async deleteVideo(key: string): Promise<void> {
-        console.log(`[RealLocalStorage] 🗑️  Deletando vídeo: ${key}`)
+    async deleteVideo(baseKey: string): Promise<void> {
+        const filename = `${baseKey.replace(/\//g, "_")}.mp4`
+        console.log(`[LocalStorage] 🗑️  Deletando vídeo: ${filename} (BaseKey: ${baseKey})`)
         // TODO: Implementar delete real se necessário
     }
 
     /**
      * Delete de thumbnail
      */
-    async deleteThumbnail(key: string): Promise<void> {
-        console.log(`[RealLocalStorage] 🗑️  Deletando thumbnail: ${key}`)
+    async deleteThumbnail(baseKey: string): Promise<void> {
+        const filename = `${baseKey.replace(/\//g, "_")}.jpg`
+        console.log(`[LocalStorage] 🗑️  Deletando thumbnail: ${filename} (BaseKey: ${baseKey})`)
         // TODO: Implementar delete real se necessário
     }
 
     /**
      * Obter URL de vídeo
      */
-    async getVideoUrl(key: string, quality?: "low" | "medium" | "high"): Promise<string> {
-        return `${this.baseUrl}/videos/${key}`
+    async getVideoUrl(baseKey: string, quality?: "low" | "medium" | "high"): Promise<string> {
+        const filename = `${baseKey.replace(/\//g, "_")}.mp4`
+        return `${this.baseUrl}/videos/${filename}`
     }
 
     /**
      * Obter URL de thumbnail
      */
-    async getThumbnailUrl(key: string): Promise<string> {
-        return `${this.baseUrl}/thumbnails/${key}`
+    async getThumbnailUrl(baseKey: string): Promise<string> {
+        const filename = `${baseKey.replace(/\//g, "_")}.jpg`
+        return `${this.baseUrl}/thumbnails/${filename}`
     }
 
     /**
