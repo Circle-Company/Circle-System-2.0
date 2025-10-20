@@ -1,8 +1,10 @@
 import { HttpRequest, HttpResponse } from "@/infra/http/http.type"
 import { extractErrorInfo, generateId, isBaseError, logger } from "@/shared"
+import { existsSync, mkdirSync } from "fs"
 
 import { ENABLE_LOGGING } from "@/infra/database/environment"
 import { HttpFactory } from "@/infra/http/http.factory"
+import { join } from "path"
 
 // Configuração da aplicação
 const ENV_CONFIG = {
@@ -24,6 +26,27 @@ const httpConfig = {
 
 // Instância da API usando abstração HTTP
 export const api = HttpFactory.createForEnvironment(ENV_CONFIG.environment, httpConfig)
+
+// Configurar pasta de uploads
+const uploadsDir = join(process.cwd(), "uploads")
+const videosDir = join(uploadsDir, "videos")
+const thumbnailsDir = join(uploadsDir, "thumbnails")
+
+// Criar diretórios se não existirem
+if (!existsSync(uploadsDir)) {
+    mkdirSync(uploadsDir, { recursive: true })
+    logger.info(`📁 Diretório de uploads criado: ${uploadsDir}`)
+}
+
+if (!existsSync(videosDir)) {
+    mkdirSync(videosDir, { recursive: true })
+    logger.info(`📁 Diretório de vídeos criado: ${videosDir}`)
+}
+
+if (!existsSync(thumbnailsDir)) {
+    mkdirSync(thumbnailsDir, { recursive: true })
+    logger.info(`📁 Diretório de thumbnails criado: ${thumbnailsDir}`)
+}
 
 // Rate limiting - armazenamento de contadores
 const requestCounts = new Map<string, { count: number; resetTime: number }>()
@@ -227,6 +250,103 @@ api.get("/info", async (request: HttpRequest, response: HttpResponse) => {
             health: "/health",
             docs: "/docs",
             info: "/info",
+            storage: "/storage",
         },
     })
 })
+
+// Configurar arquivos estáticos para uploads usando a instância do Fastify
+const fastifyInstance = api.getFastifyInstance?.()
+
+if (fastifyInstance) {
+    // Configurar arquivos estáticos para uploads
+    fastifyInstance.register(require("@fastify/static"), {
+        root: uploadsDir,
+        prefix: "/storage/",
+        decorateReply: false,
+        schemaHide: true,
+        setHeaders: (res: any, path: string) => {
+            // Configurar headers apropriados para diferentes tipos de arquivo
+            if (path.endsWith(".mp4") || path.endsWith(".webm") || path.endsWith(".mov")) {
+                res.setHeader("Content-Type", "video/mp4")
+                res.setHeader("Cache-Control", "public, max-age=86400") // 24 horas
+            } else if (path.endsWith(".jpg") || path.endsWith(".jpeg") || path.endsWith(".png")) {
+                res.setHeader("Content-Type", "image/jpeg")
+                res.setHeader("Cache-Control", "public, max-age=86400") // 24 horas
+            }
+        },
+    })
+
+    // Rotas específicas para vídeos e thumbnails
+    fastifyInstance.register(require("@fastify/static"), {
+        root: videosDir,
+        prefix: "/storage/videos/",
+        decorateReply: false,
+        schemaHide: true,
+        setHeaders: (res: any) => {
+            res.setHeader("Content-Type", "video/mp4")
+            res.setHeader("Cache-Control", "public, max-age=86400") // 24 horas
+            res.setHeader("Accept-Ranges", "bytes") // Suporte a range requests para streaming
+        },
+    })
+
+    fastifyInstance.register(require("@fastify/static"), {
+        root: thumbnailsDir,
+        prefix: "/storage/thumbnails/",
+        decorateReply: false,
+        schemaHide: true,
+        setHeaders: (res: any) => {
+            res.setHeader("Content-Type", "image/jpeg")
+            res.setHeader("Cache-Control", "public, max-age=86400") // 24 horas
+        },
+    })
+}
+
+// Endpoint para listar arquivos disponíveis (apenas para desenvolvimento)
+if (ENV_CONFIG.environment === "development") {
+    api.get("/storage/list", async (request: HttpRequest, response: HttpResponse) => {
+        const { readdirSync, statSync } = require("fs")
+
+        try {
+            const listFiles = (dir: string, basePath: string = ""): any[] => {
+                const files = readdirSync(dir)
+                return files.map((file) => {
+                    const fullPath = join(dir, file)
+                    const stat = statSync(fullPath)
+                    const relativePath = join(basePath, file).replace(/\\/g, "/")
+
+                    if (stat.isDirectory()) {
+                        return {
+                            name: file,
+                            type: "directory",
+                            path: relativePath,
+                            children: listFiles(fullPath, relativePath),
+                        }
+                    } else {
+                        return {
+                            name: file,
+                            type: "file",
+                            path: relativePath,
+                            size: stat.size,
+                            url: `/storage/${relativePath}`,
+                            modified: stat.mtime,
+                        }
+                    }
+                })
+            }
+
+            const files = listFiles(uploadsDir)
+            response.send({
+                success: true,
+                baseUrl: `http://localhost:${ENV_CONFIG.port}/storage/`,
+                files: files,
+            })
+        } catch (error) {
+            response.status(500).send({
+                success: false,
+                error: "Failed to list files",
+                message: error instanceof Error ? error.message : String(error),
+            })
+        }
+    })
+}
