@@ -8,16 +8,18 @@ import {
     VideoCompressionJobResult,
 } from "./types/video.compression.job.types"
 
-import { RealLocalStorageAdapter } from "@/core/content.processor/local.storage.adapter"
+import { LocalStorageAdapter } from "@/core/content.processor/local.storage.adapter"
 import { VideoProcessor } from "@/core/content.processor/video.processor"
+import { MomentStatusEnum } from "@/domain/moment"
 import { IMomentRepository } from "@/domain/moment/repositories/moment.repository"
 import { VideoCompressionQueue } from "@/infra/queue/video.compression.queue"
+import { logger } from "@/shared"
 import axios from "axios"
 import { Job } from "bull"
 
 export class VideoCompressionWorker {
     private videoProcessor: VideoProcessor
-    private storageAdapter: RealLocalStorageAdapter
+    private storageAdapter: LocalStorageAdapter
     private queue: VideoCompressionQueue
     private isProcessing = false
 
@@ -26,7 +28,7 @@ export class VideoCompressionWorker {
 
         // Inicializar componentes
         this.videoProcessor = new VideoProcessor()
-        this.storageAdapter = new RealLocalStorageAdapter(
+        this.storageAdapter = new LocalStorageAdapter(
             "./uploads",
             process.env.STORAGE_BASE_URL || "http://localhost:3000",
         )
@@ -78,22 +80,16 @@ export class VideoCompressionWorker {
     ): Promise<VideoCompressionJobResult> {
         const startTime = Date.now()
         const { momentId, originalVideoUrl, videoMetadata } = job.data
-
-        console.log(`[VideoCompressionWorker] 🔄 Processando compressão: ${momentId}`)
-
         try {
             // 1. Baixar vídeo original do storage
-            console.log(`[VideoCompressionWorker] 📥 Baixando vídeo original: ${originalVideoUrl}`)
             const originalVideoData = await this.downloadVideo(originalVideoUrl)
 
             // 2. Comprimir vídeo usando H.264 slow preset
-            console.log(`[VideoCompressionWorker] 🐌 Comprimindo vídeo com H.264 slow...`)
             const compressedVideoData = await this.videoProcessor.compressVideoSlow(
                 originalVideoData,
             )
 
             // 3. Fazer upload do vídeo comprimido
-            console.log(`[VideoCompressionWorker] 📤 Fazendo upload do vídeo comprimido...`)
             const uploadResult = await this.storageAdapter.uploadVideo(
                 `${momentId}.mp4`, // key simples
                 compressedVideoData,
@@ -123,7 +119,10 @@ export class VideoCompressionWorker {
 
             // Atualizar media.url para apontar para o vídeo comprimido usando media.url
             moment.media.url = uploadResult.url // Versão comprimida
-            // remove low medium e high
+            moment.status.current = MomentStatusEnum.PUBLISHED
+            moment.status.reason = "Video compressed successfully"
+            moment.status.changedBy = "video.compression.worker"
+            moment.status.changedAt = new Date()
 
             // Atualizar metadados do vídeo com informações de compressão
             if (moment.media.storage) {
@@ -135,19 +134,12 @@ export class VideoCompressionWorker {
             await this.momentRepository.update(moment)
 
             // 6. Deletar vídeo original do storage
-            console.log(`[VideoCompressionWorker] 🗑️ Deletando vídeo original...`)
             await this.deleteOriginalVideo(originalVideoUrl)
 
             const processingTime = Date.now() - startTime
             const originalSize = originalVideoData.length
             const compressedSize = compressedVideoData.length
             const compressionRatio = ((originalSize - compressedSize) / originalSize) * 100
-
-            console.log(
-                `[VideoCompressionWorker] ✅ Compressão concluída: ${momentId} (${processingTime}ms, ${compressionRatio.toFixed(
-                    1,
-                )}% menor)`,
-            )
 
             return {
                 success: true,
@@ -167,7 +159,7 @@ export class VideoCompressionWorker {
         } catch (error) {
             const processingTime = Date.now() - startTime
 
-            console.error(`[VideoCompressionWorker] ❌ Erro na compressão ${momentId}:`, error)
+            logger.error(`[VideoCompressionWorker] ❌ Erro na compressão ${momentId}:`, error)
 
             return {
                 success: false,
