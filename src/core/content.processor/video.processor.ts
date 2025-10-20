@@ -218,7 +218,7 @@ export class VideoProcessor {
      * Nota: O upload real é feito pelo ContentProcessor, aqui apenas retornamos os dados
      */
     private async uploadVideo(baseKey: string, videoData: Buffer, options: any): Promise<any> {
-        const result = {
+        return {
             key: `${baseKey}.mp4`,
             data: videoData,
             metadata: {
@@ -229,12 +229,6 @@ export class VideoProcessor {
                 note: "Vídeo em qualidade original - worker fará compressão",
             },
         }
-        console.log(
-            `✅ Vídeo original preparado para upload (${(videoData.length / 1024 / 1024).toFixed(
-                2,
-            )}MB)`,
-        )
-        return result
     }
 
     /**
