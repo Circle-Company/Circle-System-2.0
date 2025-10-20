@@ -1,11 +1,12 @@
 // ===== LIST ALL MOMENTS USE CASE (ADMIN) =====
 
 import { MomentService } from "@/application/moment/services/moment.service"
+import { MomentStatusEnum } from "@/domain/moment"
 
 export interface ListAllMomentsRequest {
     page?: number
     limit?: number
-    status?: "published" | "archived" | "deleted" | "blocked" | "under_review"
+    status?: MomentStatusEnum
     sortBy?: "created_at" | "published_at" | "updated_at"
     sortOrder?: "asc" | "desc"
     search?: string

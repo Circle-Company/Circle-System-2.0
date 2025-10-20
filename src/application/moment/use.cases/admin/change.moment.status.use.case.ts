@@ -1,6 +1,7 @@
 // ===== CHANGE MOMENT STATUS USE CASE (ADMIN) =====
 
 import { MomentService } from "@/application/moment/services/moment.service"
+import { MomentStatusEnum } from "@/domain/moment"
 import { MomentNotFoundError } from "@/domain/moment/moment.errors"
 
 export interface ChangeMomentStatusRequest {
@@ -32,13 +33,13 @@ export class ChangeMomentStatusUseCase {
             const result = await this.momentService.changeMomentStatus({
                 momentId,
                 adminId,
-                status,
+                status: status as MomentStatusEnum,
                 reason,
             })
 
             if (!result.success) {
                 if (result.error === "Moment not found") {
-                    throw new MomentNotFoundError()
+                    throw new MomentNotFoundError(momentId)
                 }
                 return {
                     success: false,

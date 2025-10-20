@@ -36,7 +36,7 @@ export class UnblockMomentUseCase {
 
             if (!result.success) {
                 if (result.error === "Moment not found") {
-                    throw new MomentNotFoundError()
+                    throw new MomentNotFoundError(momentId)
                 }
                 return {
                     success: false,
