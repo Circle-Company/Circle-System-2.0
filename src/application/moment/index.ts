@@ -1,11 +1,9 @@
-// ===== MOMENT APPLICATION EXPORTS =====
-
 // Services
 export * from "./services/moment.metrics.service"
 export * from "./services/moment.service"
 
 // Use Cases
-export * from "./use.cases/comment.moment.use.case"
+export * from "./use.cases/create.comment.moment.use.case"
 export * from "./use.cases/create.moment.use.case"
 export * from "./use.cases/delete.moment.use.case"
 export * from "./use.cases/get.commented.moments.use.case"
@@ -14,11 +12,6 @@ export * from "./use.cases/get.moment.metrics.use.case"
 export * from "./use.cases/get.moment.reports.use.case"
 export * from "./use.cases/get.moment.use.case"
 export * from "./use.cases/get.moments.analytics.use.case"
-export * from "./use.cases/get.user.moment.reports.use.case"
 export * from "./use.cases/get.user.moments.use.case"
-export * from "./use.cases/get.user.reported.moments.use.case"
 export * from "./use.cases/like.moment.use.case"
-export * from "./use.cases/list.moments.use.case"
-export * from "./use.cases/publish.moment.use.case"
-export * from "./use.cases/report.moment.use.case"
 export * from "./use.cases/unlike.moment.use.case"
