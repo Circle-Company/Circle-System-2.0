@@ -247,16 +247,12 @@ class MomentRouteHandlers {
             const page = request.query.page ? Number(request.query.page) : 1
             const status = (request.query.status as string) || "published"
 
-            const result = await this.momentController.getUserMoments(
-                request.params.id,
-                request.user,
-                {
-                    limit,
-                    page,
-                    sortBy: "createdAt",
-                    status: status as any,
-                },
-            )
+            const result = await this.momentController.getUserMoments(request.user, {
+                limit,
+                page,
+                sortBy: "createdAt",
+                status: status as any,
+            })
 
             return response.status(200).send(result)
         } catch (error: any) {
@@ -356,30 +352,6 @@ class MomentRouteHandlers {
     }
 
     /**
-     * Wrapper para comentar momento
-     */
-    async commentMoment(request: HttpRequest, response: HttpResponse): Promise<void> {
-        try {
-            const result = await this.momentController.commentMoment(
-                request.params.id,
-                request.user?.id || "",
-                request.body as any,
-            )
-
-            response.status(201).send({
-                success: true,
-                comment: result,
-                message: "Comentário criado com sucesso",
-            })
-        } catch (error: any) {
-            response.status(400).send({
-                success: false,
-                error: error.message || "Erro ao comentar momento",
-            })
-        }
-    }
-
-    /**
      * Wrapper para reportar momento
      */
     async reportMoment(request: HttpRequest, response: HttpResponse): Promise<void> {
@@ -399,30 +371,6 @@ class MomentRouteHandlers {
             response.status(400).send({
                 success: false,
                 error: error.message || "Erro ao reportar momento",
-            })
-        }
-    }
-
-    /**
-     * Wrapper para publicar momento
-     */
-    async publishMoment(request: HttpRequest, response: HttpResponse): Promise<void> {
-        try {
-            const result = await this.momentController.publishMoment(
-                request.params.id,
-                request.user?.id || "",
-            )
-
-            response.status(200).send({
-                success: true,
-                message: "Momento publicado com sucesso",
-                moment: result,
-                publishedAt: new Date().toISOString(),
-            })
-        } catch (error: any) {
-            response.status(400).send({
-                success: false,
-                error: error.message || "Erro ao publicar momento",
             })
         }
     }
@@ -540,28 +488,6 @@ export class MomentRouter {
             },
         })
 
-        // Comentar momento
-        this.api.post("/moments/:id/comment", this.handlers.commentMoment.bind(this.handlers), {
-            preHandler: [
-                this.authMiddleware.execute.bind(this.authMiddleware),
-                requirePermission(Permission.COMMENT_MOMENT),
-            ],
-            schema: {
-                tags: ["Moments"],
-                summary: "Comentar momento",
-                description: "Adiciona um comentário ao momento",
-                params: MomentParamSchemas.momentId,
-                body: MomentRequestSchemas.comment,
-                response: {
-                    201: MomentResponseSchemas.commentCreated,
-                    400: MomentErrorSchemas.default,
-                    401: MomentErrorSchemas.default,
-                    403: MomentErrorSchemas.default,
-                    404: MomentErrorSchemas.default,
-                },
-            },
-        })
-
         // Reportar momento
         this.api.post("/moments/:id/report", this.handlers.reportMoment.bind(this.handlers), {
             preHandler: [
@@ -582,23 +508,6 @@ export class MomentRouter {
             },
         })
 
-        // Publicar momento
-        this.api.post("/moments/:id/publish", this.handlers.publishMoment.bind(this.handlers), {
-            preHandler: [this.authMiddleware.execute.bind(this.authMiddleware)],
-            schema: {
-                tags: ["Moments"],
-                summary: "Publicar momento",
-                description: "Publica um momento que estava em rascunho",
-                params: MomentParamSchemas.momentId,
-                response: {
-                    200: MomentResponseSchemas.momentPublished,
-                    404: MomentErrorSchemas.default,
-                    401: MomentErrorSchemas.default,
-                    403: MomentErrorSchemas.default,
-                },
-            },
-        })
-
         // Obter status de processamento
         this.api.get(
             "/moments/:id/processing-status",
@@ -614,7 +523,7 @@ export class MomentRouter {
                         })
                     }
 
-                    const momentService = MomentFactory.createMomentService(this.database)
+                    const momentService = MomentFactory.createMomentService(this.databaseAdapter)
                     const moment = await momentService.getMomentById(id)
 
                     if (!moment) {
