@@ -22,7 +22,7 @@ export interface ContentProcessingRequest {
     }
 }
 
-export interface ContentProcessingResult {
+export interface ContentProcessingSuccessResult {
     success: boolean
     contentId: string
     enrichedDescription: string
@@ -57,6 +57,15 @@ export interface ContentProcessingResult {
     error?: string
 }
 
+export interface ContentProcessingErrorResult {
+    success: false
+    error: string
+    metadata: {
+        contentId: string
+        processingTime: number
+    }
+}
+
 export class ContentProcessor {
     private videoProcessor: VideoProcessor
     private moderationEngine: ModerationEngine | null = null
@@ -75,11 +84,14 @@ export class ContentProcessor {
     /**
      * Processa conteúdo completo: processamento, moderação e upload
      */
-    async processContent(request: ContentProcessingRequest): Promise<ContentProcessingResult> {
+    async processContent(
+        request: ContentProcessingRequest,
+    ): Promise<ContentProcessingSuccessResult | ContentProcessingErrorResult> {
         const startTime = Date.now()
         const contentId = generateId()
 
         try {
+            const baseKey = `${request.ownerId}/${contentId}`
             // 1. Processar vídeo (extração de metadados e thumbnail)
             const processingRequest: VideoProcessingRequest = {
                 contentId,
@@ -137,16 +149,13 @@ export class ContentProcessor {
                 }
             }
 
-            // 3. Upload para storage em múltiplas resoluções
-            const baseVideoKey = `videos/${request.ownerId}/${contentId}`
-            const baseThumbnailKey = `thumbnails/${request.ownerId}/${contentId}`
+            // 3. Upload para storage
 
             // Upload do vídeo original (sem compressão)
             let videoUrl = ""
             if (videoResult.processedVideo) {
-                const videoKey = `${baseVideoKey}.mp4`
                 const uploadResult = await this.storageAdapter.uploadVideo(
-                    videoKey,
+                    baseKey,
                     videoResult.processedVideo.data,
                     {
                         contentType: "video/mp4",
@@ -168,9 +177,8 @@ export class ContentProcessor {
             // Upload de thumbnail única
             let thumbnailUrl = ""
             if (videoResult.thumbnail) {
-                const thumbnailKey = `${baseThumbnailKey}.jpg`
                 const uploadResult = await this.storageAdapter.uploadThumbnail(
-                    thumbnailKey,
+                    baseKey,
                     videoResult.thumbnail.data,
                     {
                         contentType: `image/${videoResult.thumbnail.format}`,
@@ -197,8 +205,8 @@ export class ContentProcessor {
                 videoUrl,
                 thumbnailUrl,
                 storage: {
-                    videoKey: `${baseVideoKey}.mp4`,
-                    thumbnailKey: `${baseThumbnailKey}.jpg`,
+                    videoKey: baseKey,
+                    thumbnailKey: baseKey,
                     bucket: videoUrl ? "local" : undefined,
                     region: videoUrl ? "local" : undefined,
                     provider: "local",
@@ -212,32 +220,10 @@ export class ContentProcessor {
 
             return {
                 success: false,
-                contentId,
-                enrichedDescription: "",
-                videoUrl: "",
-                thumbnailUrl: "",
-                storage: {
-                    videoKey: "",
-                    thumbnailKey: "",
-                    provider: "unknown",
+                metadata: {
+                    contentId,
+                    processingTime,
                 },
-                videoMetadata: {
-                    duration: 0,
-                    width: 0,
-                    height: 0,
-                    format: "",
-                    codec: "",
-                    hasAudio: false,
-                    size: 0,
-                },
-                moderation: {
-                    moderationId: "",
-                    approved: false,
-                    requiresReview: false,
-                    flags: [],
-                    confidence: 0,
-                },
-                processingTime,
                 error: error instanceof Error ? error.message : "Unknown error",
             }
         }
