@@ -65,7 +65,6 @@ interface MomentMetricsModelAttributes {
     id: string | bigint
     momentId: string | bigint
     totalViews: number
-    totalClicks: number
     uniqueViews: number
     repeatViews: number
     completionViews: number
@@ -76,9 +75,10 @@ interface MomentMetricsModelAttributes {
     totalComments: number
     totalReports: number
     likeRate: number
-    clickRate: number
     commentRate: number
     reportRate: number
+    totalClicks: number
+    clickRate: number
     loadTime: number
     bufferTime: number
     errorRate: number
@@ -324,7 +324,9 @@ export class MomentMapper {
             momentData.metrics = {
                 views: {
                     totalViews: sequelizeMoment.metrics.totalViews,
+                    totalClicks: sequelizeMoment.metrics.totalClicks || 0,
                     uniqueViews: sequelizeMoment.metrics.uniqueViews,
+                    repeatViews: sequelizeMoment.metrics.repeatViews || 0,
                     completionViews: sequelizeMoment.metrics.completionViews,
                     averageWatchTime: sequelizeMoment.metrics.averageWatchTime,
                     averageCompletionRate: sequelizeMoment.metrics.averageCompletionRate,
@@ -336,14 +338,14 @@ export class MomentMapper {
                     lastViewTime: null,
                 },
                 engagement: {
-                    totalClicks: sequelizeMoment.metrics.totalClicks,
-                    clickRate: sequelizeMoment.metrics.clickRate,
                     totalLikes: sequelizeMoment.metrics.totalLikes,
                     totalComments: sequelizeMoment.metrics.totalComments,
                     totalReports: sequelizeMoment.metrics.totalReports,
                     likeRate: sequelizeMoment.metrics.likeRate,
                     commentRate: sequelizeMoment.metrics.commentRate,
                     reportRate: sequelizeMoment.metrics.reportRate,
+                    totalClicks: 0, // Campo não existe na tabela, usar valor padrão
+                    clickRate: 0, // Campo não existe na tabela, usar valor padrão
                     averageCommentLength: 0,
                     topCommenters: [],
                     engagementScore: 0,
@@ -618,9 +620,8 @@ export class MomentMapper {
         return {
             momentId: this.convertToBigInt(momentData.id),
             totalViews: momentData.metrics.views.totalViews,
-            totalClicks: momentData.metrics.engagement.totalClicks,
             uniqueViews: momentData.metrics.views.uniqueViews,
-            repeatViews: 0, // Campo mantido para compatibilidade, mas não é mais usado
+            repeatViews: momentData.metrics.views.repeatViews || 0,
             completionViews: momentData.metrics.views.completionViews,
             averageWatchTime: momentData.metrics.views.averageWatchTime,
             averageCompletionRate: momentData.metrics.views.averageCompletionRate,
@@ -629,9 +630,10 @@ export class MomentMapper {
             totalComments: momentData.metrics.engagement.totalComments,
             totalReports: momentData.metrics.engagement.totalReports,
             likeRate: momentData.metrics.engagement.likeRate,
-            clickRate: momentData.metrics.engagement.clickRate,
             commentRate: momentData.metrics.engagement.commentRate,
             reportRate: momentData.metrics.engagement.reportRate,
+            totalClicks: momentData.metrics.views.totalClicks || 0,
+            clickRate: momentData.metrics.engagement.clickRate || 0,
             loadTime: momentData.metrics.performance.loadTime,
             bufferTime: momentData.metrics.performance.bufferTime,
             errorRate: momentData.metrics.performance.errorRate,

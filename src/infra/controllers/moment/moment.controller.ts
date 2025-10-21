@@ -99,7 +99,6 @@ export interface MomentResponse {
         views: {
             totalViews: number
             uniqueViews: number
-            repeatViews: number
             completionViews: number
             averageWatchTime: number
             averageCompletionRate: number
@@ -107,8 +106,10 @@ export interface MomentResponse {
         }
         engagement: {
             totalLikes: number
+            totalComments: number
             totalReports: number
             likeRate: number
+            commentRate: number
             reportRate: number
         }
         performance: {
@@ -116,6 +117,13 @@ export interface MomentResponse {
             bufferTime: number
             errorRate: number
             successRate: number
+        }
+        viral: {
+            viralScore: number
+            viralReach: number
+        }
+        content: {
+            qualityScore: number
         }
     }
     createdAt: Date
@@ -514,17 +522,18 @@ export class MomentController {
                       views: {
                           totalViews: momentData.metrics.views?.totalViews || 0,
                           uniqueViews: momentData.metrics.views?.uniqueViews || 0,
-                          repeatViews: momentData.metrics.views?.repeatViews || 0,
                           completionViews: momentData.metrics.views?.completionViews || 0,
                           averageWatchTime: momentData.metrics.views?.averageWatchTime || 0,
                           averageCompletionRate:
                               momentData.metrics.views?.averageCompletionRate || 0,
-                          bounceRate: momentData.metrics.views?.bounceRate || 0,
+                          bounceRate: momentData.metrics.audience?.behavior?.bounceRate || 0,
                       },
                       engagement: {
                           totalLikes: momentData.metrics.engagement?.totalLikes || 0,
+                          totalComments: momentData.metrics.engagement?.totalComments || 0,
                           totalReports: momentData.metrics.engagement?.totalReports || 0,
                           likeRate: momentData.metrics.engagement?.likeRate || 0,
+                          commentRate: momentData.metrics.engagement?.commentRate || 0,
                           reportRate: momentData.metrics.engagement?.reportRate || 0,
                       },
                       performance: {
@@ -533,12 +542,18 @@ export class MomentController {
                           errorRate: momentData.metrics.performance?.errorRate || 0,
                           successRate: momentData.metrics.performance?.successRate || 0,
                       },
+                      viral: {
+                          viralScore: momentData.metrics.viral?.viralScore || 0,
+                          viralReach: momentData.metrics.viral?.viralReach || 0,
+                      },
+                      content: {
+                          qualityScore: momentData.metrics.content?.qualityScore || 0,
+                      },
                   }
                 : {
                       views: {
                           totalViews: 0,
                           uniqueViews: 0,
-                          repeatViews: 0,
                           completionViews: 0,
                           averageWatchTime: 0,
                           averageCompletionRate: 0,
@@ -546,8 +561,10 @@ export class MomentController {
                       },
                       engagement: {
                           totalLikes: 0,
+                          totalComments: 0,
                           totalReports: 0,
                           likeRate: 0,
+                          commentRate: 0,
                           reportRate: 0,
                       },
                       performance: {
@@ -555,6 +572,13 @@ export class MomentController {
                           bufferTime: 0,
                           errorRate: 0,
                           successRate: 0,
+                      },
+                      viral: {
+                          viralScore: 0,
+                          viralReach: 0,
+                      },
+                      content: {
+                          qualityScore: 0,
                       },
                   },
             createdAt: momentData.createdAt,
