@@ -1,3 +1,4 @@
+import { Op, WhereOptions } from "sequelize"
 import {
     IMomentAnalytics,
     IMomentFilters,
@@ -5,9 +6,9 @@ import {
     IMomentRepositoryStats,
     Moment,
 } from "../../domain/moment"
+
 // Importar as interfaces corretas das métricas
 import { generateId } from "@/shared"
-import { Op, WhereOptions } from "sequelize"
 
 export class MomentRepositoryImpl implements IMomentRepository {
     constructor(private database: any) {}
@@ -97,44 +98,38 @@ export class MomentRepositoryImpl implements IMomentRepository {
                 )
             }
 
-            // Criar métricas
+            // Criar métricas - apenas campos realmente usados
             if (momentData.metrics) {
                 await this.database.getConnection().models.MomentMetrics.create(
                     {
                         id: generateId(),
                         momentId: momentData.id,
+                        // Métricas de visualização (campos usados)
+                        totalClicks: momentData.metrics.engagement.totalClicks,
+                        clickRate: momentData.metrics.engagement.clickRate,
                         totalViews: momentData.metrics.views.totalViews,
                         uniqueViews: momentData.metrics.views.uniqueViews,
-                        repeatViews: (momentData.metrics.views as any).repeatViews || 0,
                         completionViews: momentData.metrics.views.completionViews,
                         averageWatchTime: momentData.metrics.views.averageWatchTime,
                         averageCompletionRate: momentData.metrics.views.averageCompletionRate,
-                        bounceRate: (momentData.metrics.views as any).bounceRate || 0,
+                        bounceRate: momentData.metrics.audience?.behavior?.bounceRate || 0,
+                        // Métricas de engajamento (campos usados)
                         totalLikes: momentData.metrics.engagement.totalLikes,
                         totalComments: momentData.metrics.engagement.totalComments,
                         totalReports: momentData.metrics.engagement.totalReports,
                         likeRate: momentData.metrics.engagement.likeRate,
                         commentRate: momentData.metrics.engagement.commentRate,
                         reportRate: momentData.metrics.engagement.reportRate,
+                        // Métricas de performance (campos usados)
                         loadTime: momentData.metrics.performance.loadTime,
                         bufferTime: momentData.metrics.performance.bufferTime,
                         errorRate: momentData.metrics.performance.errorRate,
-                        qualitySwitches:
-                            (momentData.metrics.performance as any).qualitySwitches || 0,
+                        // Métricas de viralidade (campos usados)
                         viralScore: momentData.metrics.viral.viralScore,
-                        trendingScore: (momentData.metrics.viral as any).trendingScore || 0,
-                        reachScore: (momentData.metrics.viral as any).reachScore || 0,
-                        influenceScore: (momentData.metrics.viral as any).influenceScore || 0,
-                        growthRate: (momentData.metrics.viral as any).growthRate || 0,
-                        totalReach: (momentData.metrics.viral as any).totalReach || 0,
-                        contentQualityScore:
-                            (momentData.metrics.content as any).contentQualityScore || 0,
-                        audioQualityScore:
-                            (momentData.metrics.content as any).audioQualityScore || 0,
-                        videoQualityScore:
-                            (momentData.metrics.content as any).videoQualityScore || 0,
-                        faceDetectionRate:
-                            (momentData.metrics.content as any).faceDetectionRate || 0,
+                        totalReach: momentData.metrics.viral.viralReach || 0,
+                        // Métricas de qualidade (campos usados)
+                        contentQualityScore: momentData.metrics.content.qualityScore || 0,
+                        // Metadados (campos usados)
                         lastMetricsUpdate: momentData.metrics.lastMetricsUpdate,
                         metricsVersion: momentData.metrics.metricsVersion,
                         dataQuality: momentData.metrics.dataQuality,
@@ -230,9 +225,7 @@ export class MomentRepositoryImpl implements IMomentRepository {
                     {
                         id: generateId(),
                         momentId: momentData.id,
-                        lowUrl: momentData.media.url,
-                        mediumUrl: momentData.media.url,
-                        highUrl: momentData.media.url,
+                        url: momentData.media.url,
                         storageProvider: momentData.media.storage.provider,
                         bucket: momentData.media.storage.bucket,
                         key: momentData.media.storage.key,
@@ -320,34 +313,38 @@ export class MomentRepositoryImpl implements IMomentRepository {
             { where: { id: momentData.id } },
         )
 
-        // Atualizar métricas se existirem
+        // Atualizar métricas se existirem - apenas campos realmente usados
         if (momentData.metrics) {
             await this.database.getConnection().models.MomentMetrics.update(
                 {
+                    // Métricas de visualização (campos usados)
                     totalViews: momentData.metrics.views.totalViews,
                     uniqueViews: momentData.metrics.views.uniqueViews,
-                    repeatViews: (momentData.metrics.views as any).repeatViews || 0,
+                    repeatViews: momentData.metrics.views.repeatViews || 0,
                     completionViews: momentData.metrics.views.completionViews,
                     averageWatchTime: momentData.metrics.views.averageWatchTime,
                     averageCompletionRate: momentData.metrics.views.averageCompletionRate,
-                    bounceRate: (momentData.metrics.views as any).bounceRate || 0,
+                    bounceRate: momentData.metrics.audience?.behavior?.bounceRate || 0,
+                    // Métricas de engajamento (campos usados)
                     totalLikes: momentData.metrics.engagement.totalLikes,
                     totalComments: momentData.metrics.engagement.totalComments,
                     totalReports: momentData.metrics.engagement.totalReports,
                     likeRate: momentData.metrics.engagement.likeRate,
                     commentRate: momentData.metrics.engagement.commentRate,
                     reportRate: momentData.metrics.engagement.reportRate,
+                    // Métricas de cliques (campos usados)
+                    totalClicks: momentData.metrics.engagement.totalClicks,
+                    clickRate: momentData.metrics.engagement.clickRate,
+                    // Métricas de performance (campos usados)
+                    loadTime: momentData.metrics.performance.loadTime,
+                    bufferTime: momentData.metrics.performance.bufferTime,
+                    errorRate: momentData.metrics.performance.errorRate,
+                    // Métricas de viralidade (campos usados)
                     viralScore: momentData.metrics.viral.viralScore,
-                    trendingScore: (momentData.metrics.viral as any).trendingScore || 0,
-                    reachScore: (momentData.metrics.viral as any).reachScore || 0,
-                    influenceScore: (momentData.metrics.viral as any).influenceScore || 0,
-                    growthRate: (momentData.metrics.viral as any).growthRate || 0,
-                    totalReach: (momentData.metrics.viral as any).totalReach || 0,
-                    contentQualityScore:
-                        (momentData.metrics.content as any).contentQualityScore || 0,
-                    audioQualityScore: (momentData.metrics.content as any).audioQualityScore || 0,
-                    videoQualityScore: (momentData.metrics.content as any).videoQualityScore || 0,
-                    faceDetectionRate: (momentData.metrics.content as any).faceDetectionRate || 0,
+                    totalReach: momentData.metrics.viral.viralReach || 0,
+                    // Métricas de qualidade (campos usados)
+                    contentQualityScore: momentData.metrics.content.qualityScore || 0,
+                    // Metadados (campos usados)
                     lastMetricsUpdate: momentData.metrics.lastMetricsUpdate,
                     dataQuality: momentData.metrics.dataQuality,
                     confidenceLevel: momentData.metrics.confidenceLevel,
@@ -1397,13 +1394,13 @@ export class MomentRepositoryImpl implements IMomentRepository {
             }
         }
 
-        // Mapear métricas
+        // Mapear métricas - apenas campos realmente usados
         if (momentData.metrics) {
             momentEntity.metrics = {
                 views: {
                     totalViews: momentData.metrics.totalViews,
                     uniqueViews: momentData.metrics.uniqueViews,
-                    repeatViews: momentData.metrics.repeatViews,
+                    repeatViews: momentData.metrics.repeatViews || 0,
                     completionViews: momentData.metrics.completionViews,
                     averageWatchTime: momentData.metrics.averageWatchTime,
                     averageCompletionRate: momentData.metrics.averageCompletionRate,
@@ -1412,12 +1409,8 @@ export class MomentRepositoryImpl implements IMomentRepository {
                     viewsByRegion: {},
                     viewsByCity: {},
                     viewsByDevice: {},
-                    viewsByOS: {},
-                    viewsByBrowser: {},
-                    viewsByHour: {},
-                    viewsByDayOfWeek: {},
-                    viewsByMonth: {},
-                    retentionCurve: [],
+                    peakViewTime: null,
+                    lastViewTime: null,
                 },
                 engagement: {
                     totalLikes: momentData.metrics.totalLikes,
@@ -1426,97 +1419,69 @@ export class MomentRepositoryImpl implements IMomentRepository {
                     likeRate: momentData.metrics.likeRate,
                     commentRate: momentData.metrics.commentRate,
                     reportRate: momentData.metrics.reportRate,
-                    positiveComments: 0,
-                    negativeComments: 0,
-                    neutralComments: 0,
+                    totalClicks: 0, // Campo não existe na tabela
+                    clickRate: 0, // Campo não existe na tabela
                     averageCommentLength: 0,
                     topCommenters: [],
-                    engagementByHour: {},
-                    engagementByDay: {},
-                    peakEngagementTime: new Date(),
+                    engagementScore: 0,
+                    lastEngagementTime: null,
                 },
                 performance: {
                     loadTime: momentData.metrics.loadTime,
                     bufferTime: momentData.metrics.bufferTime,
                     errorRate: momentData.metrics.errorRate,
-                    qualitySwitches: momentData.metrics.qualitySwitches,
+                    successRate: 100 - momentData.metrics.errorRate,
+                    averageQuality: 0,
+                    qualityDistribution: {},
                     bandwidthUsage: 0,
-                    averageBitrate: 0,
-                    peakBitrate: 0,
-                    processingTime: 0,
-                    thumbnailGenerationTime: 0,
-                    embeddingGenerationTime: 0,
-                    storageSize: 0,
-                    compressionRatio: 0,
+                    serverResponseTime: 0,
                     cdnHitRate: 0,
+                    lastPerformanceUpdate: null,
                 },
                 viral: {
                     viralScore: momentData.metrics.viralScore,
-                    trendingScore: momentData.metrics.trendingScore,
-                    reachScore: momentData.metrics.reachScore,
-                    influenceScore: momentData.metrics.influenceScore,
-                    growthRate: momentData.metrics.growthRate,
-                    accelerationRate: 0,
-                    peakGrowthTime: new Date(),
-                    organicReach: 0,
-                    paidReach: 0,
-                    viralReach: 0,
-                    totalReach: momentData.metrics.totalReach,
+                    viralReach: momentData.metrics.totalReach,
                     reachByPlatform: {},
                     reachByUserType: {},
-                    cascadeDepth: 0,
+                    viralCoefficient: 0,
+                    viralVelocity: 0,
+                    peakViralTime: null,
+                    viralDecayRate: 0,
+                    lastViralUpdate: null,
                 },
                 audience: {
-                    ageDistribution: {},
-                    genderDistribution: {},
-                    locationDistribution: {},
-                    averageSessionDuration: 0,
-                    pagesPerSession: 0,
-                    returnVisitorRate: 0,
-                    newVisitorRate: 0,
-                    premiumUsers: 0,
-                    regularUsers: 0,
-                    newUsers: 0,
-                    powerUsers: 0,
-                    repeatViewerRate: 0,
-                    subscriberConversionRate: 0,
-                    churnRate: 0,
+                    demographics: {
+                        ageGroups: {},
+                        genders: {},
+                        locations: {},
+                        interests: {},
+                    },
+                    behavior: {
+                        averageSessionTime: 0,
+                        bounceRate: momentData.metrics.bounceRate,
+                        returnRate: 0,
+                        engagementDepth: 0,
+                        contentPreference: {},
+                    },
+                    growth: {
+                        followerGrowth: 0,
+                        subscriberGrowth: 0,
+                        engagementGrowth: 0,
+                        reachGrowth: 0,
+                    },
+                    lastAudienceUpdate: null,
                 },
                 content: {
-                    contentQualityScore: momentData.metrics.contentQualityScore,
-                    audioQualityScore: momentData.metrics.audioQualityScore,
-                    videoQualityScore: momentData.metrics.videoQualityScore,
-                    faceDetectionRate: momentData.metrics.faceDetectionRate,
-                    motionIntensity: 0,
-                    colorVariance: 0,
-                    brightnessLevel: 0,
-                    speechToNoiseRatio: 0,
-                    averageVolume: 0,
-                    silencePercentage: 0,
-                    hashtagEffectiveness: 0,
-                    mentionEffectiveness: 0,
-                    descriptionEngagement: 0,
-                },
-                monetization: {
-                    totalRevenue: 0,
-                    adRevenue: 0,
-                    subscriptionRevenue: 0,
-                    tipRevenue: 0,
-                    merchandiseRevenue: 0,
-                    revenuePerView: 0,
-                    revenuePerUser: 0,
-                    averageOrderValue: 0,
-                    adClickRate: 0,
-                    subscriptionConversionRate: 0,
-                    tipConversionRate: 0,
-                    merchandiseConversionRate: 0,
-                    productionCost: 0,
-                    distributionCost: 0,
-                    marketingCost: 0,
-                    totalCost: 0,
-                    returnOnInvestment: 0,
-                    profitMargin: 0,
-                    breakEvenPoint: new Date(),
+                    qualityScore: momentData.metrics.contentQualityScore,
+                    contentRating: 0,
+                    moderationScore: 0,
+                    accessibilityScore: 0,
+                    seoScore: 0,
+                    contentTags: [],
+                    contentCategories: [],
+                    contentSentiment: 0,
+                    contentComplexity: 0,
+                    lastContentUpdate: null,
                 },
                 lastMetricsUpdate: momentData.metrics.lastMetricsUpdate,
                 metricsVersion: momentData.metrics.metricsVersion,
@@ -1569,14 +1534,10 @@ export class MomentRepositoryImpl implements IMomentRepository {
             }
         }
 
-        // Mapear mídia (com fallback)
+        // Mapear mídia (com fallback) - usar apenas uma URL
         if (momentData.media) {
             momentEntity.media = {
-                urls: {
-                    low: momentData.media.lowUrl || null,
-                    medium: momentData.media.mediumUrl || null,
-                    high: momentData.media.highUrl || null,
-                },
+                url: momentData.media.url || "",
                 storage: {
                     provider: momentData.media.storageProvider || "unknown",
                     bucket: momentData.media.bucket || "",
@@ -1589,7 +1550,7 @@ export class MomentRepositoryImpl implements IMomentRepository {
         } else {
             // Fallback se media não existir
             momentEntity.media = {
-                urls: { low: null, medium: null, high: null },
+                url: "",
                 storage: { provider: "unknown", bucket: "", key: "", region: "" },
                 createdAt: new Date(),
                 updatedAt: new Date(),
