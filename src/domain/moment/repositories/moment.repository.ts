@@ -18,36 +18,6 @@ export interface IMomentRepository {
     findPublished(limit?: number, offset?: number): Promise<Moment[]>
     findRecent(limit?: number, offset?: number): Promise<Moment[]>
 
-    // Operações de busca espacial
-    findByLocation(
-        latitude: number,
-        longitude: number,
-        radiusKm: number,
-        limit?: number,
-        offset?: number,
-    ): Promise<Moment[]>
-    findByLocationWithDistance(
-        latitude: number,
-        longitude: number,
-        radiusKm: number,
-        limit?: number,
-        offset?: number,
-    ): Promise<Array<Moment & { distance: number }>>
-    findByBoundingBox(
-        minLat: number,
-        minLng: number,
-        maxLat: number,
-        maxLng: number,
-        limit?: number,
-        offset?: number,
-    ): Promise<Moment[]>
-    findNearbyMoments(
-        latitude: number,
-        longitude: number,
-        limit?: number,
-        offset?: number,
-    ): Promise<Array<Moment & { distance: number }>>
-
     // Operações de processamento
     findPendingProcessing(limit?: number, offset?: number): Promise<Moment[]>
     findFailedProcessing(limit?: number, offset?: number): Promise<Moment[]>
