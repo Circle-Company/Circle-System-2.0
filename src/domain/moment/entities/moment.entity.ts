@@ -275,6 +275,25 @@ export class Moment {
     }
 
     /**
+     * Incrementar visualizações repetidas
+     */
+    incrementRepeatViews(): void {
+        this._metrics.views.repeatViews++
+        this._metrics.lastMetricsUpdate = new Date()
+        this._updatedAt = new Date()
+    }
+
+    /**
+     * Incrementar cliques
+     */
+    incrementClicks(): void {
+        this._metrics.views.totalClicks++
+        this._metrics.engagement.clickRate = this.clickRate
+        this._metrics.lastMetricsUpdate = new Date()
+        this._updatedAt = new Date()
+    }
+
+    /**
      * Incrementar likes
      */
     incrementLikes(): void {
@@ -1288,12 +1307,21 @@ export class Moment {
     }
 
     /**
+     * Getter para taxa de cliques
+     */
+    get clickRate(): number {
+        if (this._metrics.views.totalViews === 0) return 0
+        return (this._metrics.views.totalClicks / this._metrics.views.totalViews) * 100
+    }
+
+    /**
      * Recalcula todas as taxas de engajamento
      */
     recalculateEngagementRates(): void {
         if (this._metrics.views.totalViews > 0) {
             this._metrics.engagement.likeRate = this.likeRate
             this._metrics.engagement.reportRate = this.reportRate
+            this._metrics.engagement.clickRate = this.clickRate
             this._metrics.lastMetricsUpdate = new Date()
             this._updatedAt = new Date()
         }
@@ -1374,7 +1402,9 @@ export class Moment {
         return {
             views: {
                 totalViews: defaultMetrics.views.totalViews,
+                totalClicks: defaultMetrics.views.totalClicks || 0,
                 uniqueViews: defaultMetrics.views.uniqueViews,
+                repeatViews: defaultMetrics.views.repeatViews || 0,
                 viewsByRegion: defaultMetrics.views.viewsByRegion,
                 viewsByDevice: defaultMetrics.views.viewsByDevice,
                 viewsByCountry: defaultMetrics.views.viewsByCountry,
@@ -1467,7 +1497,9 @@ export class Moment {
         return {
             views: {
                 totalViews: entityMetrics.views.totalViews,
+                totalClicks: entityMetrics.views.totalClicks || 0,
                 uniqueViews: entityMetrics.views.uniqueViews,
+                repeatViews: entityMetrics.views.repeatViews || 0,
                 viewsByRegion: entityMetrics.views.viewsByRegion,
                 viewsByDevice: entityMetrics.views.viewsByDevice,
                 viewsByCountry: entityMetrics.views.viewsByCountry,
@@ -1563,7 +1595,9 @@ export class Moment {
         return {
             views: {
                 totalViews: domainMetrics.views.totalViews,
+                totalClicks: domainMetrics.views.totalClicks || 0,
                 uniqueViews: domainMetrics.views.uniqueViews,
+                repeatViews: domainMetrics.views.repeatViews || 0,
                 viewsByRegion: domainMetrics.views.viewsByRegion,
                 viewsByDevice: domainMetrics.views.viewsByDevice,
                 viewsByCountry: domainMetrics.views.viewsByCountry,
