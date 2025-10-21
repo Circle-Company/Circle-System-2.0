@@ -205,11 +205,24 @@ export class MomentService {
             throw new Error("Content processor not configured. Please configure storage adapter.")
         }
 
+        console.log(`[MomentService] 🔄 Iniciando processamento de conteúdo...`)
+        console.log(`[MomentService] 📊 Dados de entrada:`, {
+            ownerId: data.ownerId,
+            videoSize: data.videoData.length,
+            filename: data.videoMetadata.filename,
+            mimeType: data.videoMetadata.mimeType,
+        })
+
         const processingResult = await this.contentProcessor.processContent({
             description: data.description || "",
             ownerId: data.ownerId,
             videoData: data.videoData,
             metadata: data.videoMetadata,
+        })
+
+        console.log(`[MomentService] 📋 Resultado do processamento:`, {
+            success: processingResult.success,
+            error: processingResult.error,
         })
 
         if (!processingResult.success) {
@@ -218,6 +231,16 @@ export class MomentService {
             )
         }
 
+        // Agora que sabemos que foi bem-sucedido, podemos acessar as propriedades
+        console.log(`[MomentService] 📋 Detalhes do processamento bem-sucedido:`, {
+            contentId: processingResult.contentId,
+            videoUrl: processingResult.videoUrl,
+            thumbnailUrl: processingResult.thumbnailUrl,
+            storageProvider: processingResult.storage?.provider,
+            videoKey: processingResult.storage?.videoKey,
+            thumbnailKey: processingResult.storage?.thumbnailKey,
+        })
+
         // Verificar se foi aprovado pela moderação
         if (!processingResult.moderation.approved && !processingResult.moderation.requiresReview) {
             throw new Error(
@@ -225,21 +248,52 @@ export class MomentService {
             )
         }
 
+        // Validar se as URLs foram geradas corretamente
+        if (!processingResult.videoUrl) {
+            throw new Error("Video URL was not generated during processing")
+        }
+
+        if (!processingResult.thumbnailUrl) {
+            throw new Error("Thumbnail URL was not generated during processing")
+        }
+
+        console.log(`[MomentService] ✅ URLs geradas:`, {
+            videoUrl: processingResult.videoUrl,
+            thumbnailUrl: processingResult.thumbnailUrl,
+        })
+
+        // Validar campos obrigatórios do processamento
+        if (!processingResult.contentId) {
+            throw new Error("Content ID was not generated during processing")
+        }
+
+        if (!processingResult.storage?.provider) {
+            throw new Error("Storage provider was not configured during processing")
+        }
+
+        if (!processingResult.storage?.videoKey) {
+            throw new Error("Video storage key was not generated during processing")
+        }
+
+        if (!processingResult.storage?.thumbnailKey) {
+            throw new Error("Thumbnail storage key was not generated during processing")
+        }
+
         // 2. Criar dados do momento com informações do processamento
         const momentData = {
             id: processingResult.contentId,
             ownerId: data.ownerId,
             content: {
-                duration: processingResult.videoMetadata.duration,
-                size: processingResult.videoMetadata.size,
-                format: processingResult.videoMetadata.format as any,
+                duration: processingResult.videoMetadata?.duration || 0,
+                size: processingResult.videoMetadata?.size || 0,
+                format: processingResult.videoMetadata?.format || ("mp4" as any),
                 resolution: {
-                    width: processingResult.videoMetadata.width,
-                    height: processingResult.videoMetadata.height,
+                    width: processingResult.videoMetadata?.width || 0,
+                    height: processingResult.videoMetadata?.height || 0,
                     quality: "medium" as any,
                 },
-                hasAudio: processingResult.videoMetadata.hasAudio,
-                codec: processingResult.videoMetadata.codec as any,
+                hasAudio: processingResult.videoMetadata?.hasAudio || false,
+                codec: processingResult.videoMetadata?.codec || ("h264" as any),
                 createdAt: new Date(),
                 updatedAt: new Date(),
             },
@@ -248,7 +302,7 @@ export class MomentService {
             hashtags: data.hashtags || [],
             mentions: data.mentions || [],
             media: {
-                url: processingResult.videoUrl, // Mudar para usar somente 1 url padrão sem variações (low, medium high)
+                url: processingResult.videoUrl, // URL validada acima
                 storage: {
                     provider: processingResult.storage.provider as any,
                     bucket: processingResult.storage.bucket || "",
@@ -259,9 +313,9 @@ export class MomentService {
                 updatedAt: new Date(),
             },
             thumbnail: {
-                url: processingResult.thumbnailUrl,
-                width: processingResult.videoMetadata.width,
-                height: processingResult.videoMetadata.height,
+                url: processingResult.thumbnailUrl, // URL validada acima
+                width: processingResult.videoMetadata?.width || 0,
+                height: processingResult.videoMetadata?.height || 0,
                 storage: {
                     provider: processingResult.storage.provider as any,
                     bucket: processingResult.storage.bucket || "",
@@ -279,7 +333,7 @@ export class MomentService {
                 reason: processingResult.moderation.requiresReview
                     ? "Awaiting moderation review"
                     : null,
-                changedBy: data.ownerId,
+                changedBy: "moment.creation.service",
                 changedAt: new Date(),
                 createdAt: new Date(),
                 updatedAt: new Date(),
@@ -360,10 +414,25 @@ export class MomentService {
         }
 
         // 3. Criar entidade Moment
+        console.log(`[MomentService] 🏗️ Criando entidade Moment...`)
         const moment = new Moment(momentData)
 
         // 4. Salvar no repositório IMEDIATAMENTE (sem aguardar embeddings)
-        const createdMoment = await this.repository.create(moment)
+        console.log(`[MomentService] 💾 Salvando momento no repositório...`)
+        let createdMoment: Moment
+        try {
+            createdMoment = await this.repository.create(moment)
+            console.log(`[MomentService] ✅ Momento criado com sucesso:`, {
+                id: createdMoment.id,
+                ownerId: createdMoment.ownerId,
+                status: createdMoment.status.current,
+            })
+        } catch (error) {
+            console.error(`[MomentService] ❌ Erro ao criar momento:`, error)
+            throw new Error(
+                `Error to create moment: ${error instanceof Error ? error.message : String(error)}`,
+            )
+        }
 
         // 5. Enfileirar job de compressão de vídeo imediatamente
         try {
@@ -374,12 +443,12 @@ export class MomentService {
                     momentId: createdMoment.id,
                     originalVideoUrl: processingResult.videoUrl,
                     videoMetadata: {
-                        width: processingResult.videoMetadata.width,
-                        height: processingResult.videoMetadata.height,
-                        duration: processingResult.videoMetadata.duration,
-                        codec: processingResult.videoMetadata.codec,
-                        hasAudio: processingResult.videoMetadata.hasAudio,
-                        size: processingResult.videoMetadata.size,
+                        width: processingResult.videoMetadata?.width || 0,
+                        height: processingResult.videoMetadata?.height || 0,
+                        duration: processingResult.videoMetadata?.duration || 0,
+                        codec: processingResult.videoMetadata?.codec || "h264",
+                        hasAudio: processingResult.videoMetadata?.hasAudio || false,
+                        size: processingResult.videoMetadata?.size || 0,
                     },
                     priority: EmbeddingJobPriority.HIGH,
                 },
@@ -406,11 +475,11 @@ export class MomentService {
                     description: data.description || "",
                     hashtags: data.hashtags || [],
                     videoMetadata: {
-                        width: processingResult.videoMetadata.width,
-                        height: processingResult.videoMetadata.height,
-                        duration: processingResult.videoMetadata.duration,
-                        codec: processingResult.videoMetadata.codec,
-                        hasAudio: processingResult.videoMetadata.hasAudio,
+                        width: processingResult.videoMetadata?.width || 0,
+                        height: processingResult.videoMetadata?.height || 0,
+                        duration: processingResult.videoMetadata?.duration || 0,
+                        codec: processingResult.videoMetadata?.codec || "h264",
+                        hasAudio: processingResult.videoMetadata?.hasAudio || false,
                     },
                     priority: EmbeddingJobPriority.NORMAL,
                 },
@@ -428,18 +497,23 @@ export class MomentService {
             console.warn("[MomentService] ⚠️ Moment criado, mas embeddings não agendados")
         }
 
-        // 6. Inicializar métricas se habilitado
+        // 7. Inicializar métricas se habilitado
         if (this.config.enableMetrics) {
-            await this.metricsService.recordView(createdMoment.id, {
-                userId: data.ownerId,
-                device: data.device?.type,
-                location: data.location
-                    ? `${data.location.latitude},${data.location.longitude}`
-                    : undefined,
-            })
+            try {
+                await this.metricsService.recordView(createdMoment.id, {
+                    userId: data.ownerId,
+                    device: data.device?.type,
+                    location: data.location
+                        ? `${data.location.latitude},${data.location.longitude}`
+                        : undefined,
+                })
+            } catch (error) {
+                console.error("[MomentService] ⚠️ Erro ao registrar métricas:", error)
+                // Não falhar a criação do moment por causa disso
+            }
         }
 
-        return createdMoment || ({} as Moment)
+        return createdMoment
     }
 
     // ===== MÉTODOS DE BUSCA =====
@@ -827,7 +901,7 @@ export class MomentService {
         // Como não existe decrementLikes, vamos decrementar manualmente
         if (moment.metrics.engagement.totalLikes > 0) {
             moment.metrics.engagement.totalLikes--
-            moment.metrics.engagement.likeRate = moment.likeRate
+            moment.metrics.engagement.likeRate = moment.metrics.engagement.likeRate
             moment.metrics.lastMetricsUpdate = new Date()
         }
 
