@@ -1,6 +1,5 @@
 import { MomentService } from "@/application/moment/services/moment.service"
-import { Moment } from "@/domain/moment"
-import { User } from "@/domain/user/entities/user.entity"
+import { Moment, MomentVisibilityEnum } from "@/domain/moment"
 import { IUserRepository } from "@/domain/user/repositories/user.repository"
 
 export interface CreateMomentRequest {
@@ -12,6 +11,7 @@ export interface CreateMomentRequest {
         size: number
     }
     description?: string
+    visibility?: MomentVisibilityEnum
     location?: {
         latitude: number
         longitude: number
@@ -59,16 +59,7 @@ export class CreateMomentUseCase {
                 }
             }
 
-            // Verificar se o usuário existe
-            let owner: User | null
-            try {
-                owner = await this.userRepository.findById(request.ownerId)
-            } catch (error) {
-                return {
-                    success: false,
-                    error: "Invalid user ID",
-                }
-            }
+            const owner = await this.userRepository.findById(request.ownerId)
 
             if (!owner) {
                 return {
@@ -109,6 +100,7 @@ export class CreateMomentUseCase {
                 description: request.description || "",
                 location: request.location,
                 device: request.device,
+                visibility: request.visibility as MomentVisibilityEnum,
             })
 
             return {
