@@ -25,11 +25,8 @@ export interface CreateMomentRequest {
         size: number
     }
     description?: string
-    hashtags?: string[]
     mentions?: string[]
     visibility?: "public" | "followers_only" | "private" | "unlisted"
-    ageRestriction?: boolean
-    contentWarning?: boolean
     location?: {
         latitude: number
         longitude: number
@@ -173,8 +170,12 @@ export class MomentController {
     /**
      * Cria um novo momento
      */
-    async createMoment(request: CreateMomentRequest, userId: string): Promise<MomentResponse> {
+    async createMoment(request: CreateMomentRequest, userId: string): Promise<void> {
         try {
+            console.log(
+                `[MomentController] 🚀 Iniciando processamento em background para usuário ${userId}`,
+            )
+
             // Validação básica dos dados obrigatórios
             if (!request.videoData || request.videoData.length === 0) {
                 throw new Error("Dados do vídeo são obrigatórios")
@@ -189,21 +190,22 @@ export class MomentController {
                 throw new Error("Você não pode mencionar a si mesmo")
             }
 
-            const result = await this.createMomentUseCase.execute({
+            await this.createMomentUseCase.execute({
                 ownerId: userId,
                 videoData: request.videoData,
                 videoMetadata: request.videoMetadata,
+                visibility: request.visibility as MomentVisibilityEnum,
                 description: request.description,
                 location: request.location,
                 device: request.device,
             })
 
-            if (!result.success || !result.moment) {
-                throw new Error(result.error || "Error to create moment")
-            }
-
-            return result.moment as any
+            console.log(
+                `[MomentController] ✅ Processamento em background concluído para usuário ${userId}`,
+            )
         } catch (error) {
+            console.error(`[MomentController] ❌ Erro no processamento em background:`, error)
+
             if (error instanceof z.ZodError) {
                 throw new Error(
                     `Validation error: ${error.issues.map((e) => e.message).join(", ")}`,

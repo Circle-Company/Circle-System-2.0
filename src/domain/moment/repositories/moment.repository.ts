@@ -1,4 +1,3 @@
-import { IUserRepository } from "@/domain/user"
 import { Moment } from "../entities/moment.entity"
 
 export interface IMomentRepository {
@@ -53,16 +52,6 @@ export interface IMomentRepository {
     // Análise e estatísticas
     getAnalytics(): Promise<IMomentAnalytics>
     getStats(): Promise<IMomentRepositoryStats>
-
-    // Operações de validação de interatividade
-    isInteractable(
-        momentId: string,
-        userWhoWantsToInteract: string,
-        userRepository: import("@/domain/user").IUserRepository,
-    ): Promise<boolean>
-
-    // Operações de propriedade
-    isOwner(momentId: string, userId: string): Promise<boolean>
 
     // Operações de likes
     hasUserLikedMoment(momentId: string, userId: string): Promise<boolean>
@@ -208,34 +197,4 @@ export abstract class BaseMomentRepository implements IMomentRepository {
     abstract hasUserLikedMoment(momentId: string, userId: string): Promise<boolean>
     abstract addLike(momentId: string, userId: string): Promise<void>
     abstract removeLike(momentId: string, userId: string): Promise<void>
-
-    /**
-     * Verifica se um moment é interagível por um usuário específico
-     * Implementação padrão que delega para a entidade Moment
-     *
-     * @param momentId - ID do moment
-     * @param userWhoWantsToInteract - ID do usuário que quer interagir
-     * @param userRepository - Repositório de usuários para validações
-     * @returns Promise<boolean> - true se o moment é interagível
-     */
-    async isInteractable(
-        momentId: string,
-        userWhoWantsToInteract: string,
-        userRepository: IUserRepository,
-    ): Promise<boolean> {
-        try {
-            // Buscar o moment pelo ID
-            const moment = await this.findById(momentId)
-            if (!moment) {
-                console.warn(`Moment não encontrado: ${momentId}`)
-                return false
-            }
-
-            // Delegar a validação para a entidade Moment
-            return await moment.isInteractable(userWhoWantsToInteract, userRepository)
-        } catch (error) {
-            console.error(`Erro ao verificar interatividade do moment ${momentId}:`, error)
-            return false
-        }
-    }
 }

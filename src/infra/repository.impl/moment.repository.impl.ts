@@ -8,6 +8,7 @@ import {
 } from "../../domain/moment"
 
 // Importar as interfaces corretas das métricas
+import { IUserRepository } from "@/domain/user"
 import { generateId } from "@/shared"
 
 export class MomentRepositoryImpl implements IMomentRepository {
@@ -277,15 +278,39 @@ export class MomentRepositoryImpl implements IMomentRepository {
     async findById(id: string): Promise<Moment | null> {
         const moment = await this.database.getConnection().models.Moment.findByPk(id, {
             include: [
-                { model: this.database.getConnection().models.MomentContent, as: "content" },
-                { model: this.database.getConnection().models.MomentResolution, as: "resolution" },
+                {
+                    model: this.database.getConnection().models.MomentContent,
+                    as: "content",
+                    include: [
+                        {
+                            model: this.database.getConnection().models.MomentResolution,
+                            as: "resolution",
+                        },
+                    ],
+                },
                 { model: this.database.getConnection().models.MomentStatus, as: "status" },
                 { model: this.database.getConnection().models.MomentVisibility, as: "visibility" },
                 { model: this.database.getConnection().models.MomentMetrics, as: "metrics" },
-                { model: this.database.getConnection().models.MomentContext, as: "context" },
-                { model: this.database.getConnection().models.MomentDevice, as: "device" },
-                { model: this.database.getConnection().models.MomentProcessing, as: "processing" },
-                { model: this.database.getConnection().models.MomentProcessingStep, as: "steps" },
+                {
+                    model: this.database.getConnection().models.MomentContext,
+                    as: "context",
+                    include: [
+                        {
+                            model: this.database.getConnection().models.MomentDevice,
+                            as: "device",
+                        },
+                    ],
+                },
+                {
+                    model: this.database.getConnection().models.MomentProcessing,
+                    as: "processing",
+                    include: [
+                        {
+                            model: this.database.getConnection().models.MomentProcessingStep,
+                            as: "steps",
+                        },
+                    ],
+                },
                 { model: this.database.getConnection().models.MomentEmbedding, as: "embedding" },
                 { model: this.database.getConnection().models.MomentMedia, as: "media" },
                 { model: this.database.getConnection().models.MomentThumbnail, as: "thumbnail" },
@@ -312,6 +337,75 @@ export class MomentRepositoryImpl implements IMomentRepository {
             },
             { where: { id: momentData.id } },
         )
+
+        // Atualizar status se existir
+        if (momentData.status) {
+            console.log(`[MomentRepository] 🔄 Atualizando status do moment ${momentData.id}:`, {
+                current: momentData.status.current,
+                previous: momentData.status.previous,
+                reason: momentData.status.reason,
+            })
+
+            const statusUpdateResult = await this.database
+                .getConnection()
+                .models.MomentStatus.update(
+                    {
+                        current: momentData.status.current,
+                        previousStatus: momentData.status.previous,
+                        reason: momentData.status.reason,
+                        changedBy: momentData.status.changedBy,
+                        changedAt: momentData.status.changedAt,
+                        updatedAt: momentData.status.updatedAt,
+                    },
+                    { where: { moment_id: momentData.id } },
+                )
+
+            console.log(
+                `[MomentRepository] 📊 Resultado da atualização de status:`,
+                statusUpdateResult,
+            )
+        }
+
+        // Atualizar media se existir
+        if (momentData.media) {
+            console.log(`[MomentRepository] 🔄 Atualizando media do moment ${momentData.id}:`, {
+                url: momentData.media.url,
+                storageKey: momentData.media.storage?.key,
+            })
+
+            const mediaUpdateResult = await this.database.getConnection().models.MomentMedia.update(
+                {
+                    url: momentData.media.url,
+                    updatedAt: momentData.media.updatedAt,
+                },
+                { where: { moment_id: momentData.id } },
+            )
+
+            console.log(
+                `[MomentRepository] 📊 Resultado da atualização de media:`,
+                mediaUpdateResult,
+            )
+
+            // Atualizar storage metadata se existir
+            if (momentData.media.storage) {
+                const storageUpdateResult = await this.database
+                    .getConnection()
+                    .models.MomentMedia.update(
+                        {
+                            storageProvider: momentData.media.storage.provider,
+                            bucket: momentData.media.storage.bucket,
+                            key: momentData.media.storage.key,
+                            region: momentData.media.storage.region,
+                        },
+                        { where: { moment_id: momentData.id } },
+                    )
+
+                console.log(
+                    `[MomentRepository] 📊 Resultado da atualização de storage:`,
+                    storageUpdateResult,
+                )
+            }
+        }
 
         // Atualizar métricas se existirem - apenas campos realmente usados
         if (momentData.metrics) {
@@ -350,6 +444,32 @@ export class MomentRepositoryImpl implements IMomentRepository {
                     confidenceLevel: momentData.metrics.confidenceLevel,
                 },
                 { where: { momentId: momentData.id } },
+            )
+        }
+
+        // Atualizar embedding se existir
+        if (momentData.embedding) {
+            console.log(`[MomentRepository] 🔄 Atualizando embedding do moment ${momentData.id}:`, {
+                dimension: momentData.embedding.dimension,
+                hasVector: !!momentData.embedding.vector,
+                metadata: momentData.embedding.metadata,
+            })
+
+            const embeddingUpdateResult = await this.database
+                .getConnection()
+                .models.MomentEmbedding.update(
+                    {
+                        vector: momentData.embedding.vector,
+                        dimension: momentData.embedding.dimension,
+                        metadata: momentData.embedding.metadata,
+                        updatedAt: momentData.embedding.updatedAt,
+                    },
+                    { where: { momentId: momentData.id } },
+                )
+
+            console.log(
+                `[MomentRepository] 📊 Resultado da atualização de embedding:`,
+                embeddingUpdateResult,
             )
         }
 
@@ -1316,7 +1436,7 @@ export class MomentRepositoryImpl implements IMomentRepository {
     async isInteractable(
         momentId: string,
         userWhoWantsToInteract: string,
-        userRepository: import("@/domain/user").IUserRepository,
+        userRepository: IUserRepository,
     ): Promise<boolean> {
         try {
             // Buscar o moment

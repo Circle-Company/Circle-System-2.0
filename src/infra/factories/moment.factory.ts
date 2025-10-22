@@ -3,7 +3,6 @@ import {
     AdminBlockMomentUseCase,
     AdminChangeMomentStatusUseCase,
     AdminDeleteMomentUseCase,
-    AdminListAllMomentsUseCase,
     AdminUnblockMomentUseCase,
     CommentMomentUseCase,
     CreateMomentUseCase,
@@ -124,8 +123,18 @@ export class MomentFactory {
 
             // User Actions
             getUserMoments: new GetUserMomentsUseCase(momentRepository, userRepository),
-            likeMoment: new LikeMomentUseCase(momentRepository, momentService, userRepository),
-            unlikeMoment: new UnlikeMomentUseCase(momentRepository, momentService),
+            likeMoment: new LikeMomentUseCase(
+                momentRepository,
+                userRepository,
+                momentMetricsService,
+                momentService,
+            ),
+            unlikeMoment: new UnlikeMomentUseCase(
+                momentRepository,
+                userRepository,
+                momentMetricsService,
+                momentService,
+            ),
             getLikedMoments: new GetLikedMomentsUseCase(momentRepository, momentService),
 
             // Comments
@@ -154,7 +163,6 @@ export class MomentFactory {
             adminUnblockMoment: new AdminUnblockMomentUseCase(momentService),
             adminChangeMomentStatus: new AdminChangeMomentStatusUseCase(momentService),
             adminDeleteMoment: new AdminDeleteMomentUseCase(momentService),
-            adminListAllMoments: new AdminListAllMomentsUseCase(momentService),
         }
     }
 
