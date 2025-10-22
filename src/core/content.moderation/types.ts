@@ -52,11 +52,9 @@ export interface ContentBlockingResult {
 }
 
 export enum BlockType {
-    HARD_BLOCK = "hard_block", // Bloqueio permanente
-    SOFT_BLOCK = "soft_block", // Bloqueio temporário
-    HIDE = "hide", // Ocultar conteúdo
-    FLAG = "flag", // Marcar para revisão
-    WARN = "warn", // Apenas aviso
+    BLOCK = "block", // Bloquear conteúdo
+    REVIEW = "review", // Marcar para revisão humana
+    APPROVE = "approve", // Aprovar conteúdo
 }
 
 // ===== INTERFACES DE ADAPTERS =====
@@ -105,8 +103,6 @@ export interface ModerationEngineConfig {
     }
     blocking: {
         autoBlock: boolean
-        autoHide: boolean
-        autoFlag: boolean
         severityThresholds: {
             low: number
             medium: number
