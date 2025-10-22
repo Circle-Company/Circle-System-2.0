@@ -15,7 +15,15 @@ import {
 
 // ===== EVENTOS DE MÉTRICAS =====
 export interface MetricsEvent {
-    type: "view" | "like" | "comment" | "report" | "share" | "completion" | "quality_update"
+    type:
+        | "view"
+        | "like"
+        | "comment"
+        | "report"
+        | "share"
+        | "completion"
+        | "quality_update"
+        | "unlike"
     momentId: string
     data: any
     timestamp: Date
@@ -95,6 +103,26 @@ export class MomentMetricsService {
     ): Promise<void> {
         const event: MetricsEvent = {
             type: "like",
+            momentId,
+            data,
+            timestamp: new Date(),
+        }
+
+        if (this.config.enableRealTimeUpdates) {
+            await this.processEvent(event)
+        } else {
+            this.eventQueue.push(event)
+        }
+    }
+    async recordUnlike(
+        momentId: string,
+        data: {
+            userId: string
+            timestamp?: Date
+        },
+    ): Promise<void> {
+        const event: MetricsEvent = {
+            type: "unlike",
             momentId,
             data,
             timestamp: new Date(),
