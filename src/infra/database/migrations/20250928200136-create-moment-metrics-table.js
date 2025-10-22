@@ -167,7 +167,6 @@ module.exports = {
         await queryInterface.addIndex("moment_metrics", ["moment_id"])
         await queryInterface.addIndex("moment_metrics", ["total_views"])
         await queryInterface.addIndex("moment_metrics", ["viral_score"])
-        await queryInterface.addIndex("moment_metrics", ["trending_score"])
         await queryInterface.addIndex("moment_metrics", ["last_metrics_update"])
     },
 

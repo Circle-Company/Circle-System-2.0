@@ -20,7 +20,16 @@ module.exports = {
                 onDelete: "CASCADE",
             },
             status: {
-                type: Sequelize.ENUM("pending", "processing", "completed", "failed"),
+                type: Sequelize.ENUM(
+                    "pending",
+                    "processing",
+                    "uploaded",
+                    "media_processed",
+                    "embeddings_queued",
+                    "embeddings_processed",
+                    "completed",
+                    "failed",
+                ),
                 allowNull: false,
                 comment: "Status do processamento",
             },
