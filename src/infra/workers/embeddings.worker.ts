@@ -120,8 +120,7 @@ export class EmbeddingsWorker {
                 embedding.metadata,
             )
 
-            // 5. Atualizar status: processing → embeddings_processed
-            moment.processing.status = MomentProcessingStatusEnum.EMBEDDINGS_PROCESSED
+            moment.updateProcessingStatus(MomentProcessingStatusEnum.EMBEDDINGS_PROCESSED, 100)
 
             // 6. Salvar moment com embedding
             await this.momentRepository.update(moment)
