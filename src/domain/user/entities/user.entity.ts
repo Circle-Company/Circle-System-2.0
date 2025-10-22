@@ -238,6 +238,9 @@ export class User {
      * Removido qualquer bloqueio - todos os usuários podem criar conteúdo
      */
     public canCreateMoments(): boolean {
+        if (this.canAccessAdminFeatures()) {
+            return true
+        }
         return this.isActive()
     }
 
