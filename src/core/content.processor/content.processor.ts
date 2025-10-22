@@ -77,6 +77,14 @@ export class ContentProcessor {
         moderationEngine?: ModerationEngine,
     ) {
         this.storageAdapter = storageAdapter
+
+        // Log das configurações que serão passadas para o VideoProcessor
+        console.log(`[ContentProcessor] 📋 Configurações passadas para VideoProcessor:`, {
+            thumbnail: config?.thumbnail,
+            processing: config?.processing,
+            validation: config?.validation,
+        })
+
         this.videoProcessor = new VideoProcessor(config)
         this.moderationEngine = moderationEngine || null
     }
@@ -178,7 +186,7 @@ export class ContentProcessor {
             let thumbnailUrl = ""
             if (videoResult.thumbnail) {
                 const uploadResult = await this.storageAdapter.uploadThumbnail(
-                    baseKey,
+                    contentId,
                     videoResult.thumbnail.data,
                     {
                         contentType: `image/${videoResult.thumbnail.format}`,
@@ -206,7 +214,7 @@ export class ContentProcessor {
                 thumbnailUrl,
                 storage: {
                     videoKey: baseKey,
-                    thumbnailKey: baseKey,
+                    thumbnailKey: `thumb_${contentId}`,
                     bucket: videoUrl ? "local" : undefined,
                     region: videoUrl ? "local" : undefined,
                     provider: "local",

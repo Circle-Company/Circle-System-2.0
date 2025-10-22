@@ -10,7 +10,6 @@ import { StorageAdapter, StorageUploadResult } from "./type"
 import { join } from "path"
 
 interface StorageUploadOptions {
-    filename: string
     mimeType: string
     metadata?: Record<string, any>
 }
@@ -18,10 +17,14 @@ interface StorageUploadOptions {
 export class LocalStorageAdapter implements StorageAdapter {
     private baseDir: string
     private baseUrl: string
+    private video_filename: string
+    private thumbnail_filename: string
 
     constructor(baseDir: string = "./uploads", baseUrl: string = "http://localhost:3000/uploads") {
         this.baseDir = baseDir
         this.baseUrl = baseUrl
+        this.video_filename = ""
+        this.thumbnail_filename = ""
 
         // Criar diretórios se não existirem
         this.ensureDirectories()
@@ -37,13 +40,13 @@ export class LocalStorageAdapter implements StorageAdapter {
     ): Promise<StorageUploadResult> {
         try {
             // Organizar arquivo usando baseKey: ownerId/contentId -> videos/ownerId_contentId.mp4
-            const filename = this.generateFilename(baseKey, "video", options.mimeType)
-            const filePath = join(this.baseDir, "videos", filename)
+            this.video_filename = this.generateFilename(baseKey, "video", options.mimeType)
+            const filePath = join(this.baseDir, "videos", this.video_filename)
 
             // Salvar arquivo
             writeFileSync(filePath, videoData)
 
-            const url = `${this.baseUrl}/videos/${filename}`
+            const url = `${this.baseUrl}/videos/${this.video_filename}`
 
             return {
                 success: true,
@@ -53,7 +56,7 @@ export class LocalStorageAdapter implements StorageAdapter {
                 bucket: "uploads",
                 metadata: {
                     path: filePath,
-                    filename,
+                    filename: this.video_filename,
                     mimeType: options.mimeType,
                     baseKey: baseKey,
                 },
@@ -75,6 +78,12 @@ export class LocalStorageAdapter implements StorageAdapter {
         type: "video" | "thumbnail",
         mimeType: string,
     ): string {
+        // Para thumbnails, usar formato especial: thumb_{id}.jpg
+        if (type === "thumbnail" && !baseKey.includes("/")) {
+            return `thumb_${baseKey}.${this.getExtension(mimeType)}`
+        }
+
+        // Para vídeos e thumbnails com path completo, usar formato padrão
         return `${type}_${baseKey.replace(/\//g, "_")}.${this.getExtension(mimeType)}`
     }
 
@@ -86,8 +95,7 @@ export class LocalStorageAdapter implements StorageAdapter {
         data: Buffer,
         metadata: Record<string, any>,
     ): Promise<StorageUploadResult> {
-        return this.uploadImage(data, {
-            filename: baseKey,
+        return this.uploadImage(baseKey, data, {
             mimeType: metadata.mimeType || "image/jpeg",
             metadata: { ...metadata, baseKey },
         })
@@ -97,37 +105,38 @@ export class LocalStorageAdapter implements StorageAdapter {
      * Upload de imagem (thumbnail)
      */
     async uploadImage(
+        baseKey: string,
         imageData: Buffer,
         options: StorageUploadOptions,
     ): Promise<StorageUploadResult> {
         try {
             // Organizar arquivo usando baseKey: ownerId/contentId -> thumbnails/ownerId_contentId.jpg
             const extension = this.getExtension(options.mimeType)
-            const filename = `${options.filename.replace(/\//g, "_")}.${extension}`
-            const filePath = join(this.baseDir, "thumbnails", filename)
+            this.thumbnail_filename = this.generateFilename(baseKey, "thumbnail", options.mimeType)
+            const filePath = join(this.baseDir, "thumbnails", this.thumbnail_filename)
 
             // Salvar arquivo
             writeFileSync(filePath, imageData)
 
-            const url = `${this.baseUrl}/thumbnails/${filename}`
+            const url = `${this.baseUrl}/thumbnails/${this.thumbnail_filename}`
 
             console.log(
-                `[LocalStorage] ✅ Thumbnail salva: ${filename} (${(
+                `[LocalStorage] ✅ Thumbnail salva: ${this.thumbnail_filename} (${(
                     imageData.length / 1024
-                ).toFixed(2)}KB) - BaseKey: ${options.filename}`,
+                ).toFixed(2)}KB) - BaseKey: ${baseKey}`,
             )
 
             return {
                 success: true,
                 url,
-                key: options.filename, // Retornar baseKey original
+                key: baseKey, // Retornar baseKey original
                 provider: "local",
                 bucket: "uploads",
                 metadata: {
                     path: filePath,
-                    filename,
+                    filename: this.thumbnail_filename,
                     mimeType: options.mimeType,
-                    baseKey: options.filename,
+                    baseKey: baseKey,
                 },
             }
         } catch (error) {
@@ -136,7 +145,7 @@ export class LocalStorageAdapter implements StorageAdapter {
             return {
                 success: false,
                 url: "",
-                key: options.filename,
+                key: baseKey,
                 provider: "local",
                 error: error instanceof Error ? error.message : String(error),
             }
