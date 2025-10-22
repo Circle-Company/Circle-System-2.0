@@ -26,8 +26,18 @@ export class VideoCompressionWorker {
     constructor(private momentRepository: IMomentRepository) {
         this.queue = VideoCompressionQueue.getInstance()
 
-        // Inicializar componentes
-        this.videoProcessor = new VideoProcessor()
+        // Inicializar componentes com configuração de ALTA QUALIDADE para vídeos
+        // CRF Scale: 0 (lossless) - 23 (high quality) - 28 (good) - 35 (poor) - 51 (worst)
+        this.videoProcessor = new VideoProcessor({
+            compression: {
+                preset: "slow", // Preset lento para máxima eficiência de compressão
+                crf: 18, // Alta qualidade com compressão moderada
+                targetBitrate: 300, // Bitrate otimizado para alta qualidade
+                maxBitrate: 500, // Bitrate máximo moderado
+                bufferSize: 600, // Buffer moderado
+                audioBitrate: 128, // Áudio de boa qualidade
+            },
+        })
         this.storageAdapter = new LocalStorageAdapter(
             "./uploads",
             process.env.STORAGE_BASE_URL || "http://localhost:3000",
@@ -80,21 +90,49 @@ export class VideoCompressionWorker {
     ): Promise<VideoCompressionJobResult> {
         const startTime = Date.now()
         const { momentId, originalVideoUrl, videoMetadata } = job.data
+
+        console.log(`[VideoCompressionWorker] 🚀 Iniciando compressão para moment ${momentId}`)
+        console.log(`[VideoCompressionWorker] 📊 Dados do job:`, {
+            momentId,
+            originalVideoUrl,
+            videoMetadata: {
+                width: videoMetadata.width,
+                height: videoMetadata.height,
+                duration: videoMetadata.duration,
+            },
+        })
+
         try {
             // 1. Baixar vídeo original do storage
+            console.log(`[VideoCompressionWorker] 📥 Baixando vídeo original...`)
             const originalVideoData = await this.downloadVideo(originalVideoUrl)
+            console.log(
+                `[VideoCompressionWorker] ✅ Vídeo baixado: ${(
+                    originalVideoData.length /
+                    1024 /
+                    1024
+                ).toFixed(2)}MB`,
+            )
 
             // 2. Comprimir vídeo usando H.264 slow preset
+            console.log(`[VideoCompressionWorker] 🗜️ Comprimindo vídeo...`)
             const compressedVideoData = await this.videoProcessor.compressVideoSlow(
                 originalVideoData,
             )
+            console.log(
+                `[VideoCompressionWorker] ✅ Vídeo comprimido: ${(
+                    compressedVideoData.length /
+                    1024 /
+                    1024
+                ).toFixed(2)}MB`,
+            )
 
             // 3. Fazer upload do vídeo comprimido
+            console.log(`[VideoCompressionWorker] ☁️ Fazendo upload do vídeo comprimido...`)
             const uploadResult = await this.storageAdapter.uploadVideo(
-                `${momentId}.mp4`, // key simples
+                `${momentId}_compressed`, // key sem extensão
                 compressedVideoData,
                 {
-                    filename: `${momentId}_compressed.mp4`,
                     mimeType: "video/mp4",
                     metadata: {
                         ownerId: momentId,
@@ -111,27 +149,113 @@ export class VideoCompressionWorker {
                 throw new Error(uploadResult.error || "Failed to upload compressed video")
             }
 
+            console.log(`[VideoCompressionWorker] ✅ Upload concluído: ${uploadResult.url}`)
+            console.log(`[VideoCompressionWorker] 📋 Upload result details:`, {
+                success: uploadResult.success,
+                url: uploadResult.url,
+                key: uploadResult.key,
+                provider: uploadResult.provider,
+                bucket: uploadResult.bucket,
+                region: uploadResult.region,
+            })
+
             // 4. Buscar moment e atualizar URL do vídeo
+            console.log(`[VideoCompressionWorker] 🔍 Buscando moment ${momentId} no repositório...`)
             const moment = await this.momentRepository.findById(momentId)
             if (!moment) {
                 throw new Error(`Moment ${momentId} not found`)
             }
+            console.log(`[VideoCompressionWorker] ✅ Moment encontrado no repositório`)
 
-            // Atualizar media.url para apontar para o vídeo comprimido usando media.url
-            moment.media.url = uploadResult.url // Versão comprimida
-            moment.status.current = MomentStatusEnum.PUBLISHED
-            moment.status.reason = "Video compressed successfully"
-            moment.status.changedBy = "video.compression.worker"
-            moment.status.changedAt = new Date()
+            console.log(`[VideoCompressionWorker] 📋 Moment encontrado:`, {
+                id: moment.id,
+                currentStatus: moment.status.current,
+                currentVideoUrl: moment.media.url,
+            })
 
-            // Atualizar metadados do vídeo com informações de compressão
-            if (moment.media.storage) {
-                moment.media.storage.key = `videos/compressed/${momentId}.mp4`
-                moment.media.storage.provider = uploadResult.provider as any
+            try {
+                // Atualizar media.url para apontar para o vídeo comprimido
+                console.log(`[VideoCompressionWorker] 🔄 Atualizando URL do vídeo...`)
+                moment.media.url = uploadResult.url // Versão comprimida
+
+                // Atualizar status para PUBLISHED
+                console.log(`[VideoCompressionWorker] 🔄 Atualizando status para PUBLISHED...`)
+                const previousStatus = moment.status.current
+                moment.status.current = MomentStatusEnum.PUBLISHED
+                moment.status.previous = previousStatus
+                moment.status.reason = "Video compressed successfully"
+                moment.status.changedBy = "video.compression.worker"
+                moment.status.changedAt = new Date()
+                moment.status.updatedAt = new Date()
+
+                // Atualizar metadados do vídeo com informações de compressão
+                if (moment.media.storage) {
+                    console.log(`[VideoCompressionWorker] 🔄 Atualizando storage metadata:`, {
+                        oldKey: moment.media.storage.key,
+                        newKey: uploadResult.key,
+                        oldProvider: moment.media.storage.provider,
+                        newProvider: uploadResult.provider,
+                    })
+
+                    // Usar a key real retornada pelo uploadResult
+                    moment.media.storage.key = uploadResult.key
+                    moment.media.storage.provider = uploadResult.provider as any
+                    moment.media.storage.bucket = uploadResult.bucket || moment.media.storage.bucket
+                    moment.media.storage.region = uploadResult.region || moment.media.storage.region
+
+                    console.log(`[VideoCompressionWorker] ✅ Storage metadata atualizado`)
+                } else {
+                    console.log(`[VideoCompressionWorker] ⚠️ Moment não possui storage metadata`)
+                }
+
+                console.log(`[VideoCompressionWorker] 🔄 Atualizando moment:`, {
+                    newVideoUrl: moment.media.url,
+                    newStatus: moment.status.current,
+                    storageKey: moment.media.storage?.key,
+                })
+
+                // 5. Salvar moment atualizado
+                console.log(`[VideoCompressionWorker] 💾 Salvando moment no repositório...`)
+
+                // Log detalhado antes da atualização
+                console.log(`[VideoCompressionWorker] 📋 Estado do moment antes de salvar:`, {
+                    id: moment.id,
+                    statusCurrent: moment.status.current,
+                    statusPrevious: moment.status.previous,
+                    statusReason: moment.status.reason,
+                    mediaUrl: moment.media.url,
+                    storageKey: moment.media.storage?.key,
+                })
+
+                const updatedMoment = await this.momentRepository.update(moment)
+
+                if (!updatedMoment) {
+                    throw new Error("Failed to update moment in repository")
+                }
+
+                // Log detalhado após a atualização
+                console.log(`[VideoCompressionWorker] 📋 Estado do moment após salvar:`, {
+                    id: updatedMoment.id,
+                    statusCurrent: updatedMoment.status.current,
+                    statusPrevious: updatedMoment.status.previous,
+                    statusReason: updatedMoment.status.reason,
+                    mediaUrl: updatedMoment.media.url,
+                    storageKey: updatedMoment.media.storage?.key,
+                })
+
+                console.log(`[VideoCompressionWorker] ✅ Moment atualizado com sucesso:`, {
+                    id: updatedMoment.id,
+                    status: updatedMoment.status.current,
+                    videoUrl: updatedMoment.media.url,
+                })
+            } catch (updateError) {
+                console.error(`[VideoCompressionWorker] ❌ Erro ao atualizar moment:`, updateError)
+                throw new Error(
+                    `Failed to update moment: ${
+                        updateError instanceof Error ? updateError.message : String(updateError)
+                    }`,
+                )
             }
-
-            // 5. Salvar moment atualizado
-            await this.momentRepository.update(moment)
 
             // 6. Deletar vídeo original do storage
             await this.deleteOriginalVideo(originalVideoUrl)
@@ -153,7 +277,7 @@ export class VideoCompressionWorker {
                     originalCodec: "unknown",
                     compressedCodec: "h264",
                     preset: "slow",
-                    crf: 28,
+                    crf: 23, // Alta qualidade com compressão moderada
                 },
             }
         } catch (error) {
