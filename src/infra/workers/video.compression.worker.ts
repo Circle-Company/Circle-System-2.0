@@ -23,8 +23,11 @@ export class VideoCompressionWorker {
     private storageAdapter: LocalStorageAdapter
     private queue: VideoCompressionQueue
     private isProcessing = false
+    private machineIP: string
 
     constructor(private momentRepository: IMomentRepository) {
+        // Obter IP da máquina para detectar URLs locais
+        this.machineIP = this.getMachineIP()
         this.queue = VideoCompressionQueue.getInstance()
 
         // Inicializar componentes com configuração de ALTA QUALIDADE para vídeos
@@ -214,67 +217,45 @@ export class VideoCompressionWorker {
     }
 
     /**
-     * Obtém o IP da máquina
-     */
-    private getMachineIP(): string {
-        const interfaces = networkInterfaces()
-        for (const name of Object.keys(interfaces)) {
-            for (const iface of interfaces[name] || []) {
-                if (iface.family === "IPv4" && !iface.internal) {
-                    return iface.address
-                }
-            }
-        }
-        return "localhost"
-    }
-
-    /**
-     * Verifica se a URL é do IP da própria máquina
-     */
-    private isLocalMachineIP(url: string): boolean {
-        const machineIP = this.getMachineIP()
-        return url.includes(machineIP) || url.includes("localhost") || url.includes("127.0.0.1")
-    }
-
-    /**
      * Baixa vídeo do storage
      */
     private async downloadVideo(url: string): Promise<Buffer> {
         try {
-            // Se for URL local (localhost, 127.0.0.1 ou IP da própria máquina)
+            // Converter URL com IP da máquina para localhost se necessário
+            const localUrl = this.convertToLocalhostIfNeeded(url)
+            
+            // Se for URL local (localhost ou IP da máquina)
             if (
-                url &&
-                (this.isLocalMachineIP(url) ||
-                    url.startsWith("/uploads/") ||
-                    url.startsWith("/storage/"))
+                localUrl &&
+                (localUrl.includes("localhost") ||
+                    localUrl.startsWith("/uploads/") ||
+                    localUrl.startsWith("/storage/"))
             ) {
                 const fs = await import("fs")
                 const path = await import("path")
 
                 // Extrair path do arquivo mantendo o diretório
                 let filePath: string
-                if (this.isLocalMachineIP(url)) {
-                    // Exemplo: http://192.168.15.14:3000/storage/videos/video_123.mp4
-                    // ou http://localhost:3000/storage/videos/video_123.mp4
-                    if (url.includes("/storage/videos/")) {
-                        filePath = "videos/" + url.split("/storage/videos/")[1]
-                    } else if (url.includes("/storage/thumbnails/")) {
-                        filePath = "thumbnails/" + url.split("/storage/thumbnails/")[1]
-                    } else if (url.includes("/uploads/")) {
-                        filePath = url.split("/uploads/")[1]
+                if (localUrl.includes("localhost")) {
+                    // Exemplo: http://localhost:3000/storage/videos/video_123.mp4
+                    if (localUrl.includes("/storage/videos/")) {
+                        filePath = "videos/" + localUrl.split("/storage/videos/")[1]
+                    } else if (localUrl.includes("/storage/thumbnails/")) {
+                        filePath = "thumbnails/" + localUrl.split("/storage/thumbnails/")[1]
+                    } else if (localUrl.includes("/uploads/")) {
+                        filePath = localUrl.split("/uploads/")[1]
                     } else {
-                        throw new Error(`Cannot extract file path from URL: ${url}`)
+                        throw new Error(`Cannot extract file path from URL: ${localUrl}`)
                     }
                 } else {
                     // Exemplo: /storage/videos/video_123.mp4 ou /uploads/videos/video_123.mp4
-                    filePath = url.replace("/storage/", "").replace("/uploads/", "")
+                    filePath = localUrl.replace("/storage/", "").replace("/uploads/", "")
                 }
 
                 const fullPath = path.join(process.cwd(), "uploads", filePath)
 
                 // Verificar se arquivo existe
                 if (fs.existsSync(fullPath)) {
-                    console.log(`[VideoCompressionWorker] 📂 Lendo arquivo local: ${fullPath}`)
                     return fs.readFileSync(fullPath)
                 } else {
                     console.warn(`[VideoCompressionWorker] ⚠️ Arquivo não encontrado: ${fullPath}`)
@@ -353,5 +334,35 @@ export class VideoCompressionWorker {
      */
     isActive(): boolean {
         return this.isProcessing
+    }
+
+    /**
+     * Obtém o IP da máquina
+     */
+    private getMachineIP(): string {
+        const interfaces = networkInterfaces()
+        for (const name of Object.keys(interfaces)) {
+            for (const iface of interfaces[name] || []) {
+                // Ignorar endereços internos e IPv6
+                if (iface.family === "IPv4" && !iface.internal) {
+                    return iface.address
+                }
+            }
+        }
+        return "localhost"
+    }
+
+    /**
+     * Converte URL com IP da máquina para localhost se necessário
+     */
+    private convertToLocalhostIfNeeded(url: string): string {
+        if (!url) return url
+        
+        // Se a URL contém o IP da máquina, substituir por localhost
+        if (url.includes(this.machineIP)) {
+            return url.replace(this.machineIP, "localhost")
+        }
+        
+        return url
     }
 }
