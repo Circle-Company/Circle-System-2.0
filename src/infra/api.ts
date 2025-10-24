@@ -158,10 +158,13 @@ api.addHook("onSend", async (request: HttpRequest, response: HttpResponse, paylo
     )
 
     // Headers de cache baseados no método HTTP
-    if (request.method === "GET") {
-        response.header("Cache-Control", "public, max-age=300")
-    } else {
-        response.header("Cache-Control", "no-cache, no-store, must-revalidate")
+    // Não sobrescrever cache para arquivos estáticos (o @fastify/static já define)
+    if (!request.url.startsWith("/storage/")) {
+        if (request.method === "GET") {
+            response.header("Cache-Control", "public, max-age=300")
+        } else {
+            response.header("Cache-Control", "no-cache, no-store, must-revalidate")
+        }
     }
 
     return payload

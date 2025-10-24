@@ -12,24 +12,25 @@
  * - Atualização de métricas
  */
 
-import { MomentMetricsService } from "@/application/moment/services/moment.metrics.service"
-import { MomentService } from "@/application/moment/services/moment.service"
-import { ContentProcessor } from "@/core/content.processor/content.processor"
-import { LocalStorageAdapter } from "@/core/content.processor/local.storage.adapter"
 import {
     Moment,
     MomentProcessingStatusEnum,
     MomentStatusEnum,
     MomentVisibilityEnum,
 } from "@/domain/moment"
+import { existsSync, mkdirSync, readFileSync, rmSync } from "fs"
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
+
+import { MomentMetricsService } from "@/application/moment/services/moment.metrics.service"
+import { MomentService } from "@/application/moment/services/moment.service"
+import { ContentProcessor } from "@/core/content.processor/content.processor"
+import { LocalStorageAdapter } from "@/core/content.processor/local.storage.adapter"
 import { MomentMetricsEntity } from "@/domain/moment/entities/moment.metrics.entity"
 import { IMomentMetricsRepository } from "@/domain/moment/repositories/moment.metrics.repository"
 import { IMomentRepository } from "@/domain/moment/repositories/moment.repository"
 import { EmbeddingsQueue } from "@/infra/queue/embeddings.queue"
 import { EmbeddingsWorker } from "@/infra/workers/embeddings.worker"
 import { generateId } from "@/shared"
-import { existsSync, mkdirSync, readFileSync, rmSync } from "fs"
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 
 // Mock textLib para evitar dependência de circle-text-library
 vi.mock("@/shared", async () => {

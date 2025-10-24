@@ -3,10 +3,10 @@
  * Implementação REAL de storage local (salva arquivos em disco)
  */
 
-import { logger } from "@/shared"
 import { existsSync, mkdirSync, writeFileSync } from "fs"
 import { StorageAdapter, StorageUploadResult } from "./type"
 
+import { logger } from "@/shared"
 import { join } from "path"
 
 interface StorageUploadOptions {
