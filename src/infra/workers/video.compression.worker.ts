@@ -221,8 +221,15 @@ export class VideoCompressionWorker {
      */
     private async downloadVideo(url: string): Promise<Buffer> {
         try {
+            console.log(`[VideoCompressionWorker] 📥 Download solicitado: ${url}`)
+            console.log(`[VideoCompressionWorker] 🔍 IP da máquina: ${this.machineIP}`)
+            
             // Converter URL com IP da máquina para localhost se necessário
             const localUrl = this.convertToLocalhostIfNeeded(url)
+            
+            if (url !== localUrl) {
+                console.log(`[VideoCompressionWorker] 🔄 URL convertida para localhost: ${localUrl}`)
+            }
             
             // Se for URL local (localhost ou IP da máquina)
             if (
@@ -253,10 +260,13 @@ export class VideoCompressionWorker {
                 }
 
                 const fullPath = path.join(process.cwd(), "uploads", filePath)
+                console.log(`[VideoCompressionWorker] 📂 Arquivo local: ${fullPath}`)
 
                 // Verificar se arquivo existe
                 if (fs.existsSync(fullPath)) {
-                    return fs.readFileSync(fullPath)
+                    const fileData = fs.readFileSync(fullPath)
+                    console.log(`[VideoCompressionWorker] ✅ Arquivo baixado: ${(fileData.length / 1024 / 1024).toFixed(2)}MB`)
+                    return fileData
                 } else {
                     console.warn(`[VideoCompressionWorker] ⚠️ Arquivo não encontrado: ${fullPath}`)
                     throw new Error(`Video file not found: ${fullPath}`)
@@ -357,12 +367,12 @@ export class VideoCompressionWorker {
      */
     private convertToLocalhostIfNeeded(url: string): string {
         if (!url) return url
-        
+
         // Se a URL contém o IP da máquina, substituir por localhost
         if (url.includes(this.machineIP)) {
             return url.replace(this.machineIP, "localhost")
         }
-        
+
         return url
     }
 }
