@@ -268,10 +268,9 @@ if (fastifyInstance) {
         prefix: "/videos/",
         decorateReply: false,
         schemaHide: true,
-        cacheControl: true,
-        maxAge: "86400", // 24 horas em segundos
         setHeaders: (res: any, path: string) => {
             res.setHeader("Content-Type", "video/mp4")
+            res.setHeader("Cache-Control", "public, max-age=86400") // 24 horas
             res.setHeader("Accept-Ranges", "bytes") // Suporte a range requests para streaming
         },
     })
@@ -282,10 +281,9 @@ if (fastifyInstance) {
         prefix: "/thumbnails/",
         decorateReply: false,
         schemaHide: true,
-        cacheControl: true,
-        maxAge: "86400", // 24 horas em segundos
         setHeaders: (res: any, path: string) => {
             res.setHeader("Content-Type", "image/jpeg")
+            res.setHeader("Cache-Control", "public, max-age=86400") // 24 horas
         },
     })
 }
