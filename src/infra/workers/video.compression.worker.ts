@@ -218,18 +218,23 @@ export class VideoCompressionWorker {
     private async downloadVideo(url: string): Promise<Buffer> {
         try {
             // Se for URL local (localhost)
-            if (url && (url.includes("localhost") || url.startsWith("/uploads/") || url.startsWith("/storage/"))) {
+            if (
+                url &&
+                (url.includes("localhost") ||
+                    url.startsWith("/uploads/") ||
+                    url.startsWith("/storage/"))
+            ) {
                 const fs = await import("fs")
                 const path = await import("path")
 
-                // Extrair path do arquivo
+                // Extrair path do arquivo mantendo o diretório
                 let filePath: string
                 if (url.includes("localhost")) {
                     // Exemplo: http://localhost:3000/storage/videos/video_123.mp4
                     if (url.includes("/storage/videos/")) {
-                        filePath = url.split("/storage/videos/")[1]
+                        filePath = "videos/" + url.split("/storage/videos/")[1]
                     } else if (url.includes("/storage/thumbnails/")) {
-                        filePath = url.split("/storage/thumbnails/")[1]
+                        filePath = "thumbnails/" + url.split("/storage/thumbnails/")[1]
                     } else if (url.includes("/uploads/")) {
                         filePath = url.split("/uploads/")[1]
                     } else {
