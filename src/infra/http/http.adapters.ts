@@ -424,6 +424,7 @@ export class MockAdapter implements HttpAdapter {
         statusCode: number
         json(): any
         headers: Record<string, string>
+        rawPayload: Buffer
     }> {
         try {
             const mockRequest: HttpRequest = {
@@ -441,6 +442,7 @@ export class MockAdapter implements HttpAdapter {
                 statusCode: 200,
                 data: null,
                 headers: {} as Record<string, string>,
+                rawPayload: null as Buffer | null,
             }
 
             const mockResponse: HttpResponse = {
@@ -450,6 +452,10 @@ export class MockAdapter implements HttpAdapter {
                 },
                 send(data: any) {
                     mockResponseData.data = data
+                    // Se for um Buffer, armazenar também em rawPayload
+                    if (Buffer.isBuffer(data)) {
+                        mockResponseData.rawPayload = data
+                    }
                 },
                 header(name: string, value: string) {
                     mockResponseData.headers[name.toLowerCase()] = value
@@ -463,6 +469,59 @@ export class MockAdapter implements HttpAdapter {
             const onRequestHooks = this.hooks.get("onRequest") || []
             for (const hook of onRequestHooks) {
                 await hook(mockRequest, mockResponse)
+            }
+
+            // Verificar se é uma requisição para arquivo estático
+            if (options.url.startsWith("/storage/")) {
+                const filePath = options.url.replace("/storage/", "")
+                const fullPath = require("path").join(process.cwd(), "uploads", filePath)
+
+                // Verificar se o arquivo existe
+                if (require("fs").existsSync(fullPath)) {
+                    const fs = require("fs")
+                    const fileStats = fs.statSync(fullPath)
+                    const fileContent = fs.readFileSync(fullPath)
+
+                    // Configurar headers apropriados
+                    if (filePath.includes("videos/") || filePath.endsWith(".mp4")) {
+                        mockResponse.header("content-type", "video/mp4")
+                    } else if (filePath.includes("thumbnails/") || filePath.endsWith(".jpg") || filePath.endsWith(".jpeg")) {
+                        mockResponse.header("content-type", "image/jpeg")
+                    }
+                    mockResponse.header("content-length", String(fileStats.size))
+                    mockResponse.status(200)
+                    mockResponse.send(fileContent)
+
+                    // Executar hooks onSend
+                    const onSendHooks = this.hooks.get("onSend") || []
+                    for (const hook of onSendHooks) {
+                        await hook(mockRequest, mockResponse, fileContent)
+                    }
+
+                    return {
+                        statusCode: mockResponseData.statusCode,
+                        json: () => mockResponseData.data,
+                        headers: mockResponseData.headers,
+                        rawPayload: fileContent,
+                    }
+                } else {
+                    // Arquivo não encontrado
+                    mockResponse.status(404)
+                    mockResponse.send({
+                        statusCode: 404,
+                        error: "Not Found",
+                        message: `File not found: ${options.url}`,
+                        timestamp: new Date().toISOString(),
+                        path: options.url,
+                    })
+
+                    return {
+                        statusCode: 404,
+                        json: () => mockResponseData.data,
+                        headers: mockResponseData.headers,
+                        rawPayload: Buffer.from(""),
+                    }
+                }
             }
 
             // Buscar e executar a rota
@@ -501,6 +560,7 @@ export class MockAdapter implements HttpAdapter {
                 statusCode: mockResponseData.statusCode,
                 json: () => mockResponseData.data,
                 headers: mockResponseData.headers,
+                rawPayload: mockResponseData.rawPayload || Buffer.from(""),
             }
         } catch (error) {
             // Se a rota não existir, retornar 404
@@ -515,6 +575,7 @@ export class MockAdapter implements HttpAdapter {
                         path: options.url,
                     }),
                     headers: {},
+                    rawPayload: Buffer.from(""),
                 }
             }
             throw error

@@ -156,32 +156,6 @@ export class RecommendationEngine {
     }
 
     /**
-     * Processa uma interação de usuário
-     * Nota: A atualização de embeddings deve ser feita pela aplicação usando as entidades de domínio
-     */
-    async processInteraction(
-        userId: string,
-        momentId: string,
-        interactionType: string,
-    ): Promise<void> {
-        try {
-            // Salvar interação
-            await this.config.repositories.interaction.save({
-                id: `${userId}_${momentId}_${Date.now()}`,
-                userId,
-                momentId,
-                type: interactionType as any,
-                timestamp: new Date(),
-            })
-
-            // Nota: A atualização de embedding do usuário deve ser feita
-            // pela camada de aplicação usando a entidade User do domínio
-        } catch (error) {
-            console.error("Error processing interaction:", error)
-        }
-    }
-
-    /**
      * Re-clusteriza todos os momentos
      */
     async reclusterMoments(): Promise<void> {
@@ -224,7 +198,7 @@ export class RecommendationEngine {
     /**
      * Busca clusters (do cache ou re-clusteriza)
      */
-    private async getClusters(): Promise<Cluster[]> {
+    public async getClusters(): Promise<Cluster[]> {
         const clusters = await this.config.repositories.cluster.findAll()
 
         // Se não há clusters ou estão desatualizados, re-clusterizar
@@ -239,7 +213,7 @@ export class RecommendationEngine {
     /**
      * Constrói perfil do usuário
      */
-    private async buildUserProfile(userId: string): Promise<UserProfile> {
+    public async buildUserProfile(userId: string): Promise<UserProfile> {
         const interactions = await this.config.repositories.interaction.findByUserId(userId, 100)
 
         // Extrair interesses das interações
@@ -267,7 +241,7 @@ export class RecommendationEngine {
     /**
      * Gera razão para a recomendação
      */
-    private generateReason(candidate: any): string {
+    public generateReason(candidate: any): string {
         const scores = candidate.scores
 
         if (scores.relevance > 0.7) {

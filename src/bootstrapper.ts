@@ -7,8 +7,6 @@ import { resetSwaggerRegistration } from "@/infra/swagger/swagger.config"
 import { EmbeddingsWorker } from "@/infra/workers/embeddings.worker"
 import { VideoCompressionWorker } from "@/infra/workers/video.compression.worker"
 import { logger } from "@/shared/logger"
-import fastifyStatic from "@fastify/static"
-import path from "path"
 
 /**
  * Configurações de ambiente da aplicação
@@ -271,7 +269,6 @@ export class ApplicationBootstrapper {
             // Etapas do boot
             await this.executeBootStep("Database Connection", () => this.connectDatabase())
             await this.executeBootStep("Multipart Configuration", () => this.configureMultipart())
-            await this.executeBootStep("Static Files Setup", () => this.setupStaticFiles())
             await this.executeBootStep("Routes Setup", () => this.setupRoutes())
             await this.executeBootStep("Swagger Setup", () => this.setupSwagger())
             await this.executeBootStep("Server Startup", () => this.startServer())
@@ -366,35 +363,6 @@ export class ApplicationBootstrapper {
         }
     }
 
-    /**
-     * Configura servir arquivos estáticos (uploads)
-     */
-    private async setupStaticFiles(): Promise<void> {
-        try {
-            const fastifyInstance = (api as any).getFastifyInstance?.()
-
-            if (!fastifyInstance) {
-                throw new Error("Fastify instance not available")
-            }
-
-            // Registrar plugin para servir arquivos estáticos
-            await fastifyInstance.register(fastifyStatic, {
-                root: path.join(process.cwd(), "uploads"),
-                prefix: "/uploads/",
-                constraints: {},
-            })
-
-            this.log("info", "Static files configured", {
-                root: path.join(process.cwd(), "uploads"),
-                prefix: "/uploads/",
-            })
-        } catch (error) {
-            this.log("error", "Failed to configure static files", {
-                error: (error as Error).message,
-            })
-            throw error
-        }
-    }
 
     /**
      * Configura as rotas da aplicação

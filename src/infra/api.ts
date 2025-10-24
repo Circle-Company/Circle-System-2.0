@@ -259,7 +259,7 @@ api.get("/info", async (request: HttpRequest, response: HttpResponse) => {
 const fastifyInstance = api.getFastifyInstance?.()
 
 if (fastifyInstance) {
-    // Configurar arquivos estáticos para uploads
+    // Configurar arquivos estáticos para uploads - um único registro com prefix /storage/
     fastifyInstance.register(require("@fastify/static"), {
         root: uploadsDir,
         prefix: "/storage/",
@@ -270,34 +270,11 @@ if (fastifyInstance) {
             if (path.endsWith(".mp4") || path.endsWith(".webm") || path.endsWith(".mov")) {
                 res.setHeader("Content-Type", "video/mp4")
                 res.setHeader("Cache-Control", "public, max-age=86400") // 24 horas
+                res.setHeader("Accept-Ranges", "bytes") // Suporte a range requests para streaming
             } else if (path.endsWith(".jpg") || path.endsWith(".jpeg") || path.endsWith(".png")) {
                 res.setHeader("Content-Type", "image/jpeg")
                 res.setHeader("Cache-Control", "public, max-age=86400") // 24 horas
             }
-        },
-    })
-
-    // Rotas específicas para vídeos e thumbnails
-    fastifyInstance.register(require("@fastify/static"), {
-        root: videosDir,
-        prefix: "/storage/videos/",
-        decorateReply: false,
-        schemaHide: true,
-        setHeaders: (res: any) => {
-            res.setHeader("Content-Type", "video/mp4")
-            res.setHeader("Cache-Control", "public, max-age=86400") // 24 horas
-            res.setHeader("Accept-Ranges", "bytes") // Suporte a range requests para streaming
-        },
-    })
-
-    fastifyInstance.register(require("@fastify/static"), {
-        root: thumbnailsDir,
-        prefix: "/storage/thumbnails/",
-        decorateReply: false,
-        schemaHide: true,
-        setHeaders: (res: any) => {
-            res.setHeader("Content-Type", "image/jpeg")
-            res.setHeader("Cache-Control", "public, max-age=86400") // 24 horas
         },
     })
 }
