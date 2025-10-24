@@ -16,6 +16,7 @@ import { VideoCompressionQueue } from "@/infra/queue/video.compression.queue"
 import { logger } from "@/shared"
 import axios from "axios"
 import { Job } from "bull"
+import { networkInterfaces } from "os"
 
 export class VideoCompressionWorker {
     private videoProcessor: VideoProcessor
@@ -213,14 +214,37 @@ export class VideoCompressionWorker {
     }
 
     /**
+     * Obtém o IP da máquina
+     */
+    private getMachineIP(): string {
+        const interfaces = networkInterfaces()
+        for (const name of Object.keys(interfaces)) {
+            for (const iface of interfaces[name] || []) {
+                if (iface.family === "IPv4" && !iface.internal) {
+                    return iface.address
+                }
+            }
+        }
+        return "localhost"
+    }
+
+    /**
+     * Verifica se a URL é do IP da própria máquina
+     */
+    private isLocalMachineIP(url: string): boolean {
+        const machineIP = this.getMachineIP()
+        return url.includes(machineIP) || url.includes("localhost") || url.includes("127.0.0.1")
+    }
+
+    /**
      * Baixa vídeo do storage
      */
     private async downloadVideo(url: string): Promise<Buffer> {
         try {
-            // Se for URL local (localhost)
+            // Se for URL local (localhost, 127.0.0.1 ou IP da própria máquina)
             if (
                 url &&
-                (url.includes("localhost") ||
+                (this.isLocalMachineIP(url) ||
                     url.startsWith("/uploads/") ||
                     url.startsWith("/storage/"))
             ) {
@@ -229,8 +253,9 @@ export class VideoCompressionWorker {
 
                 // Extrair path do arquivo mantendo o diretório
                 let filePath: string
-                if (url.includes("localhost")) {
-                    // Exemplo: http://localhost:3000/storage/videos/video_123.mp4
+                if (this.isLocalMachineIP(url)) {
+                    // Exemplo: http://192.168.15.14:3000/storage/videos/video_123.mp4
+                    // ou http://localhost:3000/storage/videos/video_123.mp4
                     if (url.includes("/storage/videos/")) {
                         filePath = "videos/" + url.split("/storage/videos/")[1]
                     } else if (url.includes("/storage/thumbnails/")) {
@@ -249,6 +274,7 @@ export class VideoCompressionWorker {
 
                 // Verificar se arquivo existe
                 if (fs.existsSync(fullPath)) {
+                    console.log(`[VideoCompressionWorker] 📂 Lendo arquivo local: ${fullPath}`)
                     return fs.readFileSync(fullPath)
                 } else {
                     console.warn(`[VideoCompressionWorker] ⚠️ Arquivo não encontrado: ${fullPath}`)

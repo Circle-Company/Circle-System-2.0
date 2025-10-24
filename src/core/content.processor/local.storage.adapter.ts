@@ -7,8 +7,8 @@ import { existsSync, mkdirSync, writeFileSync } from "fs"
 import { StorageAdapter, StorageUploadResult } from "./type"
 
 import { logger } from "@/shared"
-import { join } from "path"
 import { networkInterfaces } from "os"
+import { join } from "path"
 
 interface StorageUploadOptions {
     mimeType: string
@@ -39,7 +39,7 @@ export class LocalStorageAdapter implements StorageAdapter {
 
     constructor(baseDir: string = "./uploads", baseUrl?: string) {
         this.baseDir = baseDir
-        
+
         // Se baseUrl não foi fornecido, usar IP da máquina
         if (!baseUrl) {
             const machineIP = getMachineIP()
@@ -49,7 +49,7 @@ export class LocalStorageAdapter implements StorageAdapter {
             // Garantir que baseUrl não tenha /uploads no final
             this.baseUrl = baseUrl.replace(/\/uploads$/, "")
         }
-        
+
         this.video_filename = ""
         this.thumbnail_filename = ""
 
