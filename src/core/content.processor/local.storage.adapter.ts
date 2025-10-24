@@ -207,18 +207,72 @@ export class LocalStorageAdapter implements StorageAdapter {
      * Delete de vídeo
      */
     async deleteVideo(baseKey: string): Promise<void> {
-        const filename = `${baseKey.replace(/\//g, "_")}.mp4`
-        console.log(`[LocalStorage] 🗑️  Deletando vídeo: ${filename} (BaseKey: ${baseKey})`)
-        // TODO: Implementar delete real se necessário
+        try {
+            // Normalizar baseKey: remover prefixos e extensões duplicadas
+            let filePath = baseKey
+            
+            // Se contém "storage/videos/", extrair apenas o nome do arquivo
+            if (filePath.includes("storage/videos/")) {
+                filePath = filePath.split("storage/videos/")[1]
+            } else if (filePath.includes("videos/")) {
+                filePath = filePath.split("videos/")[1]
+            }
+            
+            // Se já tem extensão .mp4, não adicionar novamente
+            const filename = filePath.endsWith(".mp4") ? filePath : `${filePath}.mp4`
+            const fullPath = join(this.baseDir, "videos", filename)
+            
+            console.log(`[LocalStorage] 🗑️  Deletando vídeo: ${filename} (BaseKey: ${baseKey})`)
+            
+            // Implementar delete real
+            if (existsSync(fullPath)) {
+                const fs = await import("fs")
+                fs.unlinkSync(fullPath)
+                console.log(`[LocalStorage] ✅ Vídeo deletado: ${fullPath}`)
+            } else {
+                console.warn(`[LocalStorage] ⚠️ Arquivo não encontrado para deletar: ${fullPath}`)
+            }
+        } catch (error) {
+            console.error(`[LocalStorage] ❌ Erro ao deletar vídeo:`, error)
+            throw error
+        }
     }
 
     /**
      * Delete de thumbnail
      */
     async deleteThumbnail(baseKey: string): Promise<void> {
-        const filename = `${baseKey.replace(/\//g, "_")}.jpg`
-        console.log(`[LocalStorage] 🗑️  Deletando thumbnail: ${filename} (BaseKey: ${baseKey})`)
-        // TODO: Implementar delete real se necessário
+        try {
+            // Normalizar baseKey: remover prefixos e extensões duplicadas
+            let filePath = baseKey
+            
+            // Se contém "storage/thumbnails/", extrair apenas o nome do arquivo
+            if (filePath.includes("storage/thumbnails/")) {
+                filePath = filePath.split("storage/thumbnails/")[1]
+            } else if (filePath.includes("thumbnails/")) {
+                filePath = filePath.split("thumbnails/")[1]
+            }
+            
+            // Se já tem extensão .jpg, não adicionar novamente
+            const filename = filePath.endsWith(".jpg") || filePath.endsWith(".jpeg") 
+                ? filePath 
+                : `${filePath}.jpg`
+            const fullPath = join(this.baseDir, "thumbnails", filename)
+            
+            console.log(`[LocalStorage] 🗑️  Deletando thumbnail: ${filename} (BaseKey: ${baseKey})`)
+            
+            // Implementar delete real
+            if (existsSync(fullPath)) {
+                const fs = await import("fs")
+                fs.unlinkSync(fullPath)
+                console.log(`[LocalStorage] ✅ Thumbnail deletado: ${fullPath}`)
+            } else {
+                console.warn(`[LocalStorage] ⚠️ Arquivo não encontrado para deletar: ${fullPath}`)
+            }
+        } catch (error) {
+            console.error(`[LocalStorage] ❌ Erro ao deletar thumbnail:`, error)
+            throw error
+        }
     }
 
     /**

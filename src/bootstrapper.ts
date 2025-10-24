@@ -420,7 +420,7 @@ export class ApplicationBootstrapper {
      * Inicia o servidor HTTP
      */
     private async startServer(): Promise<void> {
-        await api.listen({ port: this.config.port })
+        await api.listen({ port: this.config.port, host: "0.0.0.0" })
 
         this.log("info", "HTTP server started successfully", {
             port: this.config.port,

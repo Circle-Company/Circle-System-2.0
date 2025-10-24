@@ -223,14 +223,16 @@ export class VideoCompressionWorker {
         try {
             console.log(`[VideoCompressionWorker] 📥 Download solicitado: ${url}`)
             console.log(`[VideoCompressionWorker] 🔍 IP da máquina: ${this.machineIP}`)
-            
+
             // Converter URL com IP da máquina para localhost se necessário
             const localUrl = this.convertToLocalhostIfNeeded(url)
-            
+
             if (url !== localUrl) {
-                console.log(`[VideoCompressionWorker] 🔄 URL convertida para localhost: ${localUrl}`)
+                console.log(
+                    `[VideoCompressionWorker] 🔄 URL convertida para localhost: ${localUrl}`,
+                )
             }
-            
+
             // Se for URL local (localhost ou IP da máquina)
             if (
                 localUrl &&
@@ -265,7 +267,13 @@ export class VideoCompressionWorker {
                 // Verificar se arquivo existe
                 if (fs.existsSync(fullPath)) {
                     const fileData = fs.readFileSync(fullPath)
-                    console.log(`[VideoCompressionWorker] ✅ Arquivo baixado: ${(fileData.length / 1024 / 1024).toFixed(2)}MB`)
+                    console.log(
+                        `[VideoCompressionWorker] ✅ Arquivo baixado: ${(
+                            fileData.length /
+                            1024 /
+                            1024
+                        ).toFixed(2)}MB`,
+                    )
                     return fileData
                 } else {
                     console.warn(`[VideoCompressionWorker] ⚠️ Arquivo não encontrado: ${fullPath}`)
@@ -321,6 +329,16 @@ export class VideoCompressionWorker {
         try {
             if (!url) return null
 
+            // Para URLs locais com storage/videos/, extrair apenas o nome do arquivo
+            if (url.includes("/storage/videos/")) {
+                return url.split("/storage/videos/")[1]
+            }
+            
+            // Para URLs locais com storage/thumbnails/, extrair apenas o nome do arquivo
+            if (url.includes("/storage/thumbnails/")) {
+                return url.split("/storage/thumbnails/")[1]
+            }
+
             // Para URLs locais, extrair path após /uploads/
             if (url.includes("/uploads/")) {
                 return url.split("/uploads/")[1]
@@ -329,7 +347,14 @@ export class VideoCompressionWorker {
             // Para URLs externas, tentar extrair key do path
             if (url.startsWith("http")) {
                 const urlObj = new URL(url)
-                return urlObj.pathname.substring(1) // Remove leading slash
+                const pathname = urlObj.pathname.substring(1) // Remove leading slash
+                
+                // Se contém storage/videos/, extrair apenas o arquivo
+                if (pathname.includes("storage/videos/")) {
+                    return pathname.split("storage/videos/")[1]
+                }
+                
+                return pathname
             }
 
             // Se não for URL válida, retornar null
