@@ -157,9 +157,8 @@ api.addHook("onSend", async (request: HttpRequest, response: HttpResponse, paylo
         "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none';",
     )
 
-    // Headers de cache baseados no método HTTP
-    // Não sobrescrever cache para arquivos estáticos (o @fastify/static já define)
-    if (!request.url.startsWith("/videos/") && !request.url.startsWith("/thumbnails/")) {
+    // Headers de cache para rotas da API (arquivos estáticos já têm cache definido no setHeaders)
+    if (!request.url.startsWith("/videos/") && !request.url.startsWith("/thumbnails/") && !request.url.startsWith("/storage/")) {
         if (request.method === "GET") {
             response.header("Cache-Control", "public, max-age=300")
         } else {
