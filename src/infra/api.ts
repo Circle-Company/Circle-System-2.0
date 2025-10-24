@@ -158,7 +158,7 @@ api.addHook("onSend", async (request: HttpRequest, response: HttpResponse, paylo
     )
 
     // Headers de cache para rotas da API (arquivos estáticos já têm cache definido no setHeaders)
-    if (!request.url.startsWith("/videos/") && !request.url.startsWith("/thumbnails/") && !request.url.startsWith("/storage/")) {
+    if (!request.url.startsWith("/storage/")) {
         if (request.method === "GET") {
             response.header("Cache-Control", "public, max-age=300")
         } else {
@@ -261,10 +261,10 @@ api.get("/info", async (request: HttpRequest, response: HttpResponse) => {
 const fastifyInstance = api.getFastifyInstance?.()
 
 if (fastifyInstance) {
-    // Configurar vídeos para serem servidos diretamente em /videos/
+    // Configurar vídeos para serem servidos em /storage/videos/
     fastifyInstance.register(require("@fastify/static"), {
         root: videosDir,
-        prefix: "/videos/",
+        prefix: "/storage/videos/",
         decorateReply: false,
         schemaHide: true,
         setHeaders: (res: any, path: string) => {
@@ -274,10 +274,10 @@ if (fastifyInstance) {
         },
     })
 
-    // Configurar thumbnails para serem servidos diretamente em /thumbnails/
+    // Configurar thumbnails para serem servidos em /storage/thumbnails/
     fastifyInstance.register(require("@fastify/static"), {
         root: thumbnailsDir,
-        prefix: "/thumbnails/",
+        prefix: "/storage/thumbnails/",
         decorateReply: false,
         schemaHide: true,
         setHeaders: (res: any, path: string) => {
