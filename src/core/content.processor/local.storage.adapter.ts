@@ -47,8 +47,8 @@ export class LocalStorageAdapter implements StorageAdapter {
             // Salvar arquivo
             writeFileSync(filePath, videoData)
 
-            // URL deve usar /storage/ como prefix conforme configurado em api.ts
-            const url = `${this.baseUrl}/storage/videos/${this.video_filename}`
+            // URL sem prefix /storage/
+            const url = `${this.baseUrl}/videos/${this.video_filename}`
 
             return {
                 success: true,
@@ -120,8 +120,8 @@ export class LocalStorageAdapter implements StorageAdapter {
             // Salvar arquivo
             writeFileSync(filePath, imageData)
 
-            // URL deve usar /storage/ como prefix conforme configurado em api.ts
-            const url = `${this.baseUrl}/storage/thumbnails/${this.thumbnail_filename}`
+            // URL sem prefix /storage/
+            const url = `${this.baseUrl}/thumbnails/${this.thumbnail_filename}`
 
             console.log(
                 `[LocalStorage] ✅ Thumbnail salva: ${this.thumbnail_filename} (${(
@@ -200,8 +200,7 @@ export class LocalStorageAdapter implements StorageAdapter {
      */
     async getVideoUrl(baseKey: string, quality?: "low" | "medium" | "high"): Promise<string> {
         const filename = `${baseKey.replace(/\//g, "_")}.mp4`
-        // URL deve usar /storage/ como prefix conforme configurado em api.ts
-        return `${this.baseUrl}/storage/videos/${filename}`
+        return `${this.baseUrl}/videos/${filename}`
     }
 
     /**
@@ -209,8 +208,7 @@ export class LocalStorageAdapter implements StorageAdapter {
      */
     async getThumbnailUrl(baseKey: string): Promise<string> {
         const filename = `${baseKey.replace(/\//g, "_")}.jpg`
-        // URL deve usar /storage/ como prefix conforme configurado em api.ts
-        return `${this.baseUrl}/storage/thumbnails/${filename}`
+        return `${this.baseUrl}/thumbnails/${filename}`
     }
 
     /**
