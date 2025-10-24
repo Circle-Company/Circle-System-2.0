@@ -485,7 +485,11 @@ export class MockAdapter implements HttpAdapter {
                     // Configurar headers apropriados
                     if (filePath.includes("videos/") || filePath.endsWith(".mp4")) {
                         mockResponse.header("content-type", "video/mp4")
-                    } else if (filePath.includes("thumbnails/") || filePath.endsWith(".jpg") || filePath.endsWith(".jpeg")) {
+                    } else if (
+                        filePath.includes("thumbnails/") ||
+                        filePath.endsWith(".jpg") ||
+                        filePath.endsWith(".jpeg")
+                    ) {
                         mockResponse.header("content-type", "image/jpeg")
                     }
                     mockResponse.header("content-length", String(fileStats.size))

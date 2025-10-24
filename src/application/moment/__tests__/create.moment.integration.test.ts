@@ -167,7 +167,7 @@ describe("Integração: Criação Completa de Moment", () => {
         metricsService = new MomentMetricsService(metricsRepository)
 
         // Criar storage adapter REAL
-        storageAdapter = new LocalStorageAdapter(testStorageDir, "http://localhost:3000/uploads")
+        storageAdapter = new LocalStorageAdapter(testStorageDir, "http://localhost:3000")
 
         // Criar ContentProcessor REAL com moderação mockada
         contentProcessor = new ContentProcessor(

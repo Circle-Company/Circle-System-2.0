@@ -363,7 +363,6 @@ export class ApplicationBootstrapper {
         }
     }
 
-
     /**
      * Configura as rotas da aplicação
      */

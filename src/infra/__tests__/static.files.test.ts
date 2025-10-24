@@ -1,10 +1,9 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 
-import { join } from "path"
-
-// Importar api diretamente
 import { api } from "../api"
+// Importar api diretamente
+import { join } from "path"
 
 describe("Static Files Serving", () => {
     const testVideoPath = join(process.cwd(), "uploads", "videos", "test-video.mp4")
