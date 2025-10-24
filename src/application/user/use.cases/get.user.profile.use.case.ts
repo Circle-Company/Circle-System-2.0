@@ -64,7 +64,7 @@ export interface GetUserProfileRequest {
 
 export interface GetUserProfileResponse {
     success: boolean
-    user?: UserProfile
+    profile?: UserProfile
     error?: string
 }
 
@@ -137,7 +137,7 @@ export class GetUserProfileUseCase {
 
             return {
                 success: true,
-                user: userProfile,
+                profile: userProfile,
             }
         } catch (error: any) {
             console.error("Error getting user profile:", error)
