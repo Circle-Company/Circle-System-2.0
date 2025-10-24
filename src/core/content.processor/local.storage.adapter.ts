@@ -8,10 +8,27 @@ import { StorageAdapter, StorageUploadResult } from "./type"
 
 import { logger } from "@/shared"
 import { join } from "path"
+import { networkInterfaces } from "os"
 
 interface StorageUploadOptions {
     mimeType: string
     metadata?: Record<string, any>
+}
+
+/**
+ * Obtém o IP da máquina
+ */
+function getMachineIP(): string {
+    const interfaces = networkInterfaces()
+    for (const name of Object.keys(interfaces)) {
+        for (const iface of interfaces[name] || []) {
+            // Ignorar endereços internos e IPv6
+            if (iface.family === "IPv4" && !iface.internal) {
+                return iface.address
+            }
+        }
+    }
+    return "localhost"
 }
 
 export class LocalStorageAdapter implements StorageAdapter {
@@ -20,10 +37,19 @@ export class LocalStorageAdapter implements StorageAdapter {
     private video_filename: string
     private thumbnail_filename: string
 
-    constructor(baseDir: string = "./uploads", baseUrl: string = "http://localhost:3000") {
+    constructor(baseDir: string = "./uploads", baseUrl?: string) {
         this.baseDir = baseDir
-        // Garantir que baseUrl não tenha /uploads no final
-        this.baseUrl = baseUrl.replace(/\/uploads$/, "")
+        
+        // Se baseUrl não foi fornecido, usar IP da máquina
+        if (!baseUrl) {
+            const machineIP = getMachineIP()
+            const port = process.env.PORT || "3000"
+            this.baseUrl = `http://${machineIP}:${port}`
+        } else {
+            // Garantir que baseUrl não tenha /uploads no final
+            this.baseUrl = baseUrl.replace(/\/uploads$/, "")
+        }
+        
         this.video_filename = ""
         this.thumbnail_filename = ""
 
