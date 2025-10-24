@@ -1,14 +1,15 @@
-import { MomentMetricsService } from "@/application/moment/services/moment.metrics.service"
-import { MomentService } from "@/application/moment/services/moment.service"
-import { GetUserMomentsUseCase } from "@/application/moment/use.cases/get.user.moments.use.case"
-import { GetUserProfileUseCase } from "@/application/user/use.cases/get.user.profile.use.case"
-import { IMomentRepository } from "@/domain/moment"
-import { IMomentMetricsRepository } from "@/domain/moment/repositories/moment.metrics.repository"
-import { UserRepository } from "@/domain/user"
-import { UserController } from "@/infra/controllers/user.controller"
-import { DatabaseAdapter } from "@/infra/database/adapter"
-import { MomentMetricsRepositoryImpl } from "@/infra/repository.impl/moment.metrics.repository.impl"
-import { MomentRepositoryImpl } from "@/infra/repository.impl/moment.repository.impl"
+import { MomentMetricsService } from "../../application/moment/services/moment.metrics.service"
+import { MomentService } from "../../application/moment/services/moment.service"
+import { GetUserMomentsUseCase } from "../../application/moment/use.cases/get.user.moments.use.case"
+import { GetUserAccountUseCase } from "../../application/user/use.cases/get.user.account.use.case"
+import { GetUserProfileUseCase } from "../../application/user/use.cases/get.user.profile.use.case"
+import { IMomentRepository } from "../../domain/moment"
+import { IMomentMetricsRepository } from "../../domain/moment/repositories/moment.metrics.repository"
+import { UserRepository } from "../../domain/user"
+import { UserController } from "../controllers/user.controller"
+import { DatabaseAdapter } from "../database/adapter"
+import { MomentMetricsRepositoryImpl } from "../repository.impl/moment.metrics.repository.impl"
+import { MomentRepositoryImpl } from "../repository.impl/moment.repository.impl"
 
 /**
  * Factory para criar componentes relacionados ao usuário
@@ -51,7 +52,7 @@ export class UserFactory {
         const metricsService = this.createMomentMetricsService(database)
 
         // Importar StorageAdapterFactory dinamicamente para evitar circular dependency
-        const { StorageAdapterFactory } = require("@/core/content.processor/storage.adapter")
+        const { StorageAdapterFactory } = require("../../core/content.processor/storage.adapter")
         const storageAdapter = StorageAdapterFactory.create("local")
 
         return new MomentService(
@@ -71,19 +72,29 @@ export class UserFactory {
     }
 
     /**
+     * Cria GetUserAccountUseCase com UserRepository
+     */
+    static createGetUserAccountUseCase(userRepository: UserRepository): GetUserAccountUseCase {
+        return new GetUserAccountUseCase(userRepository)
+    }
+
+    /**
      * Cria GetUserMomentsUseCase com DatabaseAdapter
      */
     static createGetUserMomentsUseCase(database: DatabaseAdapter): GetUserMomentsUseCase {
         const momentRepository = this.createMomentRepository(database)
-        const momentService = this.createMomentService(database)
-        return new GetUserMomentsUseCase(momentRepository, momentService)
+        const userRepository = this.createUserRepository(database)
+        return new GetUserMomentsUseCase(momentRepository, userRepository)
     }
 
     /**
-     * Cria um UserController com GetUserProfileUseCase e GetUserMomentsUseCase
+     * Cria um UserController com GetUserProfileUseCase e GetUserAccountUseCase
      */
-    static createUserController(getUserProfileUseCase: GetUserProfileUseCase): UserController {
-        return new UserController(getUserProfileUseCase)
+    static createUserController(
+        getUserProfileUseCase: GetUserProfileUseCase,
+        getUserAccountUseCase: GetUserAccountUseCase,
+    ): UserController {
+        return new UserController(getUserProfileUseCase, getUserAccountUseCase)
     }
 
     /**
@@ -92,7 +103,8 @@ export class UserFactory {
     static createUserControllerWithDeps(database: DatabaseAdapter): UserController {
         const userRepository = this.createUserRepository(database)
         const getUserProfileUseCase = this.createGetUserProfileUseCase(userRepository)
-        return this.createUserController(getUserProfileUseCase)
+        const getUserAccountUseCase = this.createGetUserAccountUseCase(userRepository)
+        return this.createUserController(getUserProfileUseCase, getUserAccountUseCase)
     }
 
     /**
@@ -125,7 +137,11 @@ export class UserFactory {
     } {
         const userRepository = this.createUserRepository(database)
         const getUserProfileUseCase = this.createGetUserProfileUseCase(userRepository)
-        const userController = this.createUserController(getUserProfileUseCase)
+        const getUserAccountUseCase = this.createGetUserAccountUseCase(userRepository)
+        const userController = this.createUserController(
+            getUserProfileUseCase,
+            getUserAccountUseCase,
+        )
 
         return {
             userRepository,
@@ -168,7 +184,11 @@ export class UserFactory {
     } {
         const userRepository = this.createUserPermissionRepository(database)
         const getUserProfileUseCase = this.createGetUserProfileUseCase(userRepository)
-        const userController = this.createUserController(getUserProfileUseCase)
+        const getUserAccountUseCase = this.createGetUserAccountUseCase(userRepository)
+        const userController = this.createUserController(
+            getUserProfileUseCase,
+            getUserAccountUseCase,
+        )
 
         return {
             userRepository,
@@ -185,7 +205,11 @@ export class UserFactory {
     } {
         const userRepository = this.createUserMetricsRepository(database)
         const getUserProfileUseCase = this.createGetUserProfileUseCase(userRepository)
-        const userController = this.createUserController(getUserProfileUseCase)
+        const getUserAccountUseCase = this.createGetUserAccountUseCase(userRepository)
+        const userController = this.createUserController(
+            getUserProfileUseCase,
+            getUserAccountUseCase,
+        )
 
         return {
             userRepository,
@@ -202,7 +226,11 @@ export class UserFactory {
     } {
         const userRepository = this.createUserAdminRepository(database)
         const getUserProfileUseCase = this.createGetUserProfileUseCase(userRepository)
-        const userController = this.createUserController(getUserProfileUseCase)
+        const getUserAccountUseCase = this.createGetUserAccountUseCase(userRepository)
+        const userController = this.createUserController(
+            getUserProfileUseCase,
+            getUserAccountUseCase,
+        )
 
         return {
             userRepository,
@@ -219,7 +247,11 @@ export class UserFactory {
     } {
         const userRepository = this.createUserRepository(database)
         const getUserProfileUseCase = this.createGetUserProfileUseCase(userRepository)
-        const userController = this.createUserController(getUserProfileUseCase)
+        const getUserAccountUseCase = this.createGetUserAccountUseCase(userRepository)
+        const userController = this.createUserController(
+            getUserProfileUseCase,
+            getUserAccountUseCase,
+        )
 
         return {
             userRepository,
@@ -240,8 +272,10 @@ export const createUser = {
     /**
      * Cria UserController para produção
      */
-    controller: (getUserProfileUseCase: GetUserProfileUseCase) =>
-        UserFactory.createUserController(getUserProfileUseCase),
+    controller: (
+        getUserProfileUseCase: GetUserProfileUseCase,
+        getUserAccountUseCase: GetUserAccountUseCase,
+    ) => UserFactory.createUserController(getUserProfileUseCase, getUserAccountUseCase),
 
     /**
      * Cria UserController completo com dependências

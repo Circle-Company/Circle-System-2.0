@@ -1,4 +1,8 @@
 import {
+    GetUserAccountUseCase,
+    UserAccount,
+} from "@/application/user/use.cases/get.user.account.use.case"
+import {
     GetUserProfileUseCase,
     UserProfile,
 } from "@/application/user/use.cases/get.user.profile.use.case"
@@ -117,7 +121,10 @@ export interface UserResponse {
 }
 
 export class UserController {
-    constructor(private readonly getUserProfileUseCase: GetUserProfileUseCase) {}
+    constructor(
+        private readonly getUserProfileUseCase: GetUserProfileUseCase,
+        private readonly getUserAccountUseCase: GetUserAccountUseCase,
+    ) {}
 
     /**
      * Obtém perfil público do usuário
@@ -128,28 +135,25 @@ export class UserController {
             requestingUserId,
         })
 
-        if (!profileResult.success || !profileResult.user) {
+        if (!profileResult.success || !profileResult.profile) {
             console.error("Failed to get public profile:", profileResult.error)
             return null
         }
 
-        return profileResult.user
+        return profileResult.profile
     }
 
     /**
      * Obtém dados da conta do usuário autenticado
      */
-    async getAccount(userId: string, requestingUserId?: string): Promise<UserProfile | null> {
-        const result = await this.getUserProfileUseCase.execute({
-            userId,
-            requestingUserId: requestingUserId || userId,
-        })
+    async getAccount(userId: string): Promise<UserAccount | null> {
+        const result = await this.getUserAccountUseCase.execute(userId)
 
-        if (!result.success || !result.user) {
+        if (!result.success || !result.account) {
             console.error("Failed to get account:", result.error)
             return null
         }
 
-        return result.user
+        return result.account
     }
 }

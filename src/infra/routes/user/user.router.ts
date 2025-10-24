@@ -44,21 +44,18 @@ export class UserRouter {
                     if (!request.user) {
                         return response.status(401).send({
                             success: false,
-                            error: "Usuário não autenticado",
+                            error: "User not authenticated",
                             code: "AUTHENTICATION_REQUIRED",
                             timestamp: new Date().toISOString(),
                         })
                     }
 
-                    const userData = await this.userController.getAccount(
-                        request.user.id,
-                        request.user.id,
-                    )
+                    const userData = await this.userController.getAccount(request.user.id)
 
                     if (!userData) {
                         return response.status(404).send({
                             success: false,
-                            error: "Usuário não encontrado",
+                            error: "User not found",
                             code: "USER_NOT_FOUND",
                             timestamp: new Date().toISOString(),
                         })
@@ -72,7 +69,7 @@ export class UserRouter {
                 } catch (error) {
                     response.status(500).send({
                         success: false,
-                        error: error instanceof Error ? error.message : "Erro interno do servidor",
+                        error: error instanceof Error ? error.message : "Internal server error",
                         code: "INTERNAL_ERROR",
                         timestamp: new Date().toISOString(),
                     })
