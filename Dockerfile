@@ -11,8 +11,10 @@ RUN apk add --no-cache \
     g++
 
 # Copiar arquivos de dependências
-COPY package*.json ./ 
-COPY tsconfig*.json ./
+COPY package.json ./
+COPY package-lock.json ./
+COPY tsconfig.json ./
+COPY tsconfig.build.json ./
 COPY tsc-alias.json ./
 
 # Instalar dependências (incluindo devDependencies para build)
