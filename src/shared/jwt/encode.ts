@@ -156,6 +156,9 @@ export async function jwtEncoder({
 
         return token
     } catch (error) {
+        console.error("❌ Erro ao gerar JWT:", error)
+        console.error("📍 Stack JWT:", (error as any)?.stack)
+        
         // Re-throw erros customizados sem modificação
         if (error instanceof ValidationError || error instanceof NotFoundError) {
             throw error
