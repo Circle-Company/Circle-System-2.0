@@ -5,7 +5,7 @@ import {
     UserTerm,
 } from "@/domain/user/types/user.type"
 
-import { Device } from "./auth.type"
+import { Device } from "@/domain/authorization/authorization.type"
 import { UserMetrics } from "../user/entities/user.metrics.entity"
 
 export interface SignRequest {

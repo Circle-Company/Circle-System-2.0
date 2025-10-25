@@ -1,6 +1,7 @@
 import SignLog, { SignLogAttributes, SignType } from "@/infra/models/auth/sign.logs.model"
 import { Op, literal } from "sequelize"
-import { AuthLogStatus, AuthLogType, Device, SecurityRisk, SignStatus } from "./auth.type"
+import { AuthLogStatus, AuthLogType, SecurityRisk, SignStatus } from "./auth.type"
+import { Device } from "@/domain/authorization/authorization.type"
 
 import { DatabaseAdapter } from "@/infra/database/adapter"
 import { logger } from "@/shared"

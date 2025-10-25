@@ -36,7 +36,7 @@ function addJsExtensions(dir) {
                 const cleanPath = importPath.endsWith(".js") ? importPath.slice(0, -3) : importPath
                 const fileDir = path.dirname(fullPath)
                 const resolvedPath = path.resolve(fileDir, cleanPath)
-                
+
                 // Verificar se é um diretório com index.js
                 if (fs.existsSync(resolvedPath) && fs.statSync(resolvedPath).isDirectory()) {
                     const indexPath = path.join(resolvedPath, "index.js")
@@ -51,7 +51,7 @@ function addJsExtensions(dir) {
                     modified = true
                     return `from '${importPath}.js'`
                 }
-                
+
                 return match
             })
 
@@ -66,7 +66,7 @@ function addJsExtensions(dir) {
                     // Verificar se é um diretório com index.js
                     const fileDir = path.dirname(fullPath)
                     const resolvedPath = path.resolve(fileDir, importPath)
-                    
+
                     if (fs.existsSync(resolvedPath) && fs.statSync(resolvedPath).isDirectory()) {
                         const indexPath = path.join(resolvedPath, "index.js")
                         if (fs.existsSync(indexPath)) {
