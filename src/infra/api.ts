@@ -1,10 +1,10 @@
 import { HttpRequest, HttpResponse } from "@/infra/http/http.type"
 import { extractErrorInfo, generateId, isBaseError, logger } from "@/shared"
 import { existsSync, mkdirSync } from "fs"
-import { networkInterfaces } from "os"
 
 import { ENABLE_LOGGING } from "@/infra/database/environment"
 import { HttpFactory } from "@/infra/http/http.factory"
+import { networkInterfaces } from "os"
 import { join } from "path"
 
 /**

@@ -29,32 +29,52 @@ services:
     api:
         container_name: circle-system
         build:
-            context: . # Diretório onde está o Dockerfile
+            context: .
             dockerfile: Dockerfile
-            target: build
+            target: production
         ports:
             - "3000:3000"
         environment:
-            NODE_ENV: development
+            NODE_ENV: production
             PORT: 3000
-            RATE_LIMIT: 1000 #1 segundo
-            RATE_LIMIT_TIME_WINDOW: 60000 #1 minuto
+            HOST: 0.0.0.0
+            RATE_LIMIT: 1000
+            RATE_LIMIT_TIME_WINDOW: 60000
             MAX_PARAM_LENGTH: 200
-            BODY_LIMIT: 1048576 #1MB
-            CONNECTION_TIMEOUT: 30000 #30 segundos
-            KEEP_ALIVE_TIMEOUT: 5000 #30 segundos
+            BODY_LIMIT: 1048576
+            CONNECTION_TIMEOUT: 30000
+            KEEP_ALIVE_TIMEOUT: 5000
             CORS_ORIGIN: http://localhost:3000
             ENABLE_LOGGER: true
-            LOGGER_NAME: ACA-01
+            LOGGER_NAME: circle-system
+            DB_HOST: postgres
+            DB_PORT: 5432
+            DB_USER: admin
+            DB_PASSWORD: admin
+            DB_NAME: circle_db
+            REDIS_HOST: redis
+            REDIS_PORT: 6379
         env_file:
             - path: ./.env
-              required: true
+              required: false
         volumes:
-            - ./.env:/app/.env # Monta o .env corretamente dentro do container
-        command: npm run build
+            - uploads_data:/app/uploads
+            - models_data:/app/models
         depends_on:
-            - postgres
+            postgres:
+                condition: service_started
+            redis:
+                condition: service_healthy
+        restart: unless-stopped
+        healthcheck:
+            test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 40s
 
 volumes:
     postgres_data:
     redis_data:
+    uploads_data:
+    models_data:
