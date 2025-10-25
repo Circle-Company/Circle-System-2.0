@@ -474,11 +474,12 @@ export class MockAdapter implements HttpAdapter {
             // Verificar se é uma requisição para arquivo estático
             if (options.url.startsWith("/storage/")) {
                 const filePath = options.url.replace("/storage/", "")
-                const fullPath = require("path").join(process.cwd(), "uploads", filePath)
+                const path = await import("path")
+                const fs = await import("fs")
+                const fullPath = path.join(process.cwd(), "uploads", filePath)
 
                 // Verificar se o arquivo existe
-                if (require("fs").existsSync(fullPath)) {
-                    const fs = require("fs")
+                if (fs.existsSync(fullPath)) {
                     const fileStats = fs.statSync(fullPath)
                     const fileContent = fs.readFileSync(fullPath)
 

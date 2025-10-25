@@ -1,11 +1,12 @@
 import { HttpRequest, HttpResponse } from "@/infra/http/http.type"
 import { extractErrorInfo, generateId, isBaseError, logger } from "@/shared"
-import { existsSync, mkdirSync } from "fs"
+import { existsSync, mkdirSync, readdirSync, statSync } from "fs"
 
 import { ENABLE_LOGGING } from "@/infra/database/environment"
 import { HttpFactory } from "@/infra/http/http.factory"
 import { networkInterfaces } from "os"
 import { join } from "path"
+import fastifyStatic from "@fastify/static"
 
 /**
  * Obtém o IP da máquina
@@ -279,7 +280,7 @@ const fastifyInstance = api.getFastifyInstance?.()
 
 if (fastifyInstance) {
     // Configurar vídeos para serem servidos em /storage/videos/
-    fastifyInstance.register(require("@fastify/static"), {
+    fastifyInstance.register(fastifyStatic, {
         root: videosDir,
         prefix: "/storage/videos/",
         decorateReply: false,
@@ -292,7 +293,7 @@ if (fastifyInstance) {
     })
 
     // Configurar thumbnails para serem servidos em /storage/thumbnails/
-    fastifyInstance.register(require("@fastify/static"), {
+    fastifyInstance.register(fastifyStatic, {
         root: thumbnailsDir,
         prefix: "/storage/thumbnails/",
         decorateReply: false,
@@ -307,7 +308,6 @@ if (fastifyInstance) {
 // Endpoint para listar arquivos disponíveis (apenas para desenvolvimento)
 if (ENV_CONFIG.environment === "development") {
     api.get("/storage/list", async (request: HttpRequest, response: HttpResponse) => {
-        const { readdirSync, statSync } = require("fs")
 
         try {
             const listFiles = (dir: string, basePath: string = ""): any[] => {
