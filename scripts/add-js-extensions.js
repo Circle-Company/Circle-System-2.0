@@ -25,28 +25,59 @@ function addJsExtensions(dir) {
             let content = fs.readFileSync(fullPath, "utf8")
             let modified = false
 
-            // Adicionar .js em imports relativos que não têm extensão
-            content = content.replace(
-                /from\s+['"](\.[^'"]+)['"]/g,
-                (match, importPath) => {
-                    if (!importPath.endsWith(".js") && !importPath.endsWith(".json")) {
-                        modified = true
-                        return `from '${importPath}.js'`
-                    }
+            // Adicionar .js ou /index.js em imports relativos
+            content = content.replace(/from\s+['"](\.[^'"]+)['"]/g, (match, importPath) => {
+                // Já tem extensão correta
+                if (importPath.endsWith("/index.js") || importPath.endsWith(".json")) {
                     return match
                 }
-            )
+
+                // Remover .js temporariamente para verificar se é diretório
+                const cleanPath = importPath.endsWith(".js") ? importPath.slice(0, -3) : importPath
+                const fileDir = path.dirname(fullPath)
+                const resolvedPath = path.resolve(fileDir, cleanPath)
+                
+                // Verificar se é um diretório com index.js
+                if (fs.existsSync(resolvedPath) && fs.statSync(resolvedPath).isDirectory()) {
+                    const indexPath = path.join(resolvedPath, "index.js")
+                    if (fs.existsSync(indexPath)) {
+                        modified = true
+                        return `from '${cleanPath}/index.js'`
+                    }
+                }
+
+                // Caso contrário, garantir que tem .js
+                if (!importPath.endsWith(".js")) {
+                    modified = true
+                    return `from '${importPath}.js'`
+                }
+                
+                return match
+            })
 
             // Adicionar .js em imports dinâmicos
             content = content.replace(
                 /import\s*\(\s*['"](\.[^'"]+)['"]\s*\)/g,
                 (match, importPath) => {
-                    if (!importPath.endsWith(".js") && !importPath.endsWith(".json")) {
-                        modified = true
-                        return `import('${importPath}.js')`
+                    if (importPath.endsWith(".js") || importPath.endsWith(".json")) {
+                        return match
                     }
-                    return match
-                }
+
+                    // Verificar se é um diretório com index.js
+                    const fileDir = path.dirname(fullPath)
+                    const resolvedPath = path.resolve(fileDir, importPath)
+                    
+                    if (fs.existsSync(resolvedPath) && fs.statSync(resolvedPath).isDirectory()) {
+                        const indexPath = path.join(resolvedPath, "index.js")
+                        if (fs.existsSync(indexPath)) {
+                            modified = true
+                            return `import('${importPath}/index.js')`
+                        }
+                    }
+
+                    modified = true
+                    return `import('${importPath}.js')`
+                },
             )
 
             if (modified) {
@@ -60,4 +91,3 @@ function addJsExtensions(dir) {
 console.log("🔧 Adicionando extensões .js aos imports ESM...")
 addJsExtensions(buildDir)
 console.log("✅ Extensões .js adicionadas com sucesso!")
-
