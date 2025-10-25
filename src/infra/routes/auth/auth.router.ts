@@ -92,6 +92,8 @@ export class AuthRouter {
                     longitude: parseNumber(getHeader("longitude")),
                 }
 
+                console.log("Metadata recebida:", JSON.stringify(metadata, null, 2))
+
                 const result = await this.authController.signIn({
                     username: body.username,
                     password: body.password,
