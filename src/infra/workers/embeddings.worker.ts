@@ -121,9 +121,6 @@ export class EmbeddingsWorker {
 
             return {
                 success: true,
-                momentId,
-                embeddingDimension: embedding.dimension,
-                processingTime,
                 metadata: {
                     components: Object.keys(embedding.metadata.components),
                     model: embedding.metadata.model,
@@ -139,8 +136,6 @@ export class EmbeddingsWorker {
 
             return {
                 success: false,
-                momentId,
-                processingTime,
                 error: error instanceof Error ? error.message : String(error),
             }
         }
