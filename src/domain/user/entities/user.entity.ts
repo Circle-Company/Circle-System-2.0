@@ -567,7 +567,20 @@ export class User {
     }
 
     public canSign(): boolean {
-        return this.isActive() && !this.isBlocked() && !this.isDeleted()
+        const active = this.isActive()
+        const blocked = this.isBlocked()
+        const deleted = this.isDeleted()
+        
+        console.log("🔍 canSign check:", {
+            username: this.username,
+            active,
+            blocked,
+            deleted,
+            status: this._status,
+            canSign: active && !blocked && !deleted
+        })
+        
+        return active && !blocked && !deleted
     }
 
     /**

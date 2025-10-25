@@ -25,22 +25,22 @@ export default class UserPreferences
     extends Model<UserPreferencesAttributes>
     implements UserPreferencesAttributes
 {
-    public readonly id!: bigint
-    public user_id!: bigint
-    public app_language?: string
-    public app_timezone?: number
-    public disable_autoplay?: boolean
-    public disable_haptics?: boolean
-    public disable_translation?: boolean
-    public translation_language?: string
-    public disable_like_moment_push_notification?: boolean
-    public disable_new_memory_push_notification?: boolean
-    public disable_add_to_memory_push_notification?: boolean
-    public disable_follow_user_push_notification?: boolean
-    public disable_view_user_push_notification?: boolean
-    public disable_news_push_notification?: boolean
-    public disable_sugestions_push_notification?: boolean
-    public disable_around_you_push_notification?: boolean
+    declare readonly id: bigint
+    declare user_id: bigint
+    declare app_language: string
+    declare app_timezone: number
+    declare disable_autoplay: boolean
+    declare disable_haptics: boolean
+    declare disable_translation: boolean
+    declare translation_language: string
+    declare disable_like_moment_push_notification: boolean
+    declare disable_new_memory_push_notification: boolean
+    declare disable_add_to_memory_push_notification: boolean
+    declare disable_follow_user_push_notification: boolean
+    declare disable_view_user_push_notification: boolean
+    declare disable_news_push_notification: boolean
+    declare disable_sugestions_push_notification: boolean
+    declare disable_around_you_push_notification: boolean
     static initialize(sequelize: Sequelize) {
         UserPreferences.init(
             {

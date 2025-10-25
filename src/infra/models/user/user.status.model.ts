@@ -17,13 +17,13 @@ export default class UserStatus
     extends Model<UserStatusAttributes>
     implements UserStatusAttributes
 {
-    public readonly id!: bigint
-    public user_id!: bigint
-    public access_level?: Level
-    public verified?: boolean
-    public deleted?: boolean
-    public blocked?: boolean
-    public muted?: boolean
+    declare readonly id: bigint
+    declare user_id: bigint
+    declare access_level: Level
+    declare verified: boolean
+    declare deleted: boolean
+    declare blocked: boolean
+    declare muted: boolean
     static initialize(sequelize: Sequelize) {
         UserStatus.init(
             {
