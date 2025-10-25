@@ -235,12 +235,12 @@ export class SignInUseCase {
         }
 
         // 2. Validar device (obrigatório)
-        if (!metadata.device) {
-            throw new InvalidDeviceError("Device is required")
+        if (!metadata.device || typeof metadata.device !== "string") {
+            throw new InvalidDeviceError("Device is required and must be a string")
         }
 
         // Normalizar device para UPPERCASE antes de validar
-        const normalizedDevice = (metadata.device as string).toUpperCase() as Device
+        const normalizedDevice = metadata.device.toUpperCase() as Device
         metadata.device = normalizedDevice
 
         const validDevices = Object.values(Device)

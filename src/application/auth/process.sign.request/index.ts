@@ -140,10 +140,10 @@ export class ProcessSignRequest {
     private isSuspiciousIP(ip: string): boolean {
         // Em desenvolvimento, permitir IPs privados
         const isDevelopment = process.env.NODE_ENV !== "production"
-        
+
         return (
-            this.suspiciousIPs.includes(ip) || 
-            (!isDevelopment && this.isPrivateIP(ip)) || 
+            this.suspiciousIPs.includes(ip) ||
+            (!isDevelopment && this.isPrivateIP(ip)) ||
             this.isKnownMaliciousIP(ip)
         )
     }
