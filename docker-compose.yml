@@ -47,7 +47,7 @@ services:
             ENABLE_LOGGER: true
             LOGGER_NAME: circle-system
             DB_HOST: postgres
-            DB_PORT: 5432
+            DB_PORT: 5422
             DB_USER: admin
             DB_PASSWORD: admin
             DB_NAME: circle_db

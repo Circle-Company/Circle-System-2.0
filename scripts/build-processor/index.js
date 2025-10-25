@@ -3,9 +3,13 @@
  * Compila TypeScript e corrige paths
  */
 
-const { AdvancedPathFixer } = require("./core/path.fixer")
-const { execSync } = require("child_process")
-const path = require("path")
+import { AdvancedPathFixer } from "./core/path.fixer.js"
+import { execSync } from "child_process"
+import path from "path"
+import { fileURLToPath } from "url"
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 class BuildProcessor {
     constructor(options = {}) {
@@ -82,7 +86,8 @@ class BuildProcessorFactory {
 }
 
 // Auto-executar se for chamado diretamente
-if (require.main === module) {
+const isMainModule = import.meta.url === `file://${process.argv[1]}`
+if (isMainModule) {
     const verbose = process.argv.includes("--verbose") || process.argv.includes("-v")
     const dryRun = process.argv.includes("--dry-run")
 
@@ -99,7 +104,4 @@ if (require.main === module) {
         })
 }
 
-module.exports = {
-    BuildProcessor,
-    BuildProcessorFactory,
-}
+export { BuildProcessor, BuildProcessorFactory }

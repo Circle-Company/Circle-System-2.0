@@ -10,8 +10,9 @@
         "**/*.spec.ts"
     ],
     "compilerOptions": {
-        "target": "es2020",
-        "module": "commonjs",
+        "target": "ES2022",
+        "module": "ES2022",
+        "moduleResolution": "bundler",
         "rootDir": "./src",
         "outDir": "./build",
         "incremental": true,
