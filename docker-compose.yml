@@ -1,4 +1,3 @@
-version: "3.8" # Use a versão 3.8 para suporte completo a recursos avançados
 services:
     postgres:
         image: postgres:16-alpine
@@ -72,6 +71,14 @@ services:
             timeout: 10s
             retries: 3
             start_period: 40s
+        deploy:
+            resources:
+                limits:
+                    cpus: '3.0'
+                    memory: 500M
+                reservations:
+                    cpus: '1.0'
+                    memory: 256M
 
 volumes:
     postgres_data:
