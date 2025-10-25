@@ -20,7 +20,8 @@ export type {
     UserMetricsSortOptions,
     UserMetricsStats,
 } from "./repositories/user.metrics.repository"
-export { IUserRepository, UserRepository } from "./repositories/user.repository"
+export type { IUserRepository } from "./repositories/user.repository"
+export { UserRepository } from "./repositories/user.repository"
 
 export type {
     UserEmbedding,

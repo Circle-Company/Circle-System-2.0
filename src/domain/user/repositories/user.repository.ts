@@ -453,18 +453,7 @@ export class UserRepository implements UserRepositoryInterface, IUserRepository 
             include: this.getAuthIncludeOptions(),
         })
 
-        console.log("🔍 Resultado da busca:", user ? "encontrado" : "não encontrado")
-
         if (!user) return null
-
-        console.log("🔍 User encontrado - dados:", {
-            id: user.id,
-            username: user.username,
-            name: user.name,
-            hasStatus: !!user.status,
-            hasPreferences: !!user.preferences,
-            raw: JSON.stringify(user.toJSON()).substring(0, 200),
-        })
 
         return UserMapper.toDomain(user as any)
     }

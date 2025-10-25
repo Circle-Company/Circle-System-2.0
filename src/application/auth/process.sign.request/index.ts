@@ -6,7 +6,7 @@ import {
     getSuspiciousIPs,
 } from "./security.data"
 
-import { SignRequest } from "@/modules/auth/types"
+import { SignRequest } from "@/domain/auth"
 import { ErrorFactory } from "@/shared/errors"
 
 export interface ProcessSignRequestResponse {

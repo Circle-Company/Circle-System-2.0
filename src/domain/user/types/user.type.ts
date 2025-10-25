@@ -26,6 +26,7 @@ export interface UserPublicProfile {
     username: string
     name: string | null
     description: string | null
+    richDescription: string | null
     isVerified: boolean
     isActive: boolean
     profilePicture: UserProfilePicture | null
