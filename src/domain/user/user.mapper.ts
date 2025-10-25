@@ -138,6 +138,11 @@ export class UserMapper {
      * Converte modelo Sequelize completo para entidade de domínio
      */
     static toDomain(sequelizeUser: CompleteUserModel): DomainUser {
+        if (!sequelizeUser || !sequelizeUser.id) {
+            console.error("❌ UserMapper.toDomain: sequelizeUser inválido", sequelizeUser)
+            throw new Error("Cannot map invalid user data to domain entity")
+        }
+        
         const userData: UserProps = {
             id: sequelizeUser.id.toString(),
             username: sequelizeUser.username,

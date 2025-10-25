@@ -8,8 +8,8 @@
 import { ErrorCode, SystemError } from "@/shared/errors"
 
 import { AuthController } from "@/infra/controllers/auth.controller"
-import { DatabaseAdapter } from "@/infra/database/adapter"
 import { AuthFactory } from "@/infra/factories/auth.factory"
+import { DatabaseAdapter } from "@/infra/database/adapter"
 import { HttpAdapter } from "../../http/http.type"
 
 export class AuthRouter {
@@ -102,6 +102,8 @@ export class AuthRouter {
                 if (result.success) return reply.status(200).send(result)
                 else return reply.status(400).send(result)
             } catch (error: any) {
+                console.error("❌ Erro no signin:", error)
+                console.error("📍 Stack trace:", error?.stack)
                 return reply.status(400).send({
                     success: false,
                     error: error instanceof Error ? error.message : String(error),

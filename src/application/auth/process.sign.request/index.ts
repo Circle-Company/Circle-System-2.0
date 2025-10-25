@@ -220,9 +220,9 @@ export class ProcessSignRequest {
     private isSuspiciousUserAgent(userAgent: string): boolean {
         // Em desenvolvimento, permitir curl e wget para testes
         const isDevelopment = process.env.NODE_ENV !== "production"
-        
+
         const suspiciousPatterns = [/bot/i, /crawler/i, /spider/i, /scraper/i]
-        
+
         if (!isDevelopment) {
             suspiciousPatterns.push(/curl/i, /wget/i)
         }
