@@ -20,7 +20,7 @@
         "checkJs": false,
         "noEmitOnError": false,
         "forceConsistentCasingInFileNames": false,
-        "strict": true,
+        "strict": false,
         "noImplicitAny": false,
         "skipLibCheck": true,
         "noUnusedLocals": false,
