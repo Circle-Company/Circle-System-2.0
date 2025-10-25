@@ -110,16 +110,11 @@ export class VideoCompressionWorker {
                 originalVideoData,
             )
 
-            // Extrair a key original do vídeo para substituí-lo
-            const originalKey = this.extractKeyFromUrl(originalVideoUrl)
-            if (!originalKey) {
-                throw new Error(`Cannot extract key from URL: ${originalVideoUrl}`)
-            }
-
-            console.log(`[VideoCompressionWorker] 🔄 Substituindo vídeo original: ${originalKey}`)
+            // Usar o momentId como key (o LocalStorageAdapter adiciona prefixo e extensão automaticamente)
+            console.log(`[VideoCompressionWorker] 🔄 Substituindo vídeo original do moment: ${momentId}`)
 
             const uploadResult = await this.storageAdapter.uploadVideo(
-                originalKey, // Usar a mesma key para substituir o vídeo original
+                momentId, // Usar momentId como key (sem prefixo nem extensão)
                 compressedVideoData,
                 {
                     mimeType: "video/mp4",
