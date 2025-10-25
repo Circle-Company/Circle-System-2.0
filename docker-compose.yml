@@ -66,7 +66,15 @@ services:
                 condition: service_healthy
         restart: unless-stopped
         healthcheck:
-            test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+            test:
+                [
+                    "CMD",
+                    "wget",
+                    "--no-verbose",
+                    "--tries=1",
+                    "--spider",
+                    "http://localhost:3000/health",
+                ]
             interval: 30s
             timeout: 10s
             retries: 3
@@ -74,10 +82,10 @@ services:
         deploy:
             resources:
                 limits:
-                    cpus: '3.0'
+                    cpus: "3.0"
                     memory: 500M
                 reservations:
-                    cpus: '1.0'
+                    cpus: "1.0"
                     memory: 256M
 
 volumes:
