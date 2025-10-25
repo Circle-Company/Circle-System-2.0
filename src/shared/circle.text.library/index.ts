@@ -1,4 +1,5 @@
 import { CircleTextProps, TextLibrary } from "circle-text-library"
+
 import { userRules } from "@/domain/user/user.rules"
 
 // Função para converter regras do user.rules.ts para o formato ValidationConfig

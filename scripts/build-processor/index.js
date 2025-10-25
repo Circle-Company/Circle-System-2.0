@@ -3,10 +3,10 @@
  * Compila TypeScript e corrige paths
  */
 
-import { AdvancedPathFixer } from "./core/path.fixer.js"
 import { execSync } from "child_process"
 import path from "path"
 import { fileURLToPath } from "url"
+import { AdvancedPathFixer } from "./core/path.fixer.js"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -47,27 +47,38 @@ class BuildProcessor {
                 console.log("✅ TypeScript compilado com sucesso")
             }
 
-            // 2. Corrigir paths
+            // 2. Resolver aliases com tsc-alias
             if (this.options.verbose) {
-                console.log("🔧 Iniciando correção de paths...")
+                console.log("🔧 Resolvendo aliases de path...")
             }
 
-            const pathFixer = new AdvancedPathFixer({
-                buildDir: this.options.buildDir,
-                verbose: this.options.verbose,
-                dryRun: this.options.dryRun,
-            })
+            try {
+                execSync("npx tsc-alias -p tsconfig.build.json", {
+                    stdio: this.options.verbose ? "inherit" : "ignore",
+                    cwd: path.resolve(process.cwd()),
+                })
+            } catch (error) {
+                console.warn("⚠️  Erro ao resolver aliases, mas continuando...")
+            }
 
-            const fixes = await pathFixer.fix()
-
+            // 3. Adicionar extensões .js para ESM
             if (this.options.verbose) {
-                console.log(`✅ Path fixer concluído: ${fixes.length} correções aplicadas`)
+                console.log("🔧 Adicionando extensões .js aos imports...")
+            }
+
+            try {
+                execSync("node ./scripts/add-js-extensions.js", {
+                    stdio: this.options.verbose ? "inherit" : "ignore",
+                    cwd: path.resolve(process.cwd()),
+                })
+            } catch (error) {
+                console.warn("⚠️  Erro ao adicionar extensões .js, mas continuando...")
             }
 
             return {
                 success: true,
-                fixesApplied: fixes.length,
-                fixes: fixes,
+                fixesApplied: 0,
+                fixes: [],
             }
         } catch (error) {
             console.error("❌ Erro no processo de build:", error.message)
