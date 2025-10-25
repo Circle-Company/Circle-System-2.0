@@ -210,20 +210,20 @@ export class LocalStorageAdapter implements StorageAdapter {
         try {
             // Normalizar baseKey: remover prefixos e extensões duplicadas
             let filePath = baseKey
-            
+
             // Se contém "storage/videos/", extrair apenas o nome do arquivo
             if (filePath.includes("storage/videos/")) {
                 filePath = filePath.split("storage/videos/")[1]
             } else if (filePath.includes("videos/")) {
                 filePath = filePath.split("videos/")[1]
             }
-            
+
             // Se já tem extensão .mp4, não adicionar novamente
             const filename = filePath.endsWith(".mp4") ? filePath : `${filePath}.mp4`
             const fullPath = join(this.baseDir, "videos", filename)
-            
+
             console.log(`[LocalStorage] 🗑️  Deletando vídeo: ${filename} (BaseKey: ${baseKey})`)
-            
+
             // Implementar delete real
             if (existsSync(fullPath)) {
                 const fs = await import("fs")
@@ -245,22 +245,23 @@ export class LocalStorageAdapter implements StorageAdapter {
         try {
             // Normalizar baseKey: remover prefixos e extensões duplicadas
             let filePath = baseKey
-            
+
             // Se contém "storage/thumbnails/", extrair apenas o nome do arquivo
             if (filePath.includes("storage/thumbnails/")) {
                 filePath = filePath.split("storage/thumbnails/")[1]
             } else if (filePath.includes("thumbnails/")) {
                 filePath = filePath.split("thumbnails/")[1]
             }
-            
+
             // Se já tem extensão .jpg, não adicionar novamente
-            const filename = filePath.endsWith(".jpg") || filePath.endsWith(".jpeg") 
-                ? filePath 
-                : `${filePath}.jpg`
+            const filename =
+                filePath.endsWith(".jpg") || filePath.endsWith(".jpeg")
+                    ? filePath
+                    : `${filePath}.jpg`
             const fullPath = join(this.baseDir, "thumbnails", filename)
-            
+
             console.log(`[LocalStorage] 🗑️  Deletando thumbnail: ${filename} (BaseKey: ${baseKey})`)
-            
+
             // Implementar delete real
             if (existsSync(fullPath)) {
                 const fs = await import("fs")

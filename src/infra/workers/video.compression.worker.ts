@@ -43,10 +43,7 @@ export class VideoCompressionWorker {
                 audioBitrate: 64, // Áudio de alta qualidade
             },
         })
-        this.storageAdapter = new LocalStorageAdapter(
-            "./uploads",
-            process.env.STORAGE_BASE_URL || "http://localhost:3000",
-        )
+        this.storageAdapter = new LocalStorageAdapter("./uploads") // Deixar LocalStorageAdapter detectar IP automaticamente
     }
 
     /**
@@ -333,7 +330,7 @@ export class VideoCompressionWorker {
             if (url.includes("/storage/videos/")) {
                 return url.split("/storage/videos/")[1]
             }
-            
+
             // Para URLs locais com storage/thumbnails/, extrair apenas o nome do arquivo
             if (url.includes("/storage/thumbnails/")) {
                 return url.split("/storage/thumbnails/")[1]
@@ -348,12 +345,12 @@ export class VideoCompressionWorker {
             if (url.startsWith("http")) {
                 const urlObj = new URL(url)
                 const pathname = urlObj.pathname.substring(1) // Remove leading slash
-                
+
                 // Se contém storage/videos/, extrair apenas o arquivo
                 if (pathname.includes("storage/videos/")) {
                     return pathname.split("storage/videos/")[1]
                 }
-                
+
                 return pathname
             }
 
