@@ -1,8 +1,14 @@
 import { ErrorCode, NotFoundError, ValidationError } from "@/shared/errors"
 import { JWTPayload, SignJWT } from "jose"
+import { webcrypto } from "crypto"
 
 import { Device, Level } from "@/domain/authorization/authorization.type"
 import UserModel from "@/infra/models/user/user.model"
+
+// Polyfill para crypto no Node.js ESM
+if (typeof globalThis.crypto === "undefined") {
+    ;(globalThis as any).crypto = webcrypto
+}
 
 interface JwtConfig {
     secret: string
