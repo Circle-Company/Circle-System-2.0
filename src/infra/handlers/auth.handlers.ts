@@ -53,7 +53,7 @@ export class AuthHandlers {
         } catch (error) {
             console.error("❌ Erro no signIn handler:", error)
             console.error("📍 Stack:", (error as any)?.stack)
-            
+
             if (error instanceof z.ZodError) {
                 return {
                     success: false,

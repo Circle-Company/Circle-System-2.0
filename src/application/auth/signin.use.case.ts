@@ -1,6 +1,5 @@
 import { AuthLogRepository, AuthLogStatus, AuthLogType } from "@/domain/auth"
 import { SignInInputDto, SignInOutputDto, SignRequest } from "@/domain/auth/auth.dtos"
-import { Device } from "@/domain/authorization"
 import {
     IUserRepository,
     TimezoneCode,
@@ -26,7 +25,7 @@ import {
 import { ProcessSignRequest, ProcessSignRequestResponse } from "./process.sign.request"
 
 import { SignStatus } from "@/domain/auth/auth.type"
-import { Level } from "@/domain/authorization"
+import { Device, Level } from "@/domain/authorization"
 import { SignType } from "@/infra/models/auth/sign.logs.model"
 import { Timezone } from "@/shared"
 

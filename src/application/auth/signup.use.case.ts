@@ -1,7 +1,6 @@
 import { AuthLogRepository, AuthLogStatus, AuthLogType } from "@/domain/auth"
 import { SignRequest, SignUpInputDto, SignUpOutputDto } from "@/domain/auth/auth.dtos"
 import { SignStatus, SignType } from "@/domain/auth/auth.type"
-import { Device } from "@/domain/authorization"
 import {
     IUserRepository,
     User,
@@ -25,7 +24,7 @@ import {
 } from "@/shared"
 import { ProcessSignRequest, ProcessSignRequestResponse } from "./process.sign.request"
 
-import { Level } from "@/domain/authorization"
+import { Device, Level } from "@/domain/authorization"
 import { TimezoneCode } from "@/domain/user"
 import { UserMetrics } from "@/domain/user/entities/user.metrics.entity"
 import { logger } from "@/shared"

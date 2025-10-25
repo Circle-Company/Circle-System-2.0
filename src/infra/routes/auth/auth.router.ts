@@ -8,8 +8,8 @@
 import { ErrorCode, SystemError } from "@/shared/errors"
 
 import { AuthController } from "@/infra/controllers/auth.controller"
-import { AuthFactory } from "@/infra/factories/auth.factory"
 import { DatabaseAdapter } from "@/infra/database/adapter"
+import { AuthFactory } from "@/infra/factories/auth.factory"
 import { HttpAdapter } from "../../http/http.type"
 
 export class AuthRouter {
