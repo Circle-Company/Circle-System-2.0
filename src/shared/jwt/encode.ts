@@ -1,8 +1,14 @@
+import { Device, Level } from "@/domain/authorization/authorization.type"
 import { ErrorCode, NotFoundError, ValidationError } from "@/shared/errors"
 import { JWTPayload, SignJWT } from "jose"
 
-import { Device, Level } from "@/domain/authorization/authorization.type"
 import UserModel from "@/infra/models/user/user.model"
+import { webcrypto } from "crypto"
+
+// Polyfill para crypto no Node.js ESM
+if (typeof globalThis.crypto === "undefined") {
+    ;(globalThis as any).crypto = webcrypto
+}
 
 interface JwtConfig {
     secret: string
@@ -156,6 +162,9 @@ export async function jwtEncoder({
 
         return token
     } catch (error) {
+        console.error("❌ Erro ao gerar JWT:", error)
+        console.error("📍 Stack JWT:", (error as any)?.stack)
+
         // Re-throw erros customizados sem modificação
         if (error instanceof ValidationError || error instanceof NotFoundError) {
             throw error

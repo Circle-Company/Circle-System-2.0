@@ -4,12 +4,12 @@ import { IMomentMetricsRepository } from "../../domain/moment"
 import { MomentMetricsEntity } from "../../domain/moment/entities/moment.metrics.entity"
 
 export class MomentMetricsRepositoryImpl implements IMomentMetricsRepository {
-    constructor(private models: any) {}
+    constructor(private database: any) {}
 
     // ===== OPERAÇÕES BÁSICAS CRUD =====
 
     async create(metrics: MomentMetricsEntity): Promise<MomentMetricsEntity> {
-        const created = await this.models.MomentMetrics.create({
+        const created = await this.database.getConnection().models.MomentMetrics.create({
             id: metrics.id,
             momentId: metrics.momentId,
             totalViews: metrics.views.totalViews,
@@ -49,7 +49,7 @@ export class MomentMetricsRepositoryImpl implements IMomentMetricsRepository {
     }
 
     async findById(id: string): Promise<MomentMetricsEntity | null> {
-        const metrics = await this.models.MomentMetrics.findByPk(id)
+        const metrics = await this.database.getConnection().models.MomentMetrics.findByPk(id)
 
         if (!metrics) return null
 
@@ -57,7 +57,7 @@ export class MomentMetricsRepositoryImpl implements IMomentMetricsRepository {
     }
 
     async update(metrics: MomentMetricsEntity): Promise<MomentMetricsEntity> {
-        await this.models.MomentMetrics.update(
+        await this.database.getConnection().models.MomentMetrics.update(
             {
                 totalViews: metrics.views.totalViews,
                 uniqueViews: metrics.views.uniqueViews,
@@ -97,13 +97,13 @@ export class MomentMetricsRepositoryImpl implements IMomentMetricsRepository {
     }
 
     async delete(id: string): Promise<void> {
-        await this.models.MomentMetrics.destroy({ where: { id } })
+        await this.database.getConnection().models.MomentMetrics.destroy({ where: { id } })
     }
 
     // ===== OPERAÇÕES DE BUSCA =====
 
     async findByMomentId(momentId: string): Promise<MomentMetricsEntity | null> {
-        const metrics = await this.models.MomentMetrics.findOne({
+        const metrics = await this.database.getConnection().models.MomentMetrics.findOne({
             where: { momentId },
             order: [["lastMetricsUpdate", "DESC"]],
         })
@@ -116,7 +116,7 @@ export class MomentMetricsRepositoryImpl implements IMomentMetricsRepository {
     // ===== OPERAÇÕES DE BUSCA AVANÇADA =====
 
     async findTopByViews(limit = 20, offset = 0): Promise<MomentMetricsEntity[]> {
-        const metrics = await this.models.MomentMetrics.findAll({
+        const metrics = await this.database.getConnection().models.MomentMetrics.findAll({
             limit,
             offset,
             order: [["totalViews", "DESC"]],
@@ -126,7 +126,7 @@ export class MomentMetricsRepositoryImpl implements IMomentMetricsRepository {
     }
 
     async findTopByEngagement(limit = 20, offset = 0): Promise<MomentMetricsEntity[]> {
-        const metrics = await this.models.MomentMetrics.findAll({
+        const metrics = await this.database.getConnection().models.MomentMetrics.findAll({
             limit,
             offset,
             order: [["likeRate", "DESC"]],
@@ -136,7 +136,7 @@ export class MomentMetricsRepositoryImpl implements IMomentMetricsRepository {
     }
 
     async findTopByViralScore(limit = 20, offset = 0): Promise<MomentMetricsEntity[]> {
-        const metrics = await this.models.MomentMetrics.findAll({
+        const metrics = await this.database.getConnection().models.MomentMetrics.findAll({
             limit,
             offset,
             order: [["viralScore", "DESC"]],
@@ -146,7 +146,7 @@ export class MomentMetricsRepositoryImpl implements IMomentMetricsRepository {
     }
 
     async findTopByTrendingScore(limit = 20, offset = 0): Promise<MomentMetricsEntity[]> {
-        const metrics = await this.models.MomentMetrics.findAll({
+        const metrics = await this.database.getConnection().models.MomentMetrics.findAll({
             limit,
             offset,
             order: [["trendingScore", "DESC"]],
@@ -158,7 +158,7 @@ export class MomentMetricsRepositoryImpl implements IMomentMetricsRepository {
     // ===== OPERAÇÕES DE ANÁLISE =====
 
     async findTrendingContent(limit = 20, offset = 0): Promise<MomentMetricsEntity[]> {
-        const metrics = await this.models.MomentMetrics.findAll({
+        const metrics = await this.database.getConnection().models.MomentMetrics.findAll({
             where: {
                 trendingScore: {
                     [Op.gte]: 70,
@@ -173,7 +173,7 @@ export class MomentMetricsRepositoryImpl implements IMomentMetricsRepository {
     }
 
     async findViralContent(limit = 20, offset = 0): Promise<MomentMetricsEntity[]> {
-        const metrics = await this.models.MomentMetrics.findAll({
+        const metrics = await this.database.getConnection().models.MomentMetrics.findAll({
             where: {
                 viralScore: {
                     [Op.gte]: 80,
@@ -188,7 +188,7 @@ export class MomentMetricsRepositoryImpl implements IMomentMetricsRepository {
     }
 
     async findHighEngagementContent(limit = 20, offset = 0): Promise<MomentMetricsEntity[]> {
-        const metrics = await this.models.MomentMetrics.findAll({
+        const metrics = await this.database.getConnection().models.MomentMetrics.findAll({
             where: {
                 likeRate: {
                     [Op.gte]: 0.1,
@@ -203,7 +203,7 @@ export class MomentMetricsRepositoryImpl implements IMomentMetricsRepository {
     }
 
     async findHighQualityContent(limit = 20, offset = 0): Promise<MomentMetricsEntity[]> {
-        const metrics = await this.models.MomentMetrics.findAll({
+        const metrics = await this.database.getConnection().models.MomentMetrics.findAll({
             where: {
                 contentQualityScore: {
                     [Op.gte]: 80,
@@ -225,22 +225,42 @@ export class MomentMetricsRepositoryImpl implements IMomentMetricsRepository {
         averageViralScore: number
         averageTrendingScore: number
     }> {
-        const result = await this.models.MomentMetrics.findAll({
+        const result = await this.database.getConnection().models.MomentMetrics.findAll({
             attributes: [
                 [
-                    this.models.sequelize.fn("AVG", this.models.sequelize.col("totalViews")),
+                    this.database
+                        .getConnection()
+                        .sequelize.fn(
+                            "AVG",
+                            this.database.getConnection().sequelize.col("totalViews"),
+                        ),
                     "avgViews",
                 ],
                 [
-                    this.models.sequelize.fn("AVG", this.models.sequelize.col("likeRate")),
+                    this.database
+                        .getConnection()
+                        .sequelize.fn(
+                            "AVG",
+                            this.database.getConnection().sequelize.col("likeRate"),
+                        ),
                     "avgEngagement",
                 ],
                 [
-                    this.models.sequelize.fn("AVG", this.models.sequelize.col("viralScore")),
+                    this.database
+                        .getConnection()
+                        .sequelize.fn(
+                            "AVG",
+                            this.database.getConnection().sequelize.col("viralScore"),
+                        ),
                     "avgViralScore",
                 ],
                 [
-                    this.models.sequelize.fn("AVG", this.models.sequelize.col("trendingScore")),
+                    this.database
+                        .getConnection()
+                        .sequelize.fn(
+                            "AVG",
+                            this.database.getConnection().sequelize.col("trendingScore"),
+                        ),
                     "avgTrendingScore",
                 ],
             ],
@@ -278,7 +298,7 @@ export class MomentMetricsRepositoryImpl implements IMomentMetricsRepository {
         limit = 20,
         offset = 0,
     ): Promise<MomentMetricsEntity[]> {
-        const metrics = await this.models.MomentMetrics.findAll({
+        const metrics = await this.database.getConnection().models.MomentMetrics.findAll({
             where: {
                 lastMetricsUpdate: {
                     [Op.between]: [startDate, endDate],
@@ -295,7 +315,7 @@ export class MomentMetricsRepositoryImpl implements IMomentMetricsRepository {
     // ===== OPERAÇÕES DE CONTAGEM =====
 
     async countByViewsRange(minViews: number, maxViews: number): Promise<number> {
-        return this.models.MomentMetrics.count({
+        return this.database.getConnection().models.MomentMetrics.count({
             where: {
                 totalViews: {
                     [Op.between]: [minViews, maxViews],
@@ -305,7 +325,7 @@ export class MomentMetricsRepositoryImpl implements IMomentMetricsRepository {
     }
 
     async countByEngagementRange(minEngagement: number, maxEngagement: number): Promise<number> {
-        return this.models.MomentMetrics.count({
+        return this.database.getConnection().models.MomentMetrics.count({
             where: {
                 likeRate: {
                     [Op.between]: [minEngagement, maxEngagement],
@@ -315,7 +335,7 @@ export class MomentMetricsRepositoryImpl implements IMomentMetricsRepository {
     }
 
     async countByViralScoreRange(minScore: number, maxScore: number): Promise<number> {
-        return this.models.MomentMetrics.count({
+        return this.database.getConnection().models.MomentMetrics.count({
             where: {
                 viralScore: {
                     [Op.between]: [minScore, maxScore],
@@ -325,7 +345,7 @@ export class MomentMetricsRepositoryImpl implements IMomentMetricsRepository {
     }
 
     async countByTrendingScoreRange(minScore: number, maxScore: number): Promise<number> {
-        return this.models.MomentMetrics.count({
+        return this.database.getConnection().models.MomentMetrics.count({
             where: {
                 trendingScore: {
                     [Op.between]: [minScore, maxScore],
@@ -337,12 +357,16 @@ export class MomentMetricsRepositoryImpl implements IMomentMetricsRepository {
     // ===== OPERAÇÕES DE EXISTÊNCIA =====
 
     async exists(id: string): Promise<boolean> {
-        const count = await this.models.MomentMetrics.count({ where: { id } })
+        const count = await this.database
+            .getConnection()
+            .models.MomentMetrics.count({ where: { id } })
         return count > 0
     }
 
     async existsByMomentId(momentId: string): Promise<boolean> {
-        const count = await this.models.MomentMetrics.count({ where: { momentId } })
+        const count = await this.database
+            .getConnection()
+            .models.MomentMetrics.count({ where: { momentId } })
         return count > 0
     }
 
@@ -371,7 +395,9 @@ export class MomentMetricsRepositoryImpl implements IMomentMetricsRepository {
     }
 
     async deleteMany(ids: string[]): Promise<void> {
-        await this.models.MomentMetrics.destroy({ where: { id: { [Op.in]: ids } } })
+        await this.database
+            .getConnection()
+            .models.MomentMetrics.destroy({ where: { id: { [Op.in]: ids } } })
     }
 
     // ===== OPERAÇÕES DE PAGINAÇÃO =====
@@ -404,12 +430,14 @@ export class MomentMetricsRepositoryImpl implements IMomentMetricsRepository {
 
         const offset = (page - 1) * limit
 
-        const { count, rows } = await this.models.MomentMetrics.findAndCountAll({
-            where,
-            limit,
-            offset,
-            order: [["lastMetricsUpdate", "DESC"]],
-        })
+        const { count, rows } = await this.database
+            .getConnection()
+            .models.MomentMetrics.findAndCountAll({
+                where,
+                limit,
+                offset,
+                order: [["lastMetricsUpdate", "DESC"]],
+            })
 
         const metrics = rows.map((metric: any) => this.mapToDomainEntity(metric))
         const totalPages = Math.ceil(count / limit)

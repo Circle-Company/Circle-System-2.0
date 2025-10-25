@@ -1,31 +1,27 @@
-import {
-    ContentEmbeddingGenerator,
-    EngagementCalculator,
-    TextEmbeddingAdapter,
-    TranscriptionAdapter,
-    VisualEmbeddingAdapter,
-    getEmbeddingConfig,
-} from "@/core/new.swipe.engine"
 // NEW SWIPE ENGINE - Arquitetura desacoplada
-import { ContentProcessor, StorageAdapter } from "@/core/content.processor"
+import {
+    ContentProcessingErrorResult,
+    ContentProcessingSuccessResult,
+    ContentProcessor,
+    StorageAdapter,
+} from "@/core/content.processor"
 import {
     Moment,
     MomentProcessingStatusEnum,
+    MomentProps,
     MomentStatusEnum,
     MomentVisibilityEnum,
 } from "@/domain/moment"
-import { generateId, textLib } from "@/shared"
+import { logger, textLib } from "@/shared"
 
-// Audio extractor (mantido do old system)
-import { AudioExtractor } from "@/core/content.processor/audio.extractor"
-import { IMomentRepository } from "@/domain/moment/repositories/moment.repository"
 import { EmbeddingsQueue } from "@/infra/queue/embeddings.queue"
 import { EmbeddingJobPriority } from "@/infra/workers/types/embedding.job.types"
+// Audio extractor (mantido do old system)
+import { IMomentRepository } from "@/domain/moment/repositories/moment.repository"
 // Redis Queue para processamento assíncrono
 import { ModerationEngine } from "@/core/content.moderation"
 import { MomentMetricsService } from "./moment.metrics.service"
 // Fallback para old system se necessário
-import { PostEmbeddingService } from "@/core/swipe.engine/core/embeddings/post"
 import { TimezoneCode } from "@/domain/user"
 import { VideoCompressionQueue } from "@/infra/queue/video.compression.queue"
 
@@ -39,8 +35,8 @@ export interface CreateMomentData {
         size: number
     }
     description?: string
-    hashtags?: string[]
     mentions?: string[]
+    visibility: MomentVisibilityEnum
     location?: {
         latitude: number
         longitude: number
@@ -111,16 +107,6 @@ export interface MomentServiceConfig {
 export class MomentService {
     private config: MomentServiceConfig
     private contentProcessor: ContentProcessor | null = null
-
-    // NEW SWIPE ENGINE - Pipeline desacoplado com modelos REAIS
-    private contentEmbeddingGenerator: ContentEmbeddingGenerator
-    private engagementCalculator: EngagementCalculator
-    private audioExtractor: AudioExtractor
-
-    // Fallback para old system
-    private embeddingService: PostEmbeddingService
-
-    // Redis queue para processamento assíncrono
     private embeddingsQueue: EmbeddingsQueue
     private videoCompressionQueue: VideoCompressionQueue
 
@@ -136,7 +122,7 @@ export class MomentService {
             enableMetrics: true,
             enableProcessing: true,
             defaultVisibility: MomentVisibilityEnum.PRIVATE,
-            defaultStatus: MomentStatusEnum.UNDER_REVIEW,
+            defaultStatus: MomentStatusEnum.PUBLISHED,
             maxSearchResults: 1000,
             enableCaching: false,
             cacheTimeout: 300000, // 5 minutos
@@ -145,467 +131,123 @@ export class MomentService {
 
         // Inicializar processador de conteúdo se adapter fornecido
         if (storageAdapter) {
+            // Configurações otimizadas para processamento síncrono: APENAS CROP, SEM COMPRESSÃO
+            const syncProcessingConfig = {
+                thumbnail: {
+                    width: 540, // 1080/2 - thumbnail menor
+                    height: 837, // 1674/2 - thumbnail menor
+                    format: "jpeg" as const,
+                    timePosition: 0,
+                    quality: 70, // CRF 70 para garantir ~15KB (thumbnail menor)
+                },
+                processing: {
+                    timeout: 60000, // 60 segundos
+                    retryAttempts: 3,
+                    autoCompress: false, // ✅ SEM COMPRESSÃO - apenas crop
+                    autoConvertToMp4: true, // ✅ Converter para MP4
+                    targetResolution: { width: 1080, height: 1674 },
+                    maintainQuality: true, // Manter qualidade original
+                },
+                validation: {
+                    maxFileSize: 50 * 1024 * 1024, // 50MB
+                    maxDuration: 30, // 30 segundos
+                    minDuration: 5, // 5 segundos
+                    allowedFormats: ["mp4", "mov", "avi", "webm"],
+                    minResolution: { width: 360, height: 558 },
+                    maxResolution: { width: 1080, height: 1674 },
+                },
+            }
+
             this.contentProcessor = new ContentProcessor(
                 storageAdapter,
-                undefined,
+                syncProcessingConfig,
                 moderationEngine,
             )
         }
 
-        // Inicializar NEW SWIPE ENGINE com arquitetura desacoplada
-        const embeddingConfig = getEmbeddingConfig()
-
-        // Criar adaptadores de embedding REAIS
-        const textService = new TextEmbeddingAdapter(embeddingConfig.textEmbedding)
-        const visualService = new VisualEmbeddingAdapter(embeddingConfig.clip)
-        const transcriptionService = new TranscriptionAdapter(embeddingConfig.whisper)
-
-        // Audio extractor (compartilhado)
-        this.audioExtractor = new AudioExtractor()
-
-        // Injetar dependências no generator
-        this.contentEmbeddingGenerator = new ContentEmbeddingGenerator(
-            embeddingConfig,
-            textService,
-            transcriptionService,
-            visualService,
-            this.audioExtractor,
-        )
-
-        // Engagement calculator (stateless)
-        this.engagementCalculator = new EngagementCalculator()
-
-        // Fallback para old system (compatibilidade)
-        this.embeddingService = new PostEmbeddingService()
-
         // Redis queue para embeddings assíncronos
         this.embeddingsQueue = EmbeddingsQueue.getInstance()
-
         // Redis queue para compressão de vídeo assíncrona
         this.videoCompressionQueue = VideoCompressionQueue.getInstance()
-
-        console.log(
-            "[MomentService] ✅ Inicializado com NEW Swipe Engine (modelos REAIS) + Redis Queue",
-        )
     }
 
-    // ===== MÉTODOS DE CRIAÇÃO =====
-
     /**
-     * Cria um novo momento
+     * Cria um novo moment
      */
     async createMoment(data: CreateMomentData): Promise<Moment> {
         // Validar dados de entrada
         if (this.config.enableValidation) {
-            await this.validateCreateData(data)
+            await this._validateCreateData(data)
         }
 
-        // 1. Processar vídeo (extração de metadados, thumbnail, moderação e upload)
         if (!this.contentProcessor) {
             throw new Error("Content processor not configured. Please configure storage adapter.")
         }
-
-        const processingResult = await this.contentProcessor.processContent({
+        // Processar vídeo (extração de metadados, thumbnail, moderação e upload)
+        const processingResult = (await this.contentProcessor.processContent({
             description: data.description || "",
             ownerId: data.ownerId,
             videoData: data.videoData,
             metadata: data.videoMetadata,
-        })
+        })) as ContentProcessingSuccessResult
 
-        if (!processingResult.success) {
-            throw new Error(
-                `Error processing content: ${processingResult.error || "Unknown error"}`,
-            )
-        }
-
-        // Verificar se foi aprovado pela moderação
-        if (!processingResult.moderation.approved && !processingResult.moderation.requiresReview) {
-            throw new Error(
-                `Content blocked by moderation: ${processingResult.moderation.flags.join(", ")}`,
-            )
-        }
-
-        // 2. Criar dados do momento com informações do processamento
-        const momentData = {
-            id: processingResult.contentId,
-            ownerId: data.ownerId,
-            content: {
-                duration: processingResult.videoMetadata.duration,
-                size: processingResult.videoMetadata.size,
-                format: processingResult.videoMetadata.format as any,
-                resolution: {
-                    width: processingResult.videoMetadata.width,
-                    height: processingResult.videoMetadata.height,
-                    quality: "medium" as any,
-                },
-                hasAudio: processingResult.videoMetadata.hasAudio,
-                codec: processingResult.videoMetadata.codec as any,
-                createdAt: new Date(),
-                updatedAt: new Date(),
-            },
-            description: data.description || "",
-            enrichedDescription: processingResult.enrichedDescription || "",
-            hashtags: data.hashtags || [],
-            mentions: data.mentions || [],
-            media: {
-                url: processingResult.videoUrl, // Mudar para usar somente 1 url padrão sem variações (low, medium high)
-                storage: {
-                    provider: processingResult.storage.provider as any,
-                    bucket: processingResult.storage.bucket || "",
-                    key: processingResult.storage.videoKey,
-                    region: processingResult.storage.region || "",
-                },
-                createdAt: new Date(),
-                updatedAt: new Date(),
-            },
-            thumbnail: {
-                url: processingResult.thumbnailUrl,
-                width: processingResult.videoMetadata.width,
-                height: processingResult.videoMetadata.height,
-                storage: {
-                    provider: processingResult.storage.provider as any,
-                    bucket: processingResult.storage.bucket || "",
-                    key: processingResult.storage.thumbnailKey,
-                    region: processingResult.storage.region || "",
-                },
-                createdAt: new Date(),
-                updatedAt: new Date(),
-            },
-            status: {
-                current: processingResult.moderation.requiresReview
-                    ? MomentStatusEnum.UNDER_REVIEW
-                    : this.config.defaultStatus,
-                previous: null,
-                reason: processingResult.moderation.requiresReview
-                    ? "Awaiting moderation review"
-                    : null,
-                changedBy: data.ownerId,
-                changedAt: new Date(),
-                createdAt: new Date(),
-                updatedAt: new Date(),
-            },
-            visibility: {
-                level: this.config.defaultVisibility,
-                allowedUsers: [],
-                blockedUsers: [],
-                ageRestriction: false,
-                contentWarning: false,
-                createdAt: new Date(),
-                updatedAt: new Date(),
-            },
-            context:
-                data.location && data.device
-                    ? {
-                          device: {
-                              type: data.device.type,
-                              os: data.device.os,
-                              osVersion: data.device.osVersion,
-                              model: data.device.model,
-                              screenResolution: data.device.screenResolution,
-                              orientation: data.device.orientation,
-                          },
-                          location: {
-                              latitude: data.location.latitude,
-                              longitude: data.location.longitude,
-                          },
-                      }
-                    : undefined,
-            processing: {
-                status: MomentProcessingStatusEnum.MEDIA_PROCESSED,
-                progress: 50, // Mídia processada, embeddings pendentes
-                steps: [
-                    {
-                        name: "video_processing",
-                        status: "completed" as any,
-                        progress: 100,
-                        startedAt: new Date(),
-                        completedAt: new Date(),
-                        error: null,
-                    },
-                    {
-                        name: "moderation",
-                        status: "completed" as any,
-                        progress: 100,
-                        startedAt: new Date(),
-                        completedAt: new Date(),
-                        error: null,
-                    },
-                    {
-                        name: "upload",
-                        status: "completed" as any,
-                        progress: 100,
-                        startedAt: new Date(),
-                        completedAt: new Date(),
-                        error: null,
-                    },
-                    {
-                        name: "embedding_generation",
-                        status: "pending" as any,
-                        progress: 0,
-                        startedAt: new Date(),
-                        completedAt: null,
-                        error: null,
-                    },
-                ],
-                error: null,
-                startedAt: new Date(),
-                completedAt: null, // Não completado ainda (embeddings pendentes)
-                estimatedCompletion: null,
-            },
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            publishedAt: null,
-            archivedAt: null,
-            deletedAt: null,
-        }
-
-        // 3. Criar entidade Moment
+        this._validateProcessingResult(processingResult)
+        const momentData = this._formatMomentData(
+            data,
+            processingResult as ContentProcessingSuccessResult,
+        )
         const moment = new Moment(momentData)
-
-        // 4. Salvar no repositório IMEDIATAMENTE (sem aguardar embeddings)
         const createdMoment = await this.repository.create(moment)
+        const scheduleTime = process.env.EMBEDDINGS_SCHEDULE_TIME || "01:00"
 
-        // 5. Enfileirar job de compressão de vídeo imediatamente
-        try {
-            console.log(`[MomentService] 🐌 Enfileirando compressão de vídeo...`)
-
-            await this.videoCompressionQueue.addJob(
-                {
-                    momentId: createdMoment.id,
-                    originalVideoUrl: processingResult.videoUrl,
-                    videoMetadata: {
-                        width: processingResult.videoMetadata.width,
-                        height: processingResult.videoMetadata.height,
-                        duration: processingResult.videoMetadata.duration,
-                        codec: processingResult.videoMetadata.codec,
-                        hasAudio: processingResult.videoMetadata.hasAudio,
-                        size: processingResult.videoMetadata.size,
-                    },
-                    priority: EmbeddingJobPriority.HIGH,
-                },
-                EmbeddingJobPriority.HIGH,
-            )
-
-            console.log(`[MomentService] ✅ Job de compressão enfileirado`)
-        } catch (error) {
-            console.error(`[MomentService] ⚠️ Erro ao enfileirar compressão:`, error)
-            // Não falhar a criação do moment por causa disso
-        }
-
-        // 6. Enfileirar job de embeddings para processamento às 01h da manhã
-        try {
-            const scheduleTime = process.env.EMBEDDINGS_SCHEDULE_TIME || "01:00"
-
-            console.log(`[MomentService] 📅 Agendando embeddings para ${scheduleTime}...`)
-
-            await this.embeddingsQueue.scheduleFor(
-                {
-                    momentId: createdMoment.id,
-                    videoUrl: processingResult.videoUrl, // Usar vídeo original (será atualizado após compressão)
-                    thumbnailUrl: processingResult.thumbnailUrl,
-                    description: data.description || "",
-                    hashtags: data.hashtags || [],
-                    videoMetadata: {
-                        width: processingResult.videoMetadata.width,
-                        height: processingResult.videoMetadata.height,
-                        duration: processingResult.videoMetadata.duration,
-                        codec: processingResult.videoMetadata.codec,
-                        hasAudio: processingResult.videoMetadata.hasAudio,
-                    },
-                    priority: EmbeddingJobPriority.NORMAL,
-                },
-                scheduleTime,
-            )
-
-            // Atualizar status para embeddings_queued
-            createdMoment.processing.status = MomentProcessingStatusEnum.EMBEDDINGS_QUEUED
-
-            await this.repository.update(createdMoment)
-
-            console.log(`[MomentService] ✅ Embeddings agendados para ${scheduleTime}`)
-        } catch (error) {
-            console.error("[MomentService] ❌ Erro ao agendar embeddings:", error)
-            console.warn("[MomentService] ⚠️ Moment criado, mas embeddings não agendados")
-        }
-
-        // 6. Inicializar métricas se habilitado
-        if (this.config.enableMetrics) {
-            await this.metricsService.recordView(createdMoment.id, {
-                userId: data.ownerId,
-                device: data.device?.type,
-                location: data.location
-                    ? `${data.location.latitude},${data.location.longitude}`
-                    : undefined,
+        // Enfileirar job de compressão de vídeo imediatamente
+        await this._scheduleVideoCompressionJob(createdMoment, processingResult)
+            .then(async () => {
+                createdMoment.processing.status = MomentProcessingStatusEnum.MEDIA_PROCESSED
+                createdMoment.processing.progress = 50
+                createdMoment.processing.steps.push({
+                    name: "video_compression",
+                    status: MomentProcessingStatusEnum.PROCESSING,
+                    progress: 50,
+                    startedAt: new Date(),
+                    completedAt: null,
+                    error: null,
+                })
+                await this.repository.update(createdMoment)
+                logger.info(
+                    `[MomentService] ✅ Status de processamento atualizado para moment ${createdMoment.id}`,
+                )
             })
-        }
-
-        return createdMoment || ({} as Moment)
-    }
-
-    // ===== MÉTODOS DE BUSCA =====
-
-    /**
-     * Busca um momento por ID
-     */
-    async getMomentById(id: string): Promise<Moment | null> {
-        return await this.repository.findById(id)
-    }
-
-    /**
-     * Busca momentos por proprietário
-     */
-    async getMomentsByOwner(
-        ownerId: string,
-        options?: {
-            status?: MomentStatusEnum
-            visibility?: MomentVisibilityEnum
-            limit?: number
-            offset?: number
-        },
-    ): Promise<Moment[]> {
-        return await this.repository.findByOwnerId(ownerId, options?.limit, options?.offset)
-    }
-
-    /**
-     * Busca momentos por status
-     */
-    async getMomentsByStatus(
-        status: MomentStatusEnum,
-        options?: {
-            limit?: number
-            offset?: number
-        },
-    ): Promise<Moment[]> {
-        return await this.repository.findByStatus(status, options?.limit, options?.offset)
-    }
-
-    /**
-     * Busca momentos por visibilidade
-     */
-    async getMomentsByVisibility(
-        visibility: MomentVisibilityEnum,
-        options?: {
-            limit?: number
-            offset?: number
-        },
-    ): Promise<Moment[]> {
-        return await this.repository.findByVisibility(visibility, options?.limit, options?.offset)
-    }
-
-    /**
-     * Busca momentos por hashtag
-     */
-    async getMomentsByHashtag(
-        hashtag: string,
-        options?: {
-            limit?: number
-            offset?: number
-        },
-    ): Promise<Moment[]> {
-        return await this.repository.findByHashtag(hashtag, options?.limit, options?.offset)
-    }
-
-    /**
-     * Busca momentos por menção
-     */
-    async getMomentsByMention(
-        mention: string,
-        options?: {
-            limit?: number
-            offset?: number
-        },
-    ): Promise<Moment[]> {
-        return await this.repository.findByMention(mention, options?.limit, options?.offset)
-    }
-
-    /**
-     * Busca momentos publicados
-     */
-    async getPublishedMoments(options?: { limit?: number; offset?: number }): Promise<Moment[]> {
-        return await this.repository.findPublished(options?.limit, options?.offset)
-    }
-
-    /**
-     * Busca momentos recentes
-     */
-    async getRecentMoments(options?: { limit?: number; offset?: number }): Promise<Moment[]> {
-        return await this.repository.findRecent(options?.limit, options?.offset)
-    }
-
-    // ===== MÉTODOS DE ATUALIZAÇÃO =====
-
-    /**
-     * Atualiza um momento
-     */
-    async updateMoment(id: string, data: UpdateMomentData): Promise<Moment | null> {
-        const existingMoment = await this.repository.findById(id)
-        if (!existingMoment) {
-            throw new Error(`Moment with ID ${id} not found`)
-        }
-
-        // Validar dados de atualização
-        if (this.config.enableValidation) {
-            await this.validateUpdateData(data)
-        }
-
-        // Atualizar propriedades
-        const updatedProps: any = {}
-
-        if (data.description !== undefined) {
-            updatedProps.description = data.description
-        }
-
-        if (data.hashtags !== undefined) {
-            updatedProps.hashtags = data.hashtags
-        }
-
-        if (data.mentions !== undefined) {
-            updatedProps.mentions = data.mentions
-        }
-
-        if (data.status !== undefined) {
-            updatedProps.status = {
-                ...existingMoment.status,
-                current: data.status,
-                previous: existingMoment.status.current,
-                changedBy: existingMoment.ownerId,
-                changedAt: new Date(),
-                updatedAt: new Date(),
-            }
-        }
-
-        if (data.visibility !== undefined) {
-            updatedProps.visibility = {
-                ...existingMoment.visibility,
-                level: data.visibility,
-                updatedAt: new Date(),
-            }
-        }
-
-        updatedProps.updatedAt = new Date()
-
-        // Aplicar atualizações ao momento existente
-        Object.assign(existingMoment, updatedProps)
-
-        // Salvar atualizações
-        const updatedMoment = await this.repository.update(existingMoment)
-
-        // Registrar métricas se habilitado
-        if (this.config.enableMetrics && updatedMoment) {
-            await this.metricsService.recordView(updatedMoment.id, {
-                userId: updatedMoment.ownerId,
+            .catch((error) => {
+                logger.error(
+                    `[MomentService] ❌ Erro ao enfileirar compressão para moment ${createdMoment.id}:`,
+                    error,
+                )
+                // Não re-throw aqui para não interromper o fluxo principal
             })
-        }
 
-        return updatedMoment
+        // Enfileirar job de embeddings para processamento
+        await this._scheduleEmbeddingJob(createdMoment, processingResult, scheduleTime)
+            .then(async () => {
+                createdMoment.processing.status = MomentProcessingStatusEnum.EMBEDDINGS_QUEUED
+                logger.info(`[MomentService] ✅ Embeddings agendados para ${scheduleTime}`)
+
+                await this.repository.update(createdMoment)
+            })
+            .catch((error) => {
+                logger.error(
+                    `[MomentService] ❌ Erro ao agendar embeddings para moment ${createdMoment.id}:`,
+                    error,
+                )
+                // Não re-throw aqui para não interromper o fluxo principal
+            })
+        await this.repository.update(createdMoment)
+
+        return createdMoment
     }
 
-    // ===== MÉTODOS DE EXCLUSÃO =====
-
-    /**
-     * Exclui um momento (soft delete)
-     */
-    async deleteMoment(id: string, reason?: string): Promise<boolean> {
+    // Exclui um moment (soft delete)
+    async deleteMomentSoft(id: string, reason?: string): Promise<boolean> {
         const existingMoment = await this.repository.findById(id)
         if (!existingMoment) {
             throw new Error(`Moment with ID ${id} not found`)
@@ -634,104 +276,6 @@ export class MomentService {
         return updatedMoment !== null
     }
 
-    // ===== MÉTODOS DE ESTATÍSTICAS =====
-
-    /**
-     * Conta momentos por proprietário
-     */
-    async countMomentsByOwner(ownerId: string): Promise<number> {
-        return await this.repository.countByOwnerId(ownerId)
-    }
-
-    /**
-     * Conta momentos por status
-     */
-    async countMomentsByStatus(status: MomentStatusEnum): Promise<number> {
-        return await this.repository.countByStatus(status)
-    }
-
-    /**
-     * Conta momentos por visibilidade
-     */
-    async countMomentsByVisibility(visibility: MomentVisibilityEnum): Promise<number> {
-        return await this.repository.countByVisibility(visibility)
-    }
-
-    /**
-     * Conta momentos publicados
-     */
-    async countPublishedMoments(): Promise<number> {
-        return await this.repository.countPublished()
-    }
-
-    /**
-     * Verifica se um momento existe
-     */
-    async momentExists(id: string): Promise<boolean> {
-        return await this.repository.exists(id)
-    }
-
-    /**
-     * Verifica se um proprietário tem momentos
-     */
-    async ownerHasMoments(ownerId: string): Promise<boolean> {
-        return await this.repository.existsByOwnerId(ownerId)
-    }
-
-    // ===== MÉTODOS DE MÉTRICAS =====
-
-    /**
-     * Obtém métricas agregadas de múltiplos momentos
-     */
-    async getAggregatedMetrics(momentIds: string[]) {
-        if (!this.config.enableMetrics) {
-            throw new Error("Metrics are not enabled")
-        }
-
-        return await this.metricsService.getAggregatedMetrics(momentIds)
-    }
-
-    /**
-     * Obtém conteúdo em tendência
-     */
-    async getTrendingContent(limit: number = 10) {
-        if (!this.config.enableMetrics) {
-            throw new Error("Metrics are not enabled")
-        }
-
-        // Validar limite
-        if (limit <= 0 || limit > 100) {
-            throw new Error("Limit must be between 1 and 100")
-        }
-
-        // TODO: Implementar busca real de conteúdo em tendência no banco de dados
-        // Por enquanto, retorna lista vazia como mock
-        return []
-    }
-
-    /**
-     * Obtém conteúdo viral
-     */
-    async getViralContent(limit: number = 10) {
-        if (!this.config.enableMetrics) {
-            throw new Error("Metrics are not enabled")
-        }
-
-        // Validar limite
-        if (limit <= 0 || limit > 100) {
-            throw new Error("Limit must be between 1 and 100")
-        }
-
-        // TODO: Implementar busca real de conteúdo viral no banco de dados
-        // Por enquanto, retorna lista vazia como mock
-        return []
-    }
-
-    // ===== MÉTODOS PARA AÇÕES DO USUÁRIO =====
-
-    /**
-     * Verifica se o usuário curtiu o momento
-     */
     async hasUserLikedMoment(momentId: string, userId: string): Promise<boolean> {
         // Validar parâmetros
         if (!momentId || !userId) {
@@ -748,9 +292,6 @@ export class MomentService {
         return await this.repository.hasUserLikedMoment(momentId, userId)
     }
 
-    /**
-     * Curte um momento
-     */
     async likeMoment(momentId: string, userId: string): Promise<Moment | null> {
         const moment = await this.repository.findById(momentId)
         if (!moment) {
@@ -767,14 +308,11 @@ export class MomentService {
         await this.repository.addLike(momentId, userId)
 
         // Incrementar contador de likes
-        const updatedMoment = await this.incrementMomentLikes(momentId, userId)
+        const updatedMoment = await this._incrementMomentLikes(momentId)
 
         return updatedMoment
     }
 
-    /**
-     * Remove like de um momento
-     */
     async unlikeMoment(momentId: string, userId: string): Promise<Moment | null> {
         const moment = await this.repository.findById(momentId)
         if (!moment) {
@@ -791,334 +329,12 @@ export class MomentService {
         await this.repository.removeLike(momentId, userId)
 
         // Decrementar contador de likes
-        const updatedMoment = await this.decrementMomentLikes(momentId, userId)
+        const updatedMoment = await this._decrementMomentLikes(momentId)
 
         return updatedMoment
     }
 
-    /**
-     * Incrementa contador de likes
-     */
-    async incrementMomentLikes(momentId: string, userId: string): Promise<Moment | null> {
-        const moment = await this.repository.findById(momentId)
-        if (!moment) {
-            return null
-        }
-
-        // Incrementar contador de likes
-        moment.incrementLikes()
-
-        // Salvar no repositório
-        const updatedMoment = await this.repository.update(moment)
-
-        return updatedMoment
-    }
-
-    /**
-     * Decrementa contador de likes
-     */
-    async decrementMomentLikes(momentId: string, userId: string): Promise<Moment | null> {
-        const moment = await this.repository.findById(momentId)
-        if (!moment) {
-            return null
-        }
-
-        // Decrementar contador de likes (método não existe na entidade, usar incrementLikes com valor negativo)
-        // Como não existe decrementLikes, vamos decrementar manualmente
-        if (moment.metrics.engagement.totalLikes > 0) {
-            moment.metrics.engagement.totalLikes--
-            moment.metrics.engagement.likeRate = moment.likeRate
-            moment.metrics.lastMetricsUpdate = new Date()
-        }
-
-        // Salvar no repositório
-        const updatedMoment = await this.repository.update(moment)
-
-        return updatedMoment
-    }
-
-    /**
-     * Verifica se o usuário denunciou o momento
-     */
-    async hasUserReportedMoment(momentId: string, userId: string): Promise<boolean> {
-        if (!momentId || !userId) {
-            return false
-        }
-
-        // TODO: Implementar verificação real de denúncia no banco de dados
-        // Por enquanto, retorna false como mock
-        return false
-    }
-
-    /**
-     * Cria denúncia de momento
-     */
-    async createReport(data: { momentId: string; userId: string; reason: string }): Promise<any> {
-        const moment = await this.repository.findById(data.momentId)
-        if (!moment) {
-            throw new Error(`Moment with ID ${data.momentId} not found`)
-        }
-
-        // Verificar se já denunciou
-        const hasReported = await this.hasUserReportedMoment(data.momentId, data.userId)
-        if (hasReported) {
-            throw new Error("User has already reported this moment")
-        }
-
-        // Validar dados
-        if (!data.reason || data.reason.trim().length === 0) {
-            throw new Error("Report reason is required")
-        }
-
-        // Criar denúncia
-        const report = {
-            id: generateId(),
-            momentId: data.momentId,
-            userId: data.userId,
-            reason: data.reason.trim(),
-            status: "pending",
-            createdAt: new Date(),
-        }
-
-        // TODO: Salvar denúncia no banco de dados
-        return report
-    }
-
-    /**
-     * Busca momentos curtidos pelo usuário
-     */
-    async getLikedMomentsByUser(
-        userId: string,
-        limit: number = 20,
-        offset: number = 0,
-    ): Promise<{ moments: Moment[]; total: number }> {
-        if (!userId) {
-            return { moments: [], total: 0 }
-        }
-
-        // TODO: Implementar busca real de momentos curtidos no banco de dados
-        // Por enquanto, retorna lista vazia como mock
-        return {
-            moments: [],
-            total: 0,
-        }
-    }
-
-    /**
-     * Busca momentos comentados pelo usuário
-     */
-    async getCommentedMomentsByUser(
-        userId: string,
-        limit: number = 20,
-        offset: number = 0,
-    ): Promise<{ moments: Moment[]; total: number }> {
-        if (!userId) {
-            return { moments: [], total: 0 }
-        }
-
-        // TODO: Implementar busca real de momentos comentados no banco de dados
-        // Por enquanto, retorna lista vazia como mock
-        return {
-            moments: [],
-            total: 0,
-        }
-    }
-
-    /**
-     * Busca momentos por proprietário com filtros
-     */
-    async findByOwnerId(
-        ownerId: string,
-        limit: number = 20,
-        offset: number = 0,
-    ): Promise<{ moments: Moment[]; total: number }> {
-        const moments = await this.repository.findByOwnerId(ownerId, limit, offset)
-        const total = await this.repository.countByOwnerId(ownerId)
-        return {
-            moments,
-            total,
-        }
-    }
-
-    /**
-     * Obtém analytics de momentos
-     */
-    async getMomentsAnalytics(options: {
-        userId?: string
-        period?: string
-        startDate?: Date
-        endDate?: Date
-        includeDeleted?: boolean
-    }): Promise<any> {
-        if (!this.config.enableMetrics) {
-            throw new Error("Metrics are not enabled")
-        }
-
-        // TODO: Implementar analytics reais com dados do banco
-        // Por enquanto, retorna estrutura mock
-        return {
-            overview: {
-                totalMoments: 0,
-                totalViews: 0,
-                totalLikes: 0,
-                totalComments: 0,
-                totalShares: 0,
-                averageEngagementRate: 0,
-                averageWatchTime: 0,
-                averageCompletionRate: 0,
-            },
-            trends: {
-                momentsCreated: [],
-                views: [],
-                likes: [],
-                comments: [],
-            },
-            topPerformers: {
-                mostViewed: [],
-                mostLiked: [],
-                mostCommented: [],
-            },
-            demographics: {
-                ageGroups: {},
-                genders: {},
-                locations: {},
-            },
-            contentAnalysis: {
-                topHashtags: [],
-                topMentions: [],
-                contentTypes: {},
-            },
-            performance: {
-                bestPerformingDay: "Monday",
-                bestPerformingHour: 12,
-                averagePostingFrequency: 0,
-                peakEngagementTimes: [],
-            },
-        }
-    }
-
-    /**
-     * Busca reports dos momentos de um usuário
-     */
-    async getUserMomentReports(
-        userId: string,
-        limit: number = 20,
-        offset: number = 0,
-        status?: string,
-        momentId?: string,
-    ): Promise<{
-        momentReports: Array<{
-            momentId: string
-            moment: {
-                id: string
-                publishedAt: Date
-                status: { current: string }
-            }
-            reports: Array<{
-                id: string
-                reason: string
-                description?: string
-                status: string
-                createdAt: Date
-            }>
-            total: number
-        }>
-        total: number
-    }> {
-        if (!userId) {
-            return { momentReports: [], total: 0 }
-        }
-
-        // TODO: Implementar busca real de reports dos momentos no banco de dados
-        // Por enquanto, retorna lista vazia como mock
-        return {
-            momentReports: [],
-            total: 0,
-        }
-    }
-
-    /**
-     * Busca reports de um momento específico
-     */
-    async getMomentReports(
-        momentId: string,
-        limit: number = 20,
-        offset: number = 0,
-    ): Promise<{
-        reports: Array<{
-            id: string
-            reason: string
-            description?: string
-            status: string
-            userId: string
-            createdAt: Date
-        }>
-        total: number
-    }> {
-        if (!momentId) {
-            return { reports: [], total: 0 }
-        }
-
-        // Verificar se o momento existe
-        const moment = await this.repository.findById(momentId)
-        if (!moment) {
-            throw new Error(`Moment with ID ${momentId} not found`)
-        }
-
-        // TODO: Implementar busca real de reports do momento no banco de dados
-        // Por enquanto, retorna lista vazia como mock
-        return {
-            reports: [],
-            total: 0,
-        }
-    }
-
-    /**
-     * Obtém métricas de um momento com opções
-     */
-    async getMomentMetrics(
-        momentId: string,
-        options?: {
-            period?: string
-            startDate?: Date
-            endDate?: Date
-        },
-    ): Promise<any> {
-        if (!this.config.enableMetrics) {
-            throw new Error("Metrics are not enabled")
-        }
-
-        // Verificar se o momento existe
-        const moment = await this.repository.findById(momentId)
-        if (!moment) {
-            throw new Error(`Moment with ID ${momentId} not found`)
-        }
-
-        // TODO: Implementar métricas reais com opções do banco de dados
-        // Por enquanto, retorna estrutura mock
-        return {
-            momentId,
-            totalViews: 0,
-            totalLikes: 0,
-            totalComments: 0,
-            totalShares: 0,
-            engagementRate: 0,
-            averageWatchTime: 0,
-            completionRate: 0,
-            demographics: {
-                ageGroups: {},
-                genders: {},
-                locations: {},
-            },
-            timeline: [],
-            topHashtags: [],
-            topMentions: [],
-        }
-    }
-    /**
-     * Bloqueia um momento (admin use case)
-     */
-    async blockMoment(data: { momentId: string; adminId: string; reason: string }): Promise<{
+    async adminBlockMoment(data: { momentId: string; adminId: string; reason: string }): Promise<{
         success: boolean
         moment?: {
             id: string
@@ -1137,18 +353,16 @@ export class MomentService {
                     error: "Moment not found",
                 }
             }
+            const previousStatus = moment.status.current
 
-            // Update moment status to blocked
-            const updatedMoment = await this.updateMoment(data.momentId, {
-                status: MomentStatusEnum.BLOCKED,
-            })
+            moment.status.current = MomentStatusEnum.BLOCKED
+            moment.status.previous = previousStatus
+            moment.status.reason = data.reason || "Moment blocked by Circle Admin Team"
+            moment.status.changedBy = data.adminId
+            moment.status.changedAt = new Date()
+            moment.status.updatedAt = new Date()
 
-            if (!updatedMoment) {
-                return {
-                    success: false,
-                    error: "Failed to block moment",
-                }
-            }
+            const updatedMoment = await this.repository.update(moment)
 
             return {
                 success: true,
@@ -1170,10 +384,7 @@ export class MomentService {
         }
     }
 
-    /**
-     * Desbloqueia um momento (admin use case)
-     */
-    async unblockMoment(data: { momentId: string; adminId: string; reason?: string }): Promise<{
+    async adminUnlockMoment(data: { momentId: string; adminId: string; reason?: string }): Promise<{
         success: boolean
         moment?: {
             id: string
@@ -1185,7 +396,7 @@ export class MomentService {
         error?: string
     }> {
         try {
-            const moment = await this.repository.findById(data.momentId)
+            const moment = await this.repository.findById(data.momentId)!
             if (!moment) {
                 return {
                     success: false,
@@ -1193,26 +404,23 @@ export class MomentService {
                 }
             }
 
-            // Update moment status to published
-            const updatedMoment = await this.updateMoment(data.momentId, {
-                status: MomentStatusEnum.PUBLISHED,
-            })
+            moment.status.current = MomentStatusEnum.PUBLISHED
+            moment.status.previous = MomentStatusEnum.BLOCKED
+            moment.status.reason = data.reason || "Moment unlocked by Circle Admin Team"
+            moment.status.changedBy = data.adminId
+            moment.status.changedAt = new Date()
+            moment.status.updatedAt = new Date()
 
-            if (!updatedMoment) {
-                return {
-                    success: false,
-                    error: "Failed to unblock moment",
-                }
-            }
+            const updatedMoment = await this.repository.update(moment)
 
             return {
                 success: true,
                 moment: {
                     id: updatedMoment.id,
                     status: updatedMoment.status.current as string,
-                    reason: data.reason,
+                    reason: updatedMoment.status.reason as string,
                     unblockedBy: data.adminId,
-                    unblockedAt: new Date(),
+                    unblockedAt: updatedMoment.status.changedAt,
                 },
             }
         } catch (error) {
@@ -1225,172 +433,20 @@ export class MomentService {
         }
     }
 
-    /**
-     * Altera status de um momento (admin use case)
-     */
-    async changeMomentStatus(data: {
-        momentId: string
-        adminId: string
-        status: MomentStatusEnum
-        reason?: string
-    }): Promise<{
-        success: boolean
-        moment?: {
-            id: string
-            status: string
-            reason?: string
-            changedBy: string
-            changedAt: Date
-        }
-        error?: string
-    }> {
-        try {
-            const moment = await this.repository.findById(data.momentId)
-            if (!moment) {
-                return {
-                    success: false,
-                    error: "Moment not found",
-                }
-            }
-
-            // Update moment status
-            const updatedMoment = await this.updateMoment(data.momentId, {
-                status: data.status,
-            })
-
-            if (!updatedMoment) {
-                return {
-                    success: false,
-                    error: "Failed to change moment status",
-                }
-            }
-
-            return {
-                success: true,
-                moment: {
-                    id: updatedMoment.id,
-                    status: updatedMoment.status.current as string,
-                    reason: data.reason,
-                    changedBy: data.adminId,
-                    changedAt: new Date(),
-                },
-            }
-        } catch (error) {
-            return {
-                success: false,
-                error: `Failed to change moment status: ${
-                    error instanceof Error ? error.message : String(error)
-                }`,
-            }
-        }
-    }
-
-    /**
-     * Lista todos os momentos (admin use case)
-     */
-    async listAllMoments(options: {
-        page: number
-        limit: number
-        status?: string
-        sortBy?: string
-        sortOrder?: "asc" | "desc"
-        search?: string
-        ownerId?: string
-    }): Promise<{
-        success: boolean
-        moments?: Array<{
-            id: string
-            ownerId: string
-            description: string
-            hashtags: string[]
-            mentions: string[]
-            publishedAt?: Date
-            archivedAt?: Date
-            deletedAt?: Date
-            createdAt: Date
-            updatedAt: Date
-            status: string
-            metrics: {
-                totalViews: number
-                totalLikes: number
-                totalComments: number
-                totalReports: number
-            }
-        }>
-        pagination?: {
-            page: number
-            limit: number
-            total: number
-            totalPages: number
-        }
-        error?: string
-    }> {
-        try {
-            const {
-                page,
-                limit,
-                status,
-                sortBy = "created_at",
-                sortOrder = "desc",
-                search,
-                ownerId,
-            } = options
-
-            // Build filters
-            const filters: any = {}
-            if (status) filters.status = status
-            if (ownerId) filters.ownerId = ownerId
-            if (search) filters.search = search
-
-            const result = await this.repository.findPaginated(page, limit, filters)
-
-            // Transform moments to match the expected format
-            const transformedMoments = result.moments.map((moment) => ({
-                id: moment.id,
-                ownerId: moment.ownerId,
-                description: moment.description || "",
-                hashtags: moment.hashtags || [],
-                mentions: moment.mentions || [],
-                publishedAt: moment.publishedAt || undefined,
-                archivedAt: moment.archivedAt || undefined,
-                deletedAt: moment.deletedAt || undefined,
-                createdAt: moment.createdAt,
-                updatedAt: moment.updatedAt,
-                status: moment.status.current as string,
-                metrics: {
-                    totalViews: moment.metrics?.views?.totalViews || 0,
-                    totalLikes: moment.metrics?.engagement?.totalLikes || 0,
-                    totalComments: moment.metrics?.engagement?.totalComments || 0,
-                    totalReports: moment.metrics?.engagement?.totalReports || 0,
-                },
-            }))
-
-            return {
-                success: true,
-                moments: transformedMoments,
-                pagination: {
-                    page: result.page,
-                    limit: result.limit,
-                    total: result.total,
-                    totalPages: result.totalPages,
-                },
-            }
-        } catch (error) {
-            return {
-                success: false,
-                error: `Error listing moments: ${
-                    error instanceof Error ? error.message : String(error)
-                }`,
-            }
-        }
-    }
-
     // ===== MÉTODOS PRIVADOS =====
+    private async _incrementMomentLikes(momentId: string): Promise<Moment | null> {
+        const moment = (await this.repository.findById(momentId)!) as Moment
+        moment.incrementLikes()
+        return await this.repository.update(moment)
+    }
 
-    /**
-     * Valida dados de criação
-     */
-    private async validateCreateData(data: CreateMomentData): Promise<void> {
+    private async _decrementMomentLikes(momentId: string): Promise<Moment | null> {
+        const moment = (await this.repository.findById(momentId)!) as Moment
+        moment.decrementLikes()
+        return await this.repository.update(moment)
+    }
+
+    private async _validateCreateData(data: CreateMomentData): Promise<void> {
         // Validações básicas
         if (!data.ownerId) {
             throw new Error("Owner ID is required")
@@ -1428,37 +484,274 @@ export class MomentService {
             throw new Error("Cannot mention the same user more than once")
         }
 
-        // Validar hashtags duplicadas
-        if (data.hashtags && new Set(data.hashtags).size !== data.hashtags.length) {
-            throw new Error("Cannot use the same hashtag more than once")
-        }
-
         textLib.validator.description(data.description || "")
 
         data.mentions?.forEach((mention) => {
             textLib.validator.username(mention)
         })
-
-        data.hashtags?.forEach((hashtag) => {
-            textLib.validator.hashtag(hashtag)
-        })
     }
 
-    /**
-     * Valida dados de atualização
-     */
-    private async validateUpdateData(data: UpdateMomentData): Promise<void> {
-        // Validações de texto se fornecido
-        if (data.description !== undefined && data.description.length > 1000) {
-            throw new Error("Description cannot be longer than 1000 characters")
+    private _validateProcessingResult(
+        processingResult: ContentProcessingSuccessResult | ContentProcessingErrorResult,
+    ): { success: boolean; error?: string } {
+        if (!processingResult.success) {
+            return {
+                success: false,
+                error: `Error processing content: ${processingResult.error || "Unknown error"}`,
+            }
         }
 
-        if (data.hashtags !== undefined && data.hashtags.length > 30) {
-            throw new Error("Maximum of 30 hashtags allowed")
+        // Type assertion para ContentProcessingSuccessResult após verificar success
+        const successResult = processingResult as ContentProcessingSuccessResult
+
+        if (!successResult.moderation.approved && !successResult.moderation.requiresReview) {
+            return {
+                success: false,
+                error: `Content blocked by moderation: ${successResult.moderation.flags.join(
+                    ", ",
+                )}`,
+            }
         }
 
-        if (data.mentions !== undefined && data.mentions.length > 50) {
-            throw new Error("Maximum of 50 mentions allowed")
+        if (!successResult.videoUrl) {
+            return { success: false, error: "Video URL was not generated during processing" }
+        }
+
+        if (!successResult.thumbnailUrl) {
+            return { success: false, error: "Thumbnail URL was not generated during processing" }
+        }
+
+        if (!successResult.contentId) {
+            return { success: false, error: "Content ID was not generated during processing" }
+        }
+
+        if (!successResult.storage?.provider) {
+            return {
+                success: false,
+                error: "Storage provider was not configured during processing",
+            }
+        }
+
+        if (!successResult.storage?.videoKey) {
+            return {
+                success: false,
+                error: "Video storage key was not generated during processing",
+            }
+        }
+
+        if (!successResult.storage?.thumbnailKey) {
+            return {
+                success: false,
+                error: "Thumbnail storage key was not generated during processing",
+            }
+        }
+
+        return { success: true }
+    }
+
+    private async _scheduleVideoCompressionJob(
+        createdMoment: Moment,
+        successResult: ContentProcessingSuccessResult,
+    ): Promise<void> {
+        logger.info(
+            `[MomentService] 📅 Agendando compressão de vídeo para moment ${createdMoment.id}`,
+        )
+
+        try {
+            await this.videoCompressionQueue.addJob(
+                {
+                    momentId: createdMoment.id,
+                    originalVideoUrl: successResult.videoUrl,
+                    videoMetadata: {
+                        width: successResult.videoMetadata?.width || 0,
+                        height: successResult.videoMetadata?.height || 0,
+                        duration: successResult.videoMetadata?.duration || 0,
+                        codec: successResult.videoMetadata?.codec || "h264",
+                        hasAudio: successResult.videoMetadata?.hasAudio || false,
+                        size: successResult.videoMetadata?.size || 0,
+                    },
+                    priority: EmbeddingJobPriority.HIGH,
+                },
+                EmbeddingJobPriority.HIGH,
+            )
+
+            logger.info(
+                `[MomentService] ✅ Job de compressão adicionado à fila para moment ${createdMoment.id}`,
+            )
+        } catch (error) {
+            logger.error(`[MomentService] ❌ Erro ao adicionar job de compressão à fila:`, error)
+            throw error // Re-throw para ser capturado pelo .catch() do método principal
+        }
+    }
+
+    private async _scheduleEmbeddingJob(
+        createdMoment: Moment,
+        successResult: ContentProcessingSuccessResult,
+        scheduleTime: string,
+    ): Promise<void> {
+        logger.info(
+            `[MomentService] 📅 Agendando embeddings para moment ${createdMoment.id} às ${scheduleTime}`,
+        )
+
+        try {
+            await this.embeddingsQueue.scheduleFor(
+                {
+                    momentId: createdMoment.id,
+                    videoUrl: successResult.videoUrl, // Usar vídeo original (será atualizado após compressão)
+                    thumbnailUrl: successResult.thumbnailUrl,
+                    description: createdMoment.description || "",
+                    hashtags: [],
+                    videoMetadata: {
+                        width: successResult.videoMetadata?.width || 0,
+                        height: successResult.videoMetadata?.height || 0,
+                        duration: successResult.videoMetadata?.duration || 0,
+                        codec: successResult.videoMetadata?.codec || "h264",
+                        hasAudio: successResult.videoMetadata?.hasAudio || false,
+                    },
+                    priority: EmbeddingJobPriority.NORMAL,
+                },
+                scheduleTime,
+            )
+
+            logger.info(
+                `[MomentService] ✅ Job de embeddings agendado para moment ${createdMoment.id} às ${scheduleTime}`,
+            )
+        } catch (error) {
+            logger.error(`[MomentService] ❌ Erro ao agendar job de embeddings:`, error)
+            throw error // Re-throw para ser capturado pelo .catch() do método principal
+        }
+    }
+
+    private _formatMomentData(
+        data: CreateMomentData,
+        processingResult: ContentProcessingSuccessResult,
+    ): MomentProps {
+        return {
+            id: processingResult.contentId,
+            ownerId: data.ownerId,
+            content: {
+                duration: processingResult.videoMetadata?.duration || 0,
+                size: processingResult.videoMetadata?.size || 0,
+                format: processingResult.videoMetadata?.format || ("mp4" as any),
+                resolution: {
+                    width: processingResult.videoMetadata?.width || 0,
+                    height: processingResult.videoMetadata?.height || 0,
+                    quality: "medium" as any,
+                },
+                hasAudio: processingResult.videoMetadata?.hasAudio || false,
+                codec: processingResult.videoMetadata?.codec || ("h264" as any),
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            },
+            description: data.description || "",
+            hashtags: [],
+            mentions: data.mentions || [],
+            media: {
+                url: processingResult.videoUrl,
+                storage: {
+                    provider: processingResult.storage.provider as any,
+                    bucket: processingResult.storage.bucket || "",
+                    key: processingResult.storage.videoKey,
+                    region: processingResult.storage.region || "",
+                },
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            },
+            thumbnail: {
+                url: processingResult.thumbnailUrl,
+                width: processingResult.videoMetadata?.width || 0,
+                height: processingResult.videoMetadata?.height || 0,
+                storage: {
+                    provider: processingResult.storage.provider as any,
+                    bucket: processingResult.storage.bucket || "",
+                    key: processingResult.storage.thumbnailKey,
+                    region: processingResult.storage.region || "",
+                },
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            },
+            status: {
+                current: this.config.defaultStatus,
+                previous: null,
+                reason: null,
+                changedBy: "moment.creation.service",
+                changedAt: new Date(),
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            },
+            visibility: {
+                level: this.config.defaultVisibility,
+                allowedUsers: [],
+                blockedUsers: [],
+                ageRestriction: false,
+                contentWarning: false,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            },
+            context:
+                data.location && data.device
+                    ? {
+                          device: {
+                              type: data.device.type,
+                              os: data.device.os,
+                              osVersion: data.device.osVersion,
+                              model: data.device.model,
+                              screenResolution: data.device.screenResolution,
+                              orientation: data.device.orientation,
+                          },
+                          location: {
+                              latitude: data.location.latitude,
+                              longitude: data.location.longitude,
+                          },
+                      }
+                    : undefined,
+            processing: {
+                status: MomentProcessingStatusEnum.MEDIA_PROCESSED,
+                progress: 50,
+                steps: [
+                    {
+                        name: "video_processing",
+                        status: "completed" as any,
+                        progress: 100,
+                        startedAt: new Date(),
+                        completedAt: new Date(),
+                        error: null,
+                    },
+                    {
+                        name: "moderation",
+                        status: "completed" as any,
+                        progress: 100,
+                        startedAt: new Date(),
+                        completedAt: new Date(),
+                        error: null,
+                    },
+                    {
+                        name: "upload",
+                        status: "completed" as any,
+                        progress: 100,
+                        startedAt: new Date(),
+                        completedAt: new Date(),
+                        error: null,
+                    },
+                    {
+                        name: "embedding_generation",
+                        status: "pending" as any,
+                        progress: 0,
+                        startedAt: new Date(),
+                        completedAt: null,
+                        error: null,
+                    },
+                ],
+                error: null,
+                startedAt: new Date(),
+                completedAt: null,
+                estimatedCompletion: null,
+            },
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            publishedAt: null,
+            archivedAt: null,
+            deletedAt: null,
         }
     }
 }

@@ -31,11 +31,7 @@ export interface ViewMomentOutputDto {
             contentWarning: boolean
         }
         media: {
-            urls: {
-                low: string | null
-                medium: string | null
-                high: string | null
-            }
+            url: string | null
             duration: number
         }
         thumbnail: {

@@ -22,14 +22,14 @@ class UserInteractionHistory
     extends Model<UserInteractionHistoryAttributes, UserInteractionHistoryCreationAttributes>
     implements UserInteractionHistoryAttributes
 {
-    public id!: bigint
-    public userId!: bigint
-    public entityId!: bigint
-    public interactionType!: InteractionType
-    public interactionDate!: Date
-    public metadata!: Record<string, any>
-    public readonly createdAt!: Date
-    public readonly updatedAt!: Date
+    declare id: bigint
+    declare userId: bigint
+    declare entityId: bigint
+    declare interactionType: InteractionType
+    declare interactionDate: Date
+    declare metadata: Record<string, any>
+    declare readonly createdAt: Date
+    declare readonly updatedAt: Date
 
     // Método estático para inicializar o modelo
     public static initialize(sequelize: Sequelize): void {

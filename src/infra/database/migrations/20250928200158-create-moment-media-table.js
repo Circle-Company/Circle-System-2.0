@@ -19,20 +19,10 @@ module.exports = {
                 onUpdate: "CASCADE",
                 onDelete: "CASCADE",
             },
-            low_url: {
+            url: {
                 type: Sequelize.TEXT,
                 allowNull: true,
-                comment: "URL da versão de baixa qualidade",
-            },
-            medium_url: {
-                type: Sequelize.TEXT,
-                allowNull: true,
-                comment: "URL da versão de qualidade média",
-            },
-            high_url: {
-                type: Sequelize.TEXT,
-                allowNull: true,
-                comment: "URL da versão de alta qualidade",
+                comment: "URL do vídeo",
             },
             storage_provider: {
                 type: Sequelize.STRING(50),

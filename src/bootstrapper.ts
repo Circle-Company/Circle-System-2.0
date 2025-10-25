@@ -7,8 +7,23 @@ import { resetSwaggerRegistration } from "@/infra/swagger/swagger.config"
 import { EmbeddingsWorker } from "@/infra/workers/embeddings.worker"
 import { VideoCompressionWorker } from "@/infra/workers/video.compression.worker"
 import { logger } from "@/shared/logger"
-import fastifyStatic from "@fastify/static"
-import path from "path"
+import { networkInterfaces } from "os"
+
+/**
+ * Obtém o IP da máquina
+ */
+function getMachineIP(): string {
+    const interfaces = networkInterfaces()
+    for (const name of Object.keys(interfaces)) {
+        for (const iface of interfaces[name] || []) {
+            // Ignorar endereços internos e IPv6
+            if (iface.family === "IPv4" && !iface.internal) {
+                return iface.address
+            }
+        }
+    }
+    return "localhost"
+}
 
 /**
  * Configurações de ambiente da aplicação
@@ -271,7 +286,6 @@ export class ApplicationBootstrapper {
             // Etapas do boot
             await this.executeBootStep("Database Connection", () => this.connectDatabase())
             await this.executeBootStep("Multipart Configuration", () => this.configureMultipart())
-            await this.executeBootStep("Static Files Setup", () => this.setupStaticFiles())
             await this.executeBootStep("Routes Setup", () => this.setupRoutes())
             await this.executeBootStep("Swagger Setup", () => this.setupSwagger())
             await this.executeBootStep("Server Startup", () => this.startServer())
@@ -367,36 +381,6 @@ export class ApplicationBootstrapper {
     }
 
     /**
-     * Configura servir arquivos estáticos (uploads)
-     */
-    private async setupStaticFiles(): Promise<void> {
-        try {
-            const fastifyInstance = (api as any).getFastifyInstance?.()
-
-            if (!fastifyInstance) {
-                throw new Error("Fastify instance not available")
-            }
-
-            // Registrar plugin para servir arquivos estáticos
-            await fastifyInstance.register(fastifyStatic, {
-                root: path.join(process.cwd(), "uploads"),
-                prefix: "/uploads/",
-                constraints: {},
-            })
-
-            this.log("info", "Static files configured", {
-                root: path.join(process.cwd(), "uploads"),
-                prefix: "/uploads/",
-            })
-        } catch (error) {
-            this.log("error", "Failed to configure static files", {
-                error: (error as Error).message,
-            })
-            throw error
-        }
-    }
-
-    /**
      * Configura as rotas da aplicação
      */
     private async setupRoutes(): Promise<void> {
@@ -441,7 +425,7 @@ export class ApplicationBootstrapper {
             })
 
             this.log("info", "Swagger documentation configured successfully", {
-                docsUrl: `http://localhost:${this.config.port}/docs`,
+                docsUrl: `http://${getMachineIP()}:${this.config.port}/docs`,
             })
         } catch (error) {
             this.log("error", "Failed to configure Swagger", { error: (error as Error).message })
@@ -453,12 +437,12 @@ export class ApplicationBootstrapper {
      * Inicia o servidor HTTP
      */
     private async startServer(): Promise<void> {
-        await api.listen({ port: this.config.port })
+        await api.listen({ port: this.config.port, host: "0.0.0.0" })
 
         this.log("info", "HTTP server started successfully", {
             port: this.config.port,
             environment: this.config.environment,
-            url: `http://localhost:${this.config.port}`,
+            url: `http://${getMachineIP()}:${this.config.port}`,
         })
     }
 

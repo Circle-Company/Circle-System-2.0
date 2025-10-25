@@ -159,7 +159,7 @@ export class Moment {
             throw new Error("Invalid content for publication")
         }
 
-        if (this._processing.status !== MomentProcessingStatusEnum.COMPLETED) {
+        if (this._processing.status !== MomentProcessingStatusEnum.EMBEDDINGS_PROCESSED) {
             throw new Error("Media processing not completed")
         }
 
@@ -275,13 +275,42 @@ export class Moment {
     }
 
     /**
+     * Incrementar visualizações repetidas
+     */
+    incrementRepeatViews(): void {
+        this._metrics.views.repeatViews++
+        this._metrics.lastMetricsUpdate = new Date()
+        this._updatedAt = new Date()
+    }
+
+    /**
+     * Incrementar cliques
+     */
+    incrementClicks(): void {
+        this._metrics.views.totalClicks++
+        this._metrics.engagement.clickRate = this.clickRate
+        this._metrics.lastMetricsUpdate = new Date()
+        this._updatedAt = new Date()
+    }
+
+    /**
      * Incrementar likes
      */
     incrementLikes(): void {
         this._metrics.engagement.totalLikes++
-        this._metrics.engagement.likeRate = this.likeRate
+        this.recalculateLikeRate()
+    }
+
+    decrementLikes(): void {
+        this._metrics.engagement.totalLikes--
+        this.recalculateLikeRate()
+    }
+
+    recalculateLikeRate(): void {
+        this._metrics.engagement.likeRate =
+            this._metrics.engagement.totalLikes /
+            (this._metrics.views.totalViews > 0 ? this._metrics.views.totalViews : 1)
         this._metrics.lastMetricsUpdate = new Date()
-        this._updatedAt = new Date()
     }
 
     /**
@@ -432,48 +461,68 @@ export class Moment {
      * Verifica se o moment é interagível por um usuário específico
      * Inclui validação completa de status dos usuários, relacionamentos e permissões
      *
-     * @param userWhoWantsToInteract - ID do usuário que quer interagir
-     * @param userRepository - Repositório de usuários para validações (opcional)
-     * @param ownerUser - Entidade do owner do moment (opcional, quando disponível)
-     * @param interactingUser - Entidade do usuário que quer interagir (opcional, quando disponível)
-     * @param isFollowing - Se o usuário que quer interagir segue o owner (opcional)
-     * @param isBlocked - Se há bloqueio entre os usuários (opcional)
+     * @param userRepository - Repositório de usuários para validações
+     * @param interactingUser - Entidade do usuário que quer interagir
      * @returns Promise<boolean> - true se o moment é interagível
      */
-    async isInteractable(
-        userWhoWantsToInteract: string,
-        userRepository?: IUserRepository,
-        ownerUser?: User,
-        interactingUser?: User,
-        isFollowing?: boolean,
-        isBlocked?: boolean,
-    ): Promise<boolean> {
+    async isInteractable(userRepository: IUserRepository, interactingUser: User): Promise<boolean> {
         try {
             // 1. Verificar se o moment está publicado
-            if (this._status.current !== "published") {
+            if (this._status.current !== MomentStatusEnum.PUBLISHED) {
                 return false
             }
 
-            // Se temos as entidades de usuário em memória, usar validação síncrona
-            if (ownerUser && interactingUser) {
-                return this._validateWithUserEntities(
-                    ownerUser,
-                    interactingUser,
-                    isFollowing ?? false,
-                    isBlocked ?? false,
-                )
+            // 2. Buscar informações do owner do moment
+            const ownerUser = await userRepository.findById(this._ownerId)
+            if (!ownerUser) {
+                console.error(`Moment owner not found: ${this._ownerId}`)
+                return false
             }
 
-            // Se temos o repositório, usar validação assíncrona
-            if (userRepository) {
-                return await this._validateWithUserRepository(
-                    userWhoWantsToInteract,
-                    userRepository,
-                )
+            // 3. Verificar se o owner está ativo e pode interagir
+            if (!ownerUser.isActive() || !ownerUser.canInteractWithMoments()) {
+                return false
             }
 
-            // Fallback: validação básica apenas com visibilidade
-            return this._validateBasicVisibility(userWhoWantsToInteract)
+            // 4. Verificar se o usuário que quer interagir está ativo e pode interagir
+            if (!interactingUser.isActive() || !interactingUser.canInteractWithMoments()) {
+                return false
+            }
+
+            // 5. Verificar se não há bloqueio mútuo entre os usuários
+            const isOwnerBlockedByUser = await userRepository.isBlocked(
+                this._ownerId,
+                interactingUser.id,
+            )
+            const isUserBlockedByOwner = await userRepository.isBlocked(
+                interactingUser.id,
+                this._ownerId,
+            )
+
+            if (isOwnerBlockedByUser || isUserBlockedByOwner) {
+                return false
+            }
+
+            // 6. Verificar visibilidade do moment
+            switch (this._visibility.level) {
+                case MomentVisibilityEnum.PUBLIC:
+                case MomentVisibilityEnum.UNLISTED:
+                    return true
+
+                case MomentVisibilityEnum.PRIVATE:
+                    return this._visibility.allowedUsers.includes(interactingUser.id)
+
+                case MomentVisibilityEnum.FOLLOWERS_ONLY:
+                    // Verificar se o usuário que quer interagir segue o owner
+                    const isFollowing = await userRepository.isFollowing(
+                        interactingUser.id,
+                        this._ownerId,
+                    )
+                    return isFollowing || this._visibility.allowedUsers.includes(interactingUser.id)
+
+                default:
+                    return false
+            }
         } catch (error) {
             // Log do erro para debug (em produção, usar logger apropriado)
             console.error(`Erro ao verificar interatividade do moment ${this._id}:`, error)
@@ -1097,136 +1146,6 @@ export class Moment {
     }
 
     /**
-     * Validação básica apenas com visibilidade (fallback)
-     */
-    private _validateBasicVisibility(userWhoWantsToInteract: string): boolean {
-        return (
-            this._visibility.level === MomentVisibilityEnum.PUBLIC ||
-            this._visibility.level === MomentVisibilityEnum.UNLISTED ||
-            (this._visibility.level === MomentVisibilityEnum.PRIVATE &&
-                this._visibility.allowedUsers.includes(userWhoWantsToInteract)) ||
-            (this._visibility.level === MomentVisibilityEnum.FOLLOWERS_ONLY &&
-                this._visibility.allowedUsers.includes(userWhoWantsToInteract))
-        )
-    }
-
-    /**
-     * Validação com entidades de usuário em memória (síncrona)
-     */
-    private _validateWithUserEntities(
-        ownerUser: User,
-        interactingUser: User,
-        isFollowing: boolean,
-        isBlocked: boolean,
-    ): boolean {
-        // 2. Verificar se o owner está ativo e pode interagir
-        if (!ownerUser.isActive() || !ownerUser.canInteractWithMoments()) {
-            return false
-        }
-
-        // 3. Verificar se o usuário que quer interagir está ativo e pode interagir
-        if (!interactingUser.isActive() || !interactingUser.canInteractWithMoments()) {
-            return false
-        }
-
-        // 4. Verificar se não há bloqueio entre os usuários
-        if (isBlocked) {
-            return false
-        }
-
-        // 5. Verificar visibilidade do moment
-        switch (this._visibility.level) {
-            case MomentVisibilityEnum.PUBLIC:
-            case MomentVisibilityEnum.UNLISTED:
-                return true
-
-            case MomentVisibilityEnum.PRIVATE:
-                return this._visibility.allowedUsers.includes(interactingUser.id)
-
-            case MomentVisibilityEnum.FOLLOWERS_ONLY:
-                return isFollowing || this._visibility.allowedUsers.includes(interactingUser.id)
-
-            default:
-                return false
-        }
-    }
-
-    /**
-     * Validação com repositório de usuários (assíncrona)
-     */
-    private async _validateWithUserRepository(
-        userWhoWantsToInteract: string,
-        userRepository: import("@/domain/user").IUserRepository,
-    ): Promise<boolean> {
-        // 2. Buscar informações do owner do moment
-        const owner = await userRepository.findById(this._ownerId)
-        if (!owner) {
-            throw new Error(`Moment owner not found: ${this._ownerId}`)
-        }
-
-        // 3. Verificar se o owner está ativo (não bloqueado, não deletado)
-        if (!owner.isActive()) {
-            return false
-        }
-
-        // 4. Verificar se o owner pode interagir com moments
-        if (!owner.canInteractWithMoments()) {
-            return false
-        }
-
-        // 5. Buscar informações do usuário que quer interagir
-        const interactingUser = await userRepository.findById(userWhoWantsToInteract)
-        if (!interactingUser) {
-            throw new Error(`Interacting user not found: ${userWhoWantsToInteract}`)
-        }
-
-        // 6. Verificar se o usuário que quer interagir está ativo
-        if (!interactingUser.isActive()) {
-            return false
-        }
-
-        // 7. Verificar se o usuário que quer interagir pode interagir com moments
-        if (!interactingUser.canInteractWithMoments()) {
-            return false
-        }
-
-        // 8. Verificar se não há bloqueio mútuo entre os usuários
-        const isOwnerBlockedByUser = await userRepository.isBlocked(
-            this._ownerId,
-            userWhoWantsToInteract,
-        )
-        const isUserBlockedByOwner = await userRepository.isBlocked(
-            userWhoWantsToInteract,
-            this._ownerId,
-        )
-
-        if (isOwnerBlockedByUser || isUserBlockedByOwner) {
-            return false
-        }
-
-        // 9. Verificar visibilidade do moment
-        switch (this._visibility.level) {
-            case MomentVisibilityEnum.PUBLIC:
-            case MomentVisibilityEnum.UNLISTED:
-                return true
-
-            case MomentVisibilityEnum.PRIVATE:
-                return this._visibility.allowedUsers.includes(userWhoWantsToInteract)
-
-            case MomentVisibilityEnum.FOLLOWERS_ONLY:
-                // Verificar se o usuário que quer interagir segue o owner
-                const isFollowing = await userRepository.isFollowing(
-                    userWhoWantsToInteract,
-                    this._ownerId,
-                )
-                return isFollowing || this._visibility.allowedUsers.includes(userWhoWantsToInteract)
-
-            default:
-                return false
-        }
-    }
-
-    /**
      * Verifica se o usuário é o owner do moment
      */
     isOwner(userId: string): boolean {
@@ -1288,12 +1207,21 @@ export class Moment {
     }
 
     /**
+     * Getter para taxa de cliques
+     */
+    get clickRate(): number {
+        if (this._metrics.views.totalViews === 0) return 0
+        return (this._metrics.views.totalClicks / this._metrics.views.totalViews) * 100
+    }
+
+    /**
      * Recalcula todas as taxas de engajamento
      */
     recalculateEngagementRates(): void {
         if (this._metrics.views.totalViews > 0) {
             this._metrics.engagement.likeRate = this.likeRate
             this._metrics.engagement.reportRate = this.reportRate
+            this._metrics.engagement.clickRate = this.clickRate
             this._metrics.lastMetricsUpdate = new Date()
             this._updatedAt = new Date()
         }
@@ -1374,7 +1302,9 @@ export class Moment {
         return {
             views: {
                 totalViews: defaultMetrics.views.totalViews,
+                totalClicks: defaultMetrics.views.totalClicks || 0,
                 uniqueViews: defaultMetrics.views.uniqueViews,
+                repeatViews: defaultMetrics.views.repeatViews || 0,
                 viewsByRegion: defaultMetrics.views.viewsByRegion,
                 viewsByDevice: defaultMetrics.views.viewsByDevice,
                 viewsByCountry: defaultMetrics.views.viewsByCountry,
@@ -1467,7 +1397,9 @@ export class Moment {
         return {
             views: {
                 totalViews: entityMetrics.views.totalViews,
+                totalClicks: entityMetrics.views.totalClicks || 0,
                 uniqueViews: entityMetrics.views.uniqueViews,
+                repeatViews: entityMetrics.views.repeatViews || 0,
                 viewsByRegion: entityMetrics.views.viewsByRegion,
                 viewsByDevice: entityMetrics.views.viewsByDevice,
                 viewsByCountry: entityMetrics.views.viewsByCountry,
@@ -1563,7 +1495,9 @@ export class Moment {
         return {
             views: {
                 totalViews: domainMetrics.views.totalViews,
+                totalClicks: domainMetrics.views.totalClicks || 0,
                 uniqueViews: domainMetrics.views.uniqueViews,
+                repeatViews: domainMetrics.views.repeatViews || 0,
                 viewsByRegion: domainMetrics.views.viewsByRegion,
                 viewsByDevice: domainMetrics.views.viewsByDevice,
                 viewsByCountry: domainMetrics.views.viewsByCountry,

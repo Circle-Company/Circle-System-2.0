@@ -13,10 +13,10 @@ export default class ProfilePicture
     extends Model<ProfilePictureAttributes>
     implements ProfilePictureAttributes
 {
-    public readonly id!: bigint
-    public user_id!: bigint
-    public fullhd_resolution!: string | null
-    public tiny_resolution!: string | null
+    declare readonly id: bigint
+    declare user_id: bigint
+    declare fullhd_resolution: string | null
+    declare tiny_resolution: string | null
 
     static initialize(sequelize: Sequelize) {
         ProfilePicture.init(

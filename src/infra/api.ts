@@ -1,8 +1,28 @@
 import { HttpRequest, HttpResponse } from "@/infra/http/http.type"
 import { extractErrorInfo, generateId, isBaseError, logger } from "@/shared"
+import { existsSync, mkdirSync, readdirSync, statSync } from "fs"
 
 import { ENABLE_LOGGING } from "@/infra/database/environment"
 import { HttpFactory } from "@/infra/http/http.factory"
+import fastifyStatic from "@fastify/static"
+import { networkInterfaces } from "os"
+import { join } from "path"
+
+/**
+ * Obtém o IP da máquina
+ */
+function getMachineIP(): string {
+    const interfaces = networkInterfaces()
+    for (const name of Object.keys(interfaces)) {
+        for (const iface of interfaces[name] || []) {
+            // Ignorar endereços internos e IPv6
+            if (iface.family === "IPv4" && !iface.internal) {
+                return iface.address
+            }
+        }
+    }
+    return "localhost"
+}
 
 // Configuração da aplicação
 const ENV_CONFIG = {
@@ -24,6 +44,27 @@ const httpConfig = {
 
 // Instância da API usando abstração HTTP
 export const api = HttpFactory.createForEnvironment(ENV_CONFIG.environment, httpConfig)
+
+// Configurar pasta de uploads
+const uploadsDir = join(process.cwd(), "uploads")
+const videosDir = join(uploadsDir, "videos")
+const thumbnailsDir = join(uploadsDir, "thumbnails")
+
+// Criar diretórios se não existirem
+if (!existsSync(uploadsDir)) {
+    mkdirSync(uploadsDir, { recursive: true })
+    logger.info(`📁 Diretório de uploads criado: ${uploadsDir}`)
+}
+
+if (!existsSync(videosDir)) {
+    mkdirSync(videosDir, { recursive: true })
+    logger.info(`📁 Diretório de vídeos criado: ${videosDir}`)
+}
+
+if (!existsSync(thumbnailsDir)) {
+    mkdirSync(thumbnailsDir, { recursive: true })
+    logger.info(`📁 Diretório de thumbnails criado: ${thumbnailsDir}`)
+}
 
 // Rate limiting - armazenamento de contadores
 const requestCounts = new Map<string, { count: number; resetTime: number }>()
@@ -134,11 +175,13 @@ api.addHook("onSend", async (request: HttpRequest, response: HttpResponse, paylo
         "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none';",
     )
 
-    // Headers de cache baseados no método HTTP
-    if (request.method === "GET") {
-        response.header("Cache-Control", "public, max-age=300")
-    } else {
-        response.header("Cache-Control", "no-cache, no-store, must-revalidate")
+    // Headers de cache para rotas da API (arquivos estáticos já têm cache definido no setHeaders)
+    if (!request.url.startsWith("/storage/")) {
+        if (request.method === "GET") {
+            response.header("Cache-Control", "public, max-age=300")
+        } else {
+            response.header("Cache-Control", "no-cache, no-store, must-revalidate")
+        }
     }
 
     return payload
@@ -227,6 +270,85 @@ api.get("/info", async (request: HttpRequest, response: HttpResponse) => {
             health: "/health",
             docs: "/docs",
             info: "/info",
+            storage: "/storage",
         },
     })
 })
+
+// Configurar arquivos estáticos para uploads usando a instância do Fastify
+const fastifyInstance = api.getFastifyInstance?.()
+
+if (fastifyInstance) {
+    // Configurar vídeos para serem servidos em /storage/videos/
+    fastifyInstance.register(fastifyStatic, {
+        root: videosDir,
+        prefix: "/storage/videos/",
+        decorateReply: false,
+        schemaHide: true,
+        setHeaders: (res: any, path: string) => {
+            res.setHeader("Content-Type", "video/mp4")
+            res.setHeader("Cache-Control", "public, max-age=86400") // 24 horas
+            res.setHeader("Accept-Ranges", "bytes") // Suporte a range requests para streaming
+        },
+    })
+
+    // Configurar thumbnails para serem servidos em /storage/thumbnails/
+    fastifyInstance.register(fastifyStatic, {
+        root: thumbnailsDir,
+        prefix: "/storage/thumbnails/",
+        decorateReply: false,
+        schemaHide: true,
+        setHeaders: (res: any, path: string) => {
+            res.setHeader("Content-Type", "image/jpeg")
+            res.setHeader("Cache-Control", "public, max-age=86400") // 24 horas
+        },
+    })
+}
+
+// Endpoint para listar arquivos disponíveis (apenas para desenvolvimento)
+if (ENV_CONFIG.environment === "development") {
+    api.get("/storage/list", async (request: HttpRequest, response: HttpResponse) => {
+        try {
+            const listFiles = (dir: string, basePath: string = ""): any[] => {
+                const files = readdirSync(dir)
+                return files.map((file) => {
+                    const fullPath = join(dir, file)
+                    const stat = statSync(fullPath)
+                    const relativePath = join(basePath, file).replace(/\\/g, "/")
+
+                    if (stat.isDirectory()) {
+                        return {
+                            name: file,
+                            type: "directory",
+                            path: relativePath,
+                            children: listFiles(fullPath, relativePath),
+                        }
+                    } else {
+                        return {
+                            name: file,
+                            type: "file",
+                            path: relativePath,
+                            size: stat.size,
+                            url: `/storage/${relativePath}`,
+                            modified: stat.mtime,
+                        }
+                    }
+                })
+            }
+
+            const files = listFiles(uploadsDir)
+            const machineIP = getMachineIP()
+            response.send({
+                success: true,
+                baseUrl: `http://${machineIP}:${ENV_CONFIG.port}/storage/`,
+                files: files,
+            })
+        } catch (error) {
+            response.status(500).send({
+                success: false,
+                error: "Failed to list files",
+                message: error instanceof Error ? error.message : String(error),
+            })
+        }
+    })
+}

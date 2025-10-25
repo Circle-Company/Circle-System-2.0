@@ -16,12 +16,12 @@ class UserInteractionSummary
     extends Model<UserInteractionSummaryAttributes, UserInteractionSummaryCreationAttributes>
     implements UserInteractionSummaryAttributes
 {
-    public userId!: bigint
-    public totalInteractions!: number
-    public lastInteractionDate!: Date | null
-    public interactionCounts!: Record<string, number>
-    public readonly createdAt!: Date
-    public readonly updatedAt!: Date
+    declare userId: bigint
+    declare totalInteractions: number
+    declare lastInteractionDate: Date | null
+    declare interactionCounts: Record<string, number>
+    declare readonly createdAt: Date
+    declare readonly updatedAt: Date
 
     // Método estático para inicializar o modelo
     public static initialize(sequelize: Sequelize): void {

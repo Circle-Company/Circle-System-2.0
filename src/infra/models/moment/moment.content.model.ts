@@ -23,15 +23,15 @@ export default class MomentContent
     extends Model<MomentContentAttributes, MomentContentCreationAttributes>
     implements MomentContentAttributes
 {
-    public id!: string
-    public momentId!: string
-    public duration!: number
-    public size!: number
-    public format!: string
-    public hasAudio!: boolean
-    public codec!: string
-    public readonly createdAt!: Date
-    public readonly updatedAt!: Date
+    declare id: string
+    declare momentId: string
+    declare duration: number
+    declare size: number
+    declare format: string
+    declare hasAudio: boolean
+    declare codec: string
+    declare readonly createdAt: Date
+    declare readonly updatedAt: Date
 
     static initialize(sequelize: Sequelize): void {
         MomentContent.init(

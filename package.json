@@ -2,6 +2,7 @@
     "name": "circle-system",
     "version": "1.0.0",
     "description": "",
+    "type": "module",
     "homepage": "https://github.com/Circle-Company/Circle-System#readme",
     "bugs": {
         "url": "https://github.com/Circle-Company/Circle-System/issues"

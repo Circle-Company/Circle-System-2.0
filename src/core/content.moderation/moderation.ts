@@ -9,7 +9,6 @@ import {
     ContentBlockingResult,
     ContentDetectionRequest,
     ContentStorage,
-    HttpAdapter,
     ModerationEngineConfig,
     ModerationRepository,
     ModerationResult,
@@ -24,7 +23,6 @@ export class ModerationEngine {
         private readonly contentBlocker: ContentBlocker,
         private readonly moderationRepository: ModerationRepository,
         private readonly contentStorage: ContentStorage,
-        private readonly httpAdapter: HttpAdapter,
         private readonly config: ModerationEngineConfig,
     ) {}
 
@@ -78,11 +76,7 @@ export class ModerationEngine {
 
             // 5. Aplicar bloqueio automático se configurado
             let blockingResult: ContentBlockingResult | undefined
-            if (
-                this.config.blocking.autoBlock ||
-                this.config.blocking.autoHide ||
-                this.config.blocking.autoFlag
-            ) {
+            if (this.config.blocking.autoBlock) {
                 blockingResult = await this.contentBlocker.applyAutomaticBlocking(moderation)
             }
 
@@ -109,19 +103,15 @@ export class ModerationEngine {
     /**
      * Aplica bloqueio manual em uma moderação
      */
-    async blockContent(request: ContentBlockingRequest): Promise<ContentBlockingResult> {
+    async blockContent(
+        request: ContentBlockingRequest,
+    ): Promise<ContentBlockingResult | { success: false; error: string }> {
         try {
             return await this.contentBlocker.blockContent(request)
         } catch (error) {
             return {
                 success: false,
-                moderationId: request.moderationId,
-                blockType: request.blockType,
-                appliedAt: new Date(),
-                reason: `Erro ao aplicar bloqueio: ${
-                    error instanceof Error ? error.message : "Erro desconhecido"
-                }`,
-                metadata: { error: true },
+                error: error instanceof Error ? error.message : "Erro desconhecido",
             }
         }
     }
@@ -129,21 +119,15 @@ export class ModerationEngine {
     /**
      * Remove bloqueio de uma moderação
      */
-    async unblockContent(moderationId: string): Promise<ContentBlockingResult> {
+    async unblockContent(
+        moderationId: string,
+    ): Promise<ContentBlockingResult | { success: false; error: string }> {
         try {
-            const result = await this.contentBlocker.unblockContent(moderationId)
-
-            return result
+            return await this.contentBlocker.unblockContent(moderationId)
         } catch (error) {
             return {
                 success: false,
-                moderationId,
-                blockType: "warn" as any,
-                appliedAt: new Date(),
-                reason: `Erro ao remover bloqueio: ${
-                    error instanceof Error ? error.message : "Erro desconhecido"
-                }`,
-                metadata: { error: true },
+                error: error instanceof Error ? error.message : "Erro desconhecido",
             }
         }
     }
@@ -169,7 +153,7 @@ export class ModerationEngine {
             return {
                 success: true,
                 moderationId,
-                blockType: "warn" as any,
+                blockType: "approve" as any,
                 appliedAt: new Date(),
                 reason: reason || "Conteúdo aprovado manualmente",
                 metadata: { manual: true },
@@ -178,7 +162,7 @@ export class ModerationEngine {
             return {
                 success: false,
                 moderationId,
-                blockType: "warn" as any,
+                blockType: "approve" as any,
                 appliedAt: new Date(),
                 reason: `Erro ao aprovar conteúdo: ${
                     error instanceof Error ? error.message : "Erro desconhecido"
@@ -207,7 +191,7 @@ export class ModerationEngine {
             return {
                 success: true,
                 moderationId,
-                blockType: "flag" as any,
+                blockType: "review" as any,
                 appliedAt: new Date(),
                 reason: reason || "Conteúdo marcado para revisão",
                 metadata: { manual: true },
@@ -216,7 +200,7 @@ export class ModerationEngine {
             return {
                 success: false,
                 moderationId,
-                blockType: "flag" as any,
+                blockType: "review" as any,
                 appliedAt: new Date(),
                 reason: `Erro ao marcar conteúdo: ${
                     error instanceof Error ? error.message : "Erro desconhecido"

@@ -92,6 +92,8 @@ export class AuthRouter {
                     longitude: parseNumber(getHeader("longitude")),
                 }
 
+                console.log("Metadata recebida:", JSON.stringify(metadata, null, 2))
+
                 const result = await this.authController.signIn({
                     username: body.username,
                     password: body.password,
@@ -100,6 +102,8 @@ export class AuthRouter {
                 if (result.success) return reply.status(200).send(result)
                 else return reply.status(400).send(result)
             } catch (error: any) {
+                console.error("❌ Erro no signin:", error)
+                console.error("📍 Stack trace:", error?.stack)
                 return reply.status(400).send({
                     success: false,
                     error: error instanceof Error ? error.message : String(error),

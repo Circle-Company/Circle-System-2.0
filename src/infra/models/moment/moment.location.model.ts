@@ -27,10 +27,10 @@ export default class MomentLocation
     extends Model<MomentLocationAttributes, MomentLocationCreationAttributes>
     implements MomentLocationAttributes
 {
-    public id!: string
-    public momentId!: string
-    public latitude!: number
-    public longitude!: number
+    declare id: string
+    declare momentId: string
+    declare latitude: number
+    declare longitude: number
     public accuracy?: number | null
     public altitude?: number | null
     public heading?: number | null
@@ -38,8 +38,8 @@ export default class MomentLocation
     public address?: string | null
     public city?: string | null
     public country?: string | null
-    public readonly createdAt!: Date
-    public readonly updatedAt!: Date
+    declare readonly createdAt: Date
+    declare readonly updatedAt: Date
 
     static initialize(sequelize: Sequelize): void {
         MomentLocation.init(

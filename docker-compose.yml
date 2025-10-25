@@ -1,0 +1,97 @@
+services:
+    postgres:
+        image: postgres:16-alpine
+        ports:
+            - "5422:5432"
+        environment:
+            POSTGRES_USER: admin
+            POSTGRES_PASSWORD: admin
+            POSTGRES_DB: circle_db
+        volumes:
+            - postgres_data:/var/lib/postgresql/data
+        restart: unless-stopped
+
+    redis:
+        image: redis:8.2.2-alpine
+        ports:
+            - "6379:6379"
+        volumes:
+            - redis_data:/data
+        command: redis-server --appendonly yes
+        restart: unless-stopped
+        healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
+            interval: 5s
+            timeout: 3s
+            retries: 5
+
+    api:
+        container_name: circle-system
+        build:
+            context: .
+            dockerfile: Dockerfile
+            target: production
+        ports:
+            - "3000:3000"
+        environment:
+            NODE_ENV: development
+            PORT: 3000
+            HOST: 0.0.0.0
+            RATE_LIMIT: 1000
+            RATE_LIMIT_TIME_WINDOW: 60000
+            MAX_PARAM_LENGTH: 200
+            BODY_LIMIT: 1048576
+            CONNECTION_TIMEOUT: 30000
+            KEEP_ALIVE_TIMEOUT: 5000
+            CORS_ORIGIN: http://localhost:3000
+            ENABLE_LOGGER: true
+            LOGGER_NAME: circle-system
+            DB_HOST: postgres
+            DB_PORT: 5432
+            DB_USER: admin
+            DB_PASSWORD: admin
+            DB_NAME: circle_db
+            REDIS_HOST: redis
+            REDIS_PORT: 6379
+            JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-this-in-production}
+            JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-your-super-secret-refresh-key-change-this-in-production}
+        env_file:
+            - path: ./.env
+              required: false
+        volumes:
+            - uploads_data:/app/uploads
+            - models_data:/app/models
+        depends_on:
+            postgres:
+                condition: service_started
+            redis:
+                condition: service_healthy
+        restart: unless-stopped
+        healthcheck:
+            test:
+                [
+                    "CMD",
+                    "wget",
+                    "--no-verbose",
+                    "--tries=1",
+                    "--spider",
+                    "http://localhost:3000/health",
+                ]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 40s
+        deploy:
+            resources:
+                limits:
+                    cpus: "3.0"
+                    memory: 500M
+                reservations:
+                    cpus: "1.0"
+                    memory: 256M
+
+volumes:
+    postgres_data:
+    redis_data:
+    uploads_data:
+    models_data:

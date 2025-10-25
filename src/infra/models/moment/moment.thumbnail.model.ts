@@ -25,17 +25,17 @@ export default class MomentThumbnail
     extends Model<MomentThumbnailAttributes, MomentThumbnailCreationAttributes>
     implements MomentThumbnailAttributes
 {
-    public id!: string
-    public momentId!: string
-    public url!: string
-    public width!: number
-    public height!: number
-    public storageProvider!: string
-    public bucket!: string
-    public key!: string
-    public region!: string
-    public readonly createdAt!: Date
-    public readonly updatedAt!: Date
+    declare id: string
+    declare momentId: string
+    declare url: string
+    declare width: number
+    declare height: number
+    declare storageProvider: string
+    declare bucket: string
+    declare key: string
+    declare region: string
+    declare readonly createdAt: Date
+    declare readonly updatedAt: Date
 
     static initialize(sequelize: Sequelize): void {
         MomentThumbnail.init(

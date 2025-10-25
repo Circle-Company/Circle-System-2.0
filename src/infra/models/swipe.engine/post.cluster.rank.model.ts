@@ -25,18 +25,18 @@ class PostClusterRank
     extends Model<PostClusterRankAttributes, PostClusterRankCreationAttributes>
     implements PostClusterRankAttributes
 {
-    public id!: bigint
-    public postId!: bigint
-    public clusterId!: bigint
-    public score!: number
-    public similarity!: number
-    public relevanceScore!: number
-    public engagementScore!: number
-    public isActive!: boolean
-    public lastUpdated!: Date
+    declare id: bigint
+    declare postId: bigint
+    declare clusterId: bigint
+    declare score: number
+    declare similarity: number
+    declare relevanceScore: number
+    declare engagementScore: number
+    declare isActive: boolean
+    declare lastUpdated: Date
 
-    public readonly createdAt!: Date
-    public readonly updatedAt!: Date
+    declare readonly createdAt: Date
+    declare readonly updatedAt: Date
 
     // Método estático para inicializar o modelo
     public static initialize(sequelize: Sequelize): void {

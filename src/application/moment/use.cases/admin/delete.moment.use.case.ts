@@ -42,7 +42,7 @@ export class DeleteMomentUseCase {
             }
         } catch (error) {
             if (error instanceof Error && error.message.includes("não encontrado")) {
-                throw new MomentNotFoundError()
+                throw new MomentNotFoundError(momentId)
             }
             return {
                 success: false,

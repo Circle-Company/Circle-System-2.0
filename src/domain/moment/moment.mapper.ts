@@ -77,20 +77,14 @@ interface MomentMetricsModelAttributes {
     likeRate: number
     commentRate: number
     reportRate: number
+    totalClicks: number
+    clickRate: number
     loadTime: number
     bufferTime: number
     errorRate: number
-    qualitySwitches: number
     viralScore: number
-    trendingScore: number
-    reachScore: number
-    influenceScore: number
-    growthRate: number
     totalReach: number
     contentQualityScore: number
-    audioQualityScore: number
-    videoQualityScore: number
-    faceDetectionRate: number
     lastMetricsUpdate: Date
     metricsVersion: string
     dataQuality: number
@@ -174,9 +168,7 @@ interface MomentEmbeddingModelAttributes {
 interface MomentMediaModelAttributes {
     id: string | bigint
     momentId: string | bigint
-    lowUrl: string | null
-    mediumUrl: string | null
-    highUrl: string | null
+    url: string
     storageProvider: string
     bucket: string
     key: string
@@ -332,7 +324,9 @@ export class MomentMapper {
             momentData.metrics = {
                 views: {
                     totalViews: sequelizeMoment.metrics.totalViews,
+                    totalClicks: sequelizeMoment.metrics.totalClicks || 0,
                     uniqueViews: sequelizeMoment.metrics.uniqueViews,
+                    repeatViews: sequelizeMoment.metrics.repeatViews || 0,
                     completionViews: sequelizeMoment.metrics.completionViews,
                     averageWatchTime: sequelizeMoment.metrics.averageWatchTime,
                     averageCompletionRate: sequelizeMoment.metrics.averageCompletionRate,
@@ -350,6 +344,8 @@ export class MomentMapper {
                     likeRate: sequelizeMoment.metrics.likeRate,
                     commentRate: sequelizeMoment.metrics.commentRate,
                     reportRate: sequelizeMoment.metrics.reportRate,
+                    totalClicks: 0, // Campo não existe na tabela, usar valor padrão
+                    clickRate: 0, // Campo não existe na tabela, usar valor padrão
                     averageCommentLength: 0,
                     topCommenters: [],
                     engagementScore: 0,
@@ -369,7 +365,7 @@ export class MomentMapper {
                 },
                 viral: {
                     viralScore: sequelizeMoment.metrics.viralScore,
-                    viralReach: sequelizeMoment.metrics.totalReach,
+                    viralReach: sequelizeMoment.metrics.totalReach, // Usar totalReach como viralReach
                     reachByPlatform: {},
                     reachByUserType: {},
                     viralCoefficient: 0,
@@ -387,7 +383,7 @@ export class MomentMapper {
                     },
                     behavior: {
                         averageSessionTime: 0,
-                        bounceRate: 0,
+                        bounceRate: sequelizeMoment.metrics.bounceRate,
                         returnRate: 0,
                         engagementDepth: 0,
                         contentPreference: {},
@@ -471,11 +467,7 @@ export class MomentMapper {
         // Mapear mídia
         if (sequelizeMoment.media) {
             momentData.media = {
-                url:
-                    sequelizeMoment.media.highUrl ||
-                    sequelizeMoment.media.mediumUrl ||
-                    sequelizeMoment.media.lowUrl ||
-                    "",
+                url: sequelizeMoment.media.url,
                 storage: {
                     provider: sequelizeMoment.media.storageProvider as any,
                     bucket: sequelizeMoment.media.bucket,
@@ -523,7 +515,7 @@ export class MomentMapper {
 
         return {
             id: this.convertToBigInt(momentData.id),
-            ownerId: momentData.ownerId,
+            ownerId: this.convertToBigInt(momentData.ownerId),
             description: momentData.description,
             hashtags: momentData.hashtags,
             mentions: momentData.mentions,
@@ -629,7 +621,7 @@ export class MomentMapper {
             momentId: this.convertToBigInt(momentData.id),
             totalViews: momentData.metrics.views.totalViews,
             uniqueViews: momentData.metrics.views.uniqueViews,
-            repeatViews: 0, // Propriedade não existe mais, usar valor padrão
+            repeatViews: momentData.metrics.views.repeatViews || 0,
             completionViews: momentData.metrics.views.completionViews,
             averageWatchTime: momentData.metrics.views.averageWatchTime,
             averageCompletionRate: momentData.metrics.views.averageCompletionRate,
@@ -640,20 +632,14 @@ export class MomentMapper {
             likeRate: momentData.metrics.engagement.likeRate,
             commentRate: momentData.metrics.engagement.commentRate,
             reportRate: momentData.metrics.engagement.reportRate,
+            totalClicks: momentData.metrics.views.totalClicks || 0,
+            clickRate: momentData.metrics.engagement.clickRate || 0,
             loadTime: momentData.metrics.performance.loadTime,
             bufferTime: momentData.metrics.performance.bufferTime,
             errorRate: momentData.metrics.performance.errorRate,
-            qualitySwitches: 0, // Propriedade não existe mais, usar valor padrão
             viralScore: momentData.metrics.viral.viralScore,
-            trendingScore: 0, // Propriedade não existe mais, usar valor padrão
-            reachScore: 0, // Propriedade não existe mais, usar valor padrão
-            influenceScore: 0, // Propriedade não existe mais, usar valor padrão
-            growthRate: 0, // Propriedade não existe mais, usar valor padrão
-            totalReach: momentData.metrics.viral.viralReach,
+            totalReach: momentData.metrics.viral.viralReach, // Usar viralReach como totalReach
             contentQualityScore: momentData.metrics.content.qualityScore,
-            audioQualityScore: 0, // Propriedade não existe mais, usar valor padrão
-            videoQualityScore: 0, // Propriedade não existe mais, usar valor padrão
-            faceDetectionRate: 0, // Propriedade não existe mais, usar valor padrão
             lastMetricsUpdate: momentData.metrics.lastMetricsUpdate,
             metricsVersion: momentData.metrics.metricsVersion,
             dataQuality: momentData.metrics.dataQuality,
@@ -788,9 +774,7 @@ export class MomentMapper {
 
         return {
             momentId: this.convertToBigInt(momentData.id),
-            lowUrl: momentData.media.url,
-            mediumUrl: momentData.media.url,
-            highUrl: momentData.media.url,
+            url: momentData.media.url,
             storageProvider: momentData.media.storage.provider,
             bucket: momentData.media.storage.bucket,
             key: momentData.media.storage.key,

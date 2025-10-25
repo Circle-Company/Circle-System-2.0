@@ -24,16 +24,16 @@ export default class MomentProcessingStep
     extends Model<MomentProcessingStepAttributes, MomentProcessingStepCreationAttributes>
     implements MomentProcessingStepAttributes
 {
-    public id!: string
-    public processingId!: string
-    public name!: string
-    public status!: string
-    public progress!: number
-    public startedAt!: Date | null
-    public completedAt!: Date | null
-    public error!: string | null
-    public readonly createdAt!: Date
-    public readonly updatedAt!: Date
+    declare id: string
+    declare processingId: string
+    declare name: string
+    declare status: string
+    declare progress: number
+    declare startedAt: Date | null
+    declare completedAt: Date | null
+    declare error: string | null
+    declare readonly createdAt: Date
+    declare readonly updatedAt: Date
 
     static initialize(sequelize: Sequelize): void {
         MomentProcessingStep.init(

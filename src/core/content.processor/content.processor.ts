@@ -22,7 +22,7 @@ export interface ContentProcessingRequest {
     }
 }
 
-export interface ContentProcessingResult {
+export interface ContentProcessingSuccessResult {
     success: boolean
     contentId: string
     enrichedDescription: string
@@ -57,6 +57,15 @@ export interface ContentProcessingResult {
     error?: string
 }
 
+export interface ContentProcessingErrorResult {
+    success: false
+    error: string
+    metadata: {
+        contentId: string
+        processingTime: number
+    }
+}
+
 export class ContentProcessor {
     private videoProcessor: VideoProcessor
     private moderationEngine: ModerationEngine | null = null
@@ -68,6 +77,14 @@ export class ContentProcessor {
         moderationEngine?: ModerationEngine,
     ) {
         this.storageAdapter = storageAdapter
+
+        // Log das configurações que serão passadas para o VideoProcessor
+        console.log(`[ContentProcessor] 📋 Configurações passadas para VideoProcessor:`, {
+            thumbnail: config?.thumbnail,
+            processing: config?.processing,
+            validation: config?.validation,
+        })
+
         this.videoProcessor = new VideoProcessor(config)
         this.moderationEngine = moderationEngine || null
     }
@@ -75,17 +92,20 @@ export class ContentProcessor {
     /**
      * Processa conteúdo completo: processamento, moderação e upload
      */
-    async processContent(request: ContentProcessingRequest): Promise<ContentProcessingResult> {
+    async processContent(
+        request: ContentProcessingRequest,
+    ): Promise<ContentProcessingSuccessResult | ContentProcessingErrorResult> {
         const startTime = Date.now()
         const contentId = generateId()
 
         try {
+            const baseKey = contentId.toString()
             // 1. Processar vídeo (extração de metadados e thumbnail)
             const processingRequest: VideoProcessingRequest = {
                 contentId,
                 videoData: request.videoData,
-                videoKey: `videos/${request.ownerId}/${contentId}`,
-                thumbnailKey: `thumbnails/${request.ownerId}/${contentId}`,
+                videoKey: `videos/${baseKey}`,
+                thumbnailKey: `thumbnails/${baseKey}`,
                 metadata: request.metadata,
             }
 
@@ -137,54 +157,59 @@ export class ContentProcessor {
                 }
             }
 
-            // 3. Upload para storage em múltiplas resoluções
-            const baseVideoKey = `videos/${request.ownerId}/${contentId}`
-            const baseThumbnailKey = `thumbnails/${request.ownerId}/${contentId}`
+            // 3. Upload para storage (paralelizado)
+
+            // Preparar uploads para serem executados em paralelo
+            const uploadPromises: Promise<{ type: string; result: any }>[] = []
 
             // Upload do vídeo original (sem compressão)
-            let videoUrl = ""
             if (videoResult.processedVideo) {
-                const videoKey = `${baseVideoKey}.mp4`
-                const uploadResult = await this.storageAdapter.uploadVideo(
-                    videoKey,
-                    videoResult.processedVideo.data,
-                    {
-                        contentType: "video/mp4",
-                        ownerId: request.ownerId,
-                        contentId,
-                        duration: videoResult.videoMetadata.duration,
-                        wasProcessed: false, // Vídeo original - worker fará compressão
-                    },
+                uploadPromises.push(
+                    this.storageAdapter
+                        .uploadVideo(baseKey, videoResult.processedVideo.data, {
+                            contentType: "video/mp4",
+                            ownerId: request.ownerId,
+                            contentId,
+                            duration: videoResult.videoMetadata.duration,
+                            wasProcessed: false, // Vídeo original - worker fará compressão
+                        })
+                        .then((result) => ({ type: "video", result })),
                 )
-
-                if (!uploadResult.success) {
-                    throw new Error(uploadResult.error || "Error to upload video")
-                }
-
-                videoUrl = uploadResult.url || ""
-                console.log(`✅ Upload vídeo original concluído`)
             }
 
             // Upload de thumbnail única
-            let thumbnailUrl = ""
             if (videoResult.thumbnail) {
-                const thumbnailKey = `${baseThumbnailKey}.jpg`
-                const uploadResult = await this.storageAdapter.uploadThumbnail(
-                    thumbnailKey,
-                    videoResult.thumbnail.data,
-                    {
-                        contentType: `image/${videoResult.thumbnail.format}`,
-                        ownerId: request.ownerId,
-                        contentId,
-                    },
+                uploadPromises.push(
+                    this.storageAdapter
+                        .uploadThumbnail(contentId, videoResult.thumbnail.data, {
+                            contentType: `image/${videoResult.thumbnail.format}`,
+                            ownerId: request.ownerId,
+                            contentId,
+                        })
+                        .then((result) => ({ type: "thumbnail", result })),
                 )
+            }
 
-                if (!uploadResult.success) {
-                    throw new Error(uploadResult.error || "Error to upload thumbnail")
+            // Executar todos os uploads em paralelo
+            const uploadResults = await Promise.all(uploadPromises)
+
+            // Processar resultados dos uploads
+            let videoUrl = ""
+            let thumbnailUrl = ""
+
+            for (const uploadResult of uploadResults) {
+                if (uploadResult.type === "video") {
+                    if (!uploadResult.result.success) {
+                        throw new Error(uploadResult.result.error || "Error to upload video")
+                    }
+                    videoUrl = uploadResult.result.url || ""
+                    console.log(`✅ Upload vídeo original concluído`)
+                } else if (uploadResult.type === "thumbnail") {
+                    if (!uploadResult.result.success) {
+                        throw new Error(uploadResult.result.error || "Error to upload thumbnail")
+                    }
+                    thumbnailUrl = uploadResult.result.url || ""
                 }
-
-                thumbnailUrl = uploadResult.url || ""
-                console.log(`✅ Upload thumbnail única concluído`)
             }
 
             const processingTime = Date.now() - startTime
@@ -197,8 +222,8 @@ export class ContentProcessor {
                 videoUrl,
                 thumbnailUrl,
                 storage: {
-                    videoKey: `${baseVideoKey}.mp4`,
-                    thumbnailKey: `${baseThumbnailKey}.jpg`,
+                    videoKey: baseKey,
+                    thumbnailKey: `thumb_${contentId}`,
                     bucket: videoUrl ? "local" : undefined,
                     region: videoUrl ? "local" : undefined,
                     provider: "local",
@@ -212,32 +237,10 @@ export class ContentProcessor {
 
             return {
                 success: false,
-                contentId,
-                enrichedDescription: "",
-                videoUrl: "",
-                thumbnailUrl: "",
-                storage: {
-                    videoKey: "",
-                    thumbnailKey: "",
-                    provider: "unknown",
+                metadata: {
+                    contentId,
+                    processingTime,
                 },
-                videoMetadata: {
-                    duration: 0,
-                    width: 0,
-                    height: 0,
-                    format: "",
-                    codec: "",
-                    hasAudio: false,
-                    size: 0,
-                },
-                moderation: {
-                    moderationId: "",
-                    approved: false,
-                    requiresReview: false,
-                    flags: [],
-                    confidence: 0,
-                },
-                processingTime,
                 error: error instanceof Error ? error.message : "Unknown error",
             }
         }
@@ -255,12 +258,15 @@ export class ContentProcessor {
     }
 
     /**
-     * Deleta conteúdo do storage
+     * Deleta conteúdo do storage (paralelizado)
      */
     async deleteContent(videoKey: string, thumbnailKey: string): Promise<void> {
         try {
-            await this.storageAdapter.deleteVideo(videoKey)
-            await this.storageAdapter.deleteThumbnail(thumbnailKey)
+            // Deletar vídeo e thumbnail em paralelo
+            await Promise.all([
+                this.storageAdapter.deleteVideo(videoKey),
+                this.storageAdapter.deleteThumbnail(thumbnailKey),
+            ])
         } catch (error) {
             console.error("Error to delete content:", error)
             throw error

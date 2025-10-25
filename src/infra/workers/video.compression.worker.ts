@@ -8,28 +8,42 @@ import {
     VideoCompressionJobResult,
 } from "./types/video.compression.job.types"
 
-import { RealLocalStorageAdapter } from "@/core/content.processor/local.storage.adapter"
+import { LocalStorageAdapter } from "@/core/content.processor/local.storage.adapter"
 import { VideoProcessor } from "@/core/content.processor/video.processor"
+import { MomentStatusEnum } from "@/domain/moment"
 import { IMomentRepository } from "@/domain/moment/repositories/moment.repository"
 import { VideoCompressionQueue } from "@/infra/queue/video.compression.queue"
+import { logger } from "@/shared"
 import axios from "axios"
 import { Job } from "bull"
+import { networkInterfaces } from "os"
 
 export class VideoCompressionWorker {
     private videoProcessor: VideoProcessor
-    private storageAdapter: RealLocalStorageAdapter
+    private storageAdapter: LocalStorageAdapter
     private queue: VideoCompressionQueue
     private isProcessing = false
+    private machineIP: string
 
     constructor(private momentRepository: IMomentRepository) {
+        // Obter IP da máquina para detectar URLs locais
+        this.machineIP = this.getMachineIP()
         this.queue = VideoCompressionQueue.getInstance()
 
-        // Inicializar componentes
-        this.videoProcessor = new VideoProcessor()
-        this.storageAdapter = new RealLocalStorageAdapter(
-            "./uploads",
-            process.env.STORAGE_BASE_URL || "http://localhost:3000",
-        )
+        // Inicializar componentes com configuração de ALTA QUALIDADE para vídeos
+        // CRF Scale: 0 (lossless) - 18 (very high quality) - 23 (high quality) - 28 (good) - 35 (poor) - 51 (worst)
+        // Preset: veryslow = máxima qualidade possível (máxima eficiência de compressão)
+        this.videoProcessor = new VideoProcessor({
+            compression: {
+                preset: "veryslow", // Preset mais lento possível para máxima qualidade
+                crf: 34, // Alta qualidade (lossless prático)
+                targetBitrate: 800, // Bitrate alto para manter qualidade
+                maxBitrate: 1000, // Bitrate máximo alto para qualidade preservada
+                bufferSize: 1000, // Buffer grande para evitar variações
+                audioBitrate: 64, // Áudio de alta qualidade
+            },
+        })
+        this.storageAdapter = new LocalStorageAdapter("./uploads") // Deixar LocalStorageAdapter detectar IP automaticamente
     }
 
     /**
@@ -79,26 +93,32 @@ export class VideoCompressionWorker {
         const startTime = Date.now()
         const { momentId, originalVideoUrl, videoMetadata } = job.data
 
-        console.log(`[VideoCompressionWorker] 🔄 Processando compressão: ${momentId}`)
+        console.log(
+            `[VideoCompressionWorker] 🚀 Iniciando compressão ULTRA ALTA QUALIDADE para moment ${momentId}`,
+        )
+        console.log("📋 Configuração:", {
+            preset: this.videoProcessor.getConfig().compression?.preset,
+            crf: this.videoProcessor.getConfig().compression?.crf,
+            targetBitrate: this.videoProcessor.getConfig().compression?.targetBitrate,
+            maxBitrate: this.videoProcessor.getConfig().compression?.maxBitrate,
+            audioBitrate: this.videoProcessor.getConfig().compression?.audioBitrate,
+        })
 
         try {
-            // 1. Baixar vídeo original do storage
-            console.log(`[VideoCompressionWorker] 📥 Baixando vídeo original: ${originalVideoUrl}`)
             const originalVideoData = await this.downloadVideo(originalVideoUrl)
-
-            // 2. Comprimir vídeo usando H.264 slow preset
-            console.log(`[VideoCompressionWorker] 🐌 Comprimindo vídeo com H.264 slow...`)
             const compressedVideoData = await this.videoProcessor.compressVideoSlow(
                 originalVideoData,
             )
 
-            // 3. Fazer upload do vídeo comprimido
-            console.log(`[VideoCompressionWorker] 📤 Fazendo upload do vídeo comprimido...`)
+            // Usar o momentId como key (o LocalStorageAdapter adiciona prefixo e extensão automaticamente)
+            console.log(
+                `[VideoCompressionWorker] 🔄 Substituindo vídeo original do moment: ${momentId}`,
+            )
+
             const uploadResult = await this.storageAdapter.uploadVideo(
-                `${momentId}.mp4`, // key simples
+                momentId, // Usar momentId como key (sem prefixo nem extensão)
                 compressedVideoData,
                 {
-                    filename: `${momentId}_compressed.mp4`,
                     mimeType: "video/mp4",
                     metadata: {
                         ownerId: momentId,
@@ -115,39 +135,59 @@ export class VideoCompressionWorker {
                 throw new Error(uploadResult.error || "Failed to upload compressed video")
             }
 
-            // 4. Buscar moment e atualizar URL do vídeo
+            console.log(`[VideoCompressionWorker] ✅ Upload concluído: ${uploadResult.url}`)
+
             const moment = await this.momentRepository.findById(momentId)
             if (!moment) {
                 throw new Error(`Moment ${momentId} not found`)
             }
 
-            // Atualizar media.url para apontar para o vídeo comprimido usando media.url
-            moment.media.url = uploadResult.url // Versão comprimida
-            // remove low medium e high
+            try {
+                moment.media.url = uploadResult.url // Versão comprimida
+                const previousStatus = moment.status.current
+                moment.status.current = MomentStatusEnum.PUBLISHED
+                moment.status.previous = previousStatus
+                moment.status.reason = "Video compressed successfully"
+                moment.status.changedBy = "video.compression.worker"
+                moment.status.changedAt = new Date()
+                moment.status.updatedAt = new Date()
 
-            // Atualizar metadados do vídeo com informações de compressão
-            if (moment.media.storage) {
-                moment.media.storage.key = `videos/compressed/${momentId}.mp4`
-                moment.media.storage.provider = uploadResult.provider as any
+                // Atualizar metadados do vídeo com informações de compressão
+                if (moment.media.storage) {
+                    // Usar a key real retornada pelo uploadResult
+                    moment.media.storage.key = uploadResult.key
+                    moment.media.storage.provider = uploadResult.provider as any
+                    moment.media.storage.bucket = uploadResult.bucket || moment.media.storage.bucket
+                    moment.media.storage.region = uploadResult.region || moment.media.storage.region
+
+                    console.log(`[VideoCompressionWorker] ✅ Storage metadata atualizado`)
+                } else console.log(`[VideoCompressionWorker] ⚠️ Moment não possui storage metadata`)
+
+                const updatedMoment = await this.momentRepository.update(moment)
+
+                if (!updatedMoment) throw new Error("Failed to update moment in repository")
+
+                console.log(`[VideoCompressionWorker] ✅ Moment atualizado com sucesso:`, {
+                    id: updatedMoment.id,
+                    status: updatedMoment.status.current,
+                    videoUrl: updatedMoment.media.url,
+                })
+            } catch (updateError) {
+                console.error(`[VideoCompressionWorker] ❌ Erro ao atualizar moment:`, updateError)
+                throw new Error(
+                    `Failed to update moment: ${
+                        updateError instanceof Error ? updateError.message : String(updateError)
+                    }`,
+                )
             }
 
-            // 5. Salvar moment atualizado
-            await this.momentRepository.update(moment)
-
-            // 6. Deletar vídeo original do storage
-            console.log(`[VideoCompressionWorker] 🗑️ Deletando vídeo original...`)
-            await this.deleteOriginalVideo(originalVideoUrl)
+            // 6. Não deletar o vídeo original - o upload já substituiu com o comprimido
+            // await this.deleteOriginalVideo(originalVideoUrl)
 
             const processingTime = Date.now() - startTime
             const originalSize = originalVideoData.length
             const compressedSize = compressedVideoData.length
             const compressionRatio = ((originalSize - compressedSize) / originalSize) * 100
-
-            console.log(
-                `[VideoCompressionWorker] ✅ Compressão concluída: ${momentId} (${processingTime}ms, ${compressionRatio.toFixed(
-                    1,
-                )}% menor)`,
-            )
 
             return {
                 success: true,
@@ -160,14 +200,14 @@ export class VideoCompressionWorker {
                 metadata: {
                     originalCodec: "unknown",
                     compressedCodec: "h264",
-                    preset: "slow",
-                    crf: 28,
+                    preset: "veryslow", // Preset mais lento para máxima qualidade
+                    crf: 18, // Lossless prático - máxima qualidade possível
                 },
             }
         } catch (error) {
             const processingTime = Date.now() - startTime
 
-            console.error(`[VideoCompressionWorker] ❌ Erro na compressão ${momentId}:`, error)
+            logger.error(`[VideoCompressionWorker] ❌ Erro na compressão ${momentId}:`, error)
 
             return {
                 success: false,
@@ -183,21 +223,60 @@ export class VideoCompressionWorker {
      */
     private async downloadVideo(url: string): Promise<Buffer> {
         try {
-            // Se for URL local (localhost)
-            if (url && (url.includes("localhost") || url.startsWith("/uploads/"))) {
+            console.log(`[VideoCompressionWorker] 📥 Download solicitado: ${url}`)
+            console.log(`[VideoCompressionWorker] 🔍 IP da máquina: ${this.machineIP}`)
+
+            // Converter URL com IP da máquina para localhost se necessário
+            const localUrl = this.convertToLocalhostIfNeeded(url)
+
+            if (url !== localUrl) {
+                console.log(
+                    `[VideoCompressionWorker] 🔄 URL convertida para localhost: ${localUrl}`,
+                )
+            }
+
+            // Se for URL local (localhost ou IP da máquina)
+            if (
+                localUrl &&
+                (localUrl.includes("localhost") ||
+                    localUrl.startsWith("/uploads/") ||
+                    localUrl.startsWith("/storage/"))
+            ) {
                 const fs = await import("fs")
                 const path = await import("path")
 
-                // Extrair path do arquivo
-                const filePath = url.includes("localhost")
-                    ? url.split("/uploads/")[1]
-                    : url.replace("/uploads/", "")
+                // Extrair path do arquivo mantendo o diretório
+                let filePath: string
+                if (localUrl.includes("localhost")) {
+                    // Exemplo: http://localhost:3000/storage/videos/video_123.mp4
+                    if (localUrl.includes("/storage/videos/")) {
+                        filePath = "videos/" + localUrl.split("/storage/videos/")[1]
+                    } else if (localUrl.includes("/storage/thumbnails/")) {
+                        filePath = "thumbnails/" + localUrl.split("/storage/thumbnails/")[1]
+                    } else if (localUrl.includes("/uploads/")) {
+                        filePath = localUrl.split("/uploads/")[1]
+                    } else {
+                        throw new Error(`Cannot extract file path from URL: ${localUrl}`)
+                    }
+                } else {
+                    // Exemplo: /storage/videos/video_123.mp4 ou /uploads/videos/video_123.mp4
+                    filePath = localUrl.replace("/storage/", "").replace("/uploads/", "")
+                }
 
                 const fullPath = path.join(process.cwd(), "uploads", filePath)
+                console.log(`[VideoCompressionWorker] 📂 Arquivo local: ${fullPath}`)
 
                 // Verificar se arquivo existe
                 if (fs.existsSync(fullPath)) {
-                    return fs.readFileSync(fullPath)
+                    const fileData = fs.readFileSync(fullPath)
+                    console.log(
+                        `[VideoCompressionWorker] ✅ Arquivo baixado: ${(
+                            fileData.length /
+                            1024 /
+                            1024
+                        ).toFixed(2)}MB`,
+                    )
+                    return fileData
                 } else {
                     console.warn(`[VideoCompressionWorker] ⚠️ Arquivo não encontrado: ${fullPath}`)
                     throw new Error(`Video file not found: ${fullPath}`)
@@ -252,6 +331,16 @@ export class VideoCompressionWorker {
         try {
             if (!url) return null
 
+            // Para URLs locais com storage/videos/, extrair apenas o nome do arquivo
+            if (url.includes("/storage/videos/")) {
+                return url.split("/storage/videos/")[1]
+            }
+
+            // Para URLs locais com storage/thumbnails/, extrair apenas o nome do arquivo
+            if (url.includes("/storage/thumbnails/")) {
+                return url.split("/storage/thumbnails/")[1]
+            }
+
             // Para URLs locais, extrair path após /uploads/
             if (url.includes("/uploads/")) {
                 return url.split("/uploads/")[1]
@@ -260,7 +349,14 @@ export class VideoCompressionWorker {
             // Para URLs externas, tentar extrair key do path
             if (url.startsWith("http")) {
                 const urlObj = new URL(url)
-                return urlObj.pathname.substring(1) // Remove leading slash
+                const pathname = urlObj.pathname.substring(1) // Remove leading slash
+
+                // Se contém storage/videos/, extrair apenas o arquivo
+                if (pathname.includes("storage/videos/")) {
+                    return pathname.split("storage/videos/")[1]
+                }
+
+                return pathname
             }
 
             // Se não for URL válida, retornar null
@@ -275,5 +371,35 @@ export class VideoCompressionWorker {
      */
     isActive(): boolean {
         return this.isProcessing
+    }
+
+    /**
+     * Obtém o IP da máquina
+     */
+    private getMachineIP(): string {
+        const interfaces = networkInterfaces()
+        for (const name of Object.keys(interfaces)) {
+            for (const iface of interfaces[name] || []) {
+                // Ignorar endereços internos e IPv6
+                if (iface.family === "IPv4" && !iface.internal) {
+                    return iface.address
+                }
+            }
+        }
+        return "localhost"
+    }
+
+    /**
+     * Converte URL com IP da máquina para localhost se necessário
+     */
+    private convertToLocalhostIfNeeded(url: string): string {
+        if (!url) return url
+
+        // Se a URL contém o IP da máquina, substituir por localhost
+        if (url.includes(this.machineIP)) {
+            return url.replace(this.machineIP, "localhost")
+        }
+
+        return url
     }
 }

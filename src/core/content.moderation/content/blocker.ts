@@ -30,7 +30,7 @@ export class ContentBlocker {
             }
 
             const blockType = this.determineBlockType(moderation, request)
-            const result = await this.applyBlock(moderation, blockType, request)
+            await this.applyBlock(moderation, blockType, request)
 
             return {
                 success: true,
@@ -44,7 +44,7 @@ export class ContentBlocker {
             return {
                 success: false,
                 moderationId: request.moderationId,
-                blockType: BlockType.WARN,
+                blockType: BlockType.APPROVE,
                 appliedAt: new Date(),
                 reason: `Erro ao aplicar bloqueio: ${
                     error instanceof Error ? error.message : "Erro desconhecido"
@@ -60,12 +60,12 @@ export class ContentBlocker {
     async applyAutomaticBlocking(moderation: ModerationEntity): Promise<ContentBlockingResult> {
         const blockType = this.determineAutomaticBlockType(moderation)
 
-        if (blockType === BlockType.WARN) {
+        if (blockType === BlockType.APPROVE) {
             // Não aplicar bloqueio, apenas retornar resultado
             return {
                 success: true,
                 moderationId: moderation.id,
-                blockType: BlockType.WARN,
+                blockType: BlockType.APPROVE,
                 appliedAt: new Date(),
                 reason: "Conteúdo aprovado automaticamente",
                 metadata: { automatic: true },
@@ -104,7 +104,7 @@ export class ContentBlocker {
             return {
                 success: true,
                 moderationId,
-                blockType: BlockType.WARN,
+                blockType: BlockType.APPROVE,
                 appliedAt: new Date(),
                 reason: "Bloqueio removido",
                 metadata: { unblocked: true },
@@ -113,7 +113,7 @@ export class ContentBlocker {
             return {
                 success: false,
                 moderationId,
-                blockType: BlockType.WARN,
+                blockType: BlockType.APPROVE,
                 appliedAt: new Date(),
                 reason: `Erro ao remover bloqueio: ${
                     error instanceof Error ? error.message : "Erro desconhecido"
@@ -131,20 +131,19 @@ export class ContentBlocker {
         request: ContentBlockingRequest,
     ): BlockType {
         // Se o request especifica um tipo, usar ele
-        if (request.blockType !== BlockType.WARN) {
+        if (request.blockType) {
             return request.blockType
         }
 
-        // Determinar baseado na severidade
+        // Determinar baseado apenas na severidade
         switch (moderation.severity) {
             case ModerationSeverityEnum.HIGH:
-                return BlockType.HARD_BLOCK
+                return BlockType.BLOCK
             case ModerationSeverityEnum.MEDIUM:
-                return BlockType.SOFT_BLOCK
+                return BlockType.REVIEW
             case ModerationSeverityEnum.LOW:
-                return BlockType.FLAG
             default:
-                return BlockType.WARN
+                return BlockType.APPROVE
         }
     }
 
@@ -152,11 +151,6 @@ export class ContentBlocker {
      * Determina o tipo de bloqueio automático baseado nas regras
      */
     private determineAutomaticBlockType(moderation: ModerationEntity): BlockType {
-        // Verificar se deve bloquear automaticamente
-        if (!this.config.blocking.autoBlock) {
-            return BlockType.WARN
-        }
-
         // Verificar flags críticas
         const criticalFlags = moderation.flags.filter(
             (flag) =>
@@ -166,19 +160,18 @@ export class ContentBlocker {
         )
 
         if (criticalFlags.length > 0) {
-            return BlockType.HARD_BLOCK
+            return BlockType.BLOCK
         }
 
-        // Verificar severidade
+        // Determinar baseado na severidade
         switch (moderation.severity) {
             case ModerationSeverityEnum.HIGH:
-                return this.config.blocking.autoBlock ? BlockType.HARD_BLOCK : BlockType.FLAG
+                return BlockType.BLOCK
             case ModerationSeverityEnum.MEDIUM:
-                return this.config.blocking.autoHide ? BlockType.HIDE : BlockType.FLAG
+                return BlockType.REVIEW
             case ModerationSeverityEnum.LOW:
-                return this.config.blocking.autoFlag ? BlockType.FLAG : BlockType.WARN
             default:
-                return BlockType.WARN
+                return BlockType.APPROVE
         }
     }
 
@@ -195,7 +188,7 @@ export class ContentBlocker {
         }
 
         switch (blockType) {
-            case BlockType.HARD_BLOCK:
+            case BlockType.BLOCK:
                 updates = {
                     ...updates,
                     status: ModerationStatusEnum.REJECTED,
@@ -204,25 +197,7 @@ export class ContentBlocker {
                 }
                 break
 
-            case BlockType.SOFT_BLOCK:
-                updates = {
-                    ...updates,
-                    status: ModerationStatusEnum.REJECTED,
-                    isBlocked: true,
-                    isHidden: false,
-                }
-                break
-
-            case BlockType.HIDE:
-                updates = {
-                    ...updates,
-                    status: ModerationStatusEnum.FLAGGED,
-                    isBlocked: false,
-                    isHidden: true,
-                }
-                break
-
-            case BlockType.FLAG:
+            case BlockType.REVIEW:
                 updates = {
                     ...updates,
                     status: ModerationStatusEnum.FLAGGED,
@@ -231,7 +206,7 @@ export class ContentBlocker {
                 }
                 break
 
-            case BlockType.WARN:
+            case BlockType.APPROVE:
                 updates = {
                     ...updates,
                     status: ModerationStatusEnum.APPROVED,
@@ -251,163 +226,14 @@ export class ContentBlocker {
         const flags = moderation.flags.map((flag) => flag.type).join(", ")
 
         switch (blockType) {
-            case BlockType.HARD_BLOCK:
-                return `Bloqueio automático: Conteúdo inapropriado detectado (${flags})`
-            case BlockType.SOFT_BLOCK:
-                return `Bloqueio temporário: Conteúdo suspeito detectado (${flags})`
-            case BlockType.HIDE:
-                return `Conteúdo ocultado: Qualidade baixa ou suspeito (${flags})`
-            case BlockType.FLAG:
+            case BlockType.BLOCK:
+                return `Conteúdo bloqueado automaticamente: ${flags}`
+            case BlockType.REVIEW:
                 return `Conteúdo marcado para revisão: ${flags}`
-            case BlockType.WARN:
+            case BlockType.APPROVE:
                 return `Conteúdo aprovado automaticamente`
             default:
                 return `Ação automática aplicada`
         }
-    }
-
-    /**
-     * Verifica se o conteúdo deve ser bloqueado baseado nas regras
-     */
-    shouldBlock(moderation: ModerationEntity): boolean {
-        // Verificar flags críticas
-        const criticalFlags = moderation.flags.filter(
-            (flag) =>
-                flag.type === ModerationFlagEnum.STATIC_CONTENT ||
-                flag.type === ModerationFlagEnum.SPAM_CONTENT ||
-                flag.type === ModerationFlagEnum.BOT_CONTENT,
-        )
-
-        if (criticalFlags.length > 0) {
-            return true
-        }
-
-        // Verificar flags de texto excessivo (múltiplas flags juntas)
-        const textFlags = moderation.flags.filter(
-            (flag) =>
-                flag.type === ModerationFlagEnum.EXCESSIVE_TEXT ||
-                flag.type === ModerationFlagEnum.REPETITIVE_TEXT ||
-                flag.type === ModerationFlagEnum.TEXT_ONLY,
-        )
-
-        if (textFlags.length >= 2) {
-            return true // Bloquear se tem múltiplos problemas de texto
-        }
-
-        // Verificar flags de hashtag excessivas (múltiplas flags juntas)
-        const hashtagFlags = moderation.flags.filter(
-            (flag) =>
-                flag.type === ModerationFlagEnum.EXCESSIVE_HASHTAGS ||
-                flag.type === ModerationFlagEnum.SPAM_HASHTAGS ||
-                flag.type === ModerationFlagEnum.DUPLICATE_HASHTAGS,
-        )
-
-        if (hashtagFlags.length >= 2) {
-            return true // Bloquear se tem múltiplos problemas de hashtag
-        }
-
-        // Verificar severidade
-        if (moderation.severity === ModerationSeverityEnum.HIGH) {
-            return true
-        }
-
-        // Verificar confiança baixa
-        if (moderation.confidence < 50) {
-            return true
-        }
-
-        return false
-    }
-
-    /**
-     * Verifica se o conteúdo deve ser ocultado
-     */
-    shouldHide(moderation: ModerationEntity): boolean {
-        // Verificar flags de qualidade
-        const qualityFlags = moderation.flags.filter(
-            (flag) =>
-                flag.type === ModerationFlagEnum.LOW_QUALITY_VIDEO ||
-                flag.type === ModerationFlagEnum.LOW_QUALITY_AUDIO ||
-                flag.type === ModerationFlagEnum.NO_AUDIO ||
-                flag.type === ModerationFlagEnum.STATIC_CONTENT,
-        )
-
-        if (qualityFlags.length > 0) {
-            return true
-        }
-
-        // Verificar flags de hashtag excessivas (ocultar se tem muitas)
-        const excessiveHashtagFlags = moderation.flags.filter(
-            (flag) =>
-                flag.type === ModerationFlagEnum.EXCESSIVE_HASHTAGS ||
-                flag.type === ModerationFlagEnum.SPAM_HASHTAGS,
-        )
-
-        if (excessiveHashtagFlags.length > 0) {
-            return true
-        }
-
-        // Verificar flags de texto excessivo (ocultar se tem texto muito longo)
-        const excessiveTextFlags = moderation.flags.filter(
-            (flag) =>
-                flag.type === ModerationFlagEnum.EXCESSIVE_TEXT ||
-                flag.type === ModerationFlagEnum.REPETITIVE_TEXT,
-        )
-
-        if (excessiveTextFlags.length > 0) {
-            return true
-        }
-
-        // Verificar severidade média
-        if (moderation.severity === ModerationSeverityEnum.MEDIUM) {
-            return true
-        }
-
-        return false
-    }
-
-    /**
-     * Verifica se o conteúdo deve ser marcado para revisão
-     */
-    shouldFlag(moderation: ModerationEntity): boolean {
-        // Verificar flags de autenticidade
-        const authenticityFlags = moderation.flags.filter(
-            (flag) =>
-                flag.type === ModerationFlagEnum.NO_FACE_DETECTED ||
-                flag.type === ModerationFlagEnum.MEME_CONTENT ||
-                flag.type === ModerationFlagEnum.TEXT_ONLY,
-        )
-
-        if (authenticityFlags.length > 0) {
-            return true
-        }
-
-        // Verificar flags de hashtag problemáticas (mas não excessivas)
-        const problematicHashtagFlags = moderation.flags.filter(
-            (flag) =>
-                flag.type === ModerationFlagEnum.LONG_HASHTAGS ||
-                flag.type === ModerationFlagEnum.DUPLICATE_HASHTAGS ||
-                flag.type === ModerationFlagEnum.IRRELEVANT_HASHTAGS,
-        )
-
-        if (problematicHashtagFlags.length > 0) {
-            return true
-        }
-
-        // Verificar flags de texto problemático (mas não excessivo)
-        const problematicTextFlags = moderation.flags.filter(
-            (flag) => flag.type === ModerationFlagEnum.EXCESSIVE_SPECIAL_CHARS,
-        )
-
-        if (problematicTextFlags.length > 0) {
-            return true
-        }
-
-        // Verificar severidade baixa
-        if (moderation.severity === ModerationSeverityEnum.LOW) {
-            return true
-        }
-
-        return false
     }
 }

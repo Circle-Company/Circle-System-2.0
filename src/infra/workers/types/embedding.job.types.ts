@@ -28,9 +28,6 @@ export interface EmbeddingJobData {
  */
 export interface EmbeddingJobResult {
     success: boolean
-    momentId: string
-    embeddingDimension?: number
-    processingTime: number
     error?: string
     metadata?: {
         components: string[]

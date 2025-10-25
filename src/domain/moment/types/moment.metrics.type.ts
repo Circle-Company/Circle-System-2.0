@@ -25,13 +25,15 @@ export enum MomentMetricsSourceEnum {
 // ===== METRICS INTERFACES =====
 export interface ViewMetrics {
     totalViews: number
+    totalClicks: number
     uniqueViews: number
+    repeatViews: number
+    completionViews: number
     viewsByRegion: Record<string, number>
     viewsByDevice: Record<string, number>
     viewsByCountry: Record<string, number>
     viewsByCity: Record<string, number>
     averageWatchTime: number
-    completionViews: number
     averageCompletionRate: number
     peakViewTime: Date | null
     lastViewTime: Date | null

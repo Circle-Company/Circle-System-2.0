@@ -23,15 +23,15 @@ export default class MomentVisibility
     extends Model<MomentVisibilityAttributes, MomentVisibilityCreationAttributes>
     implements MomentVisibilityAttributes
 {
-    public id!: bigint
-    public momentId!: bigint | null
-    public level!: string
-    public allowedUsers!: string[]
-    public blockedUsers!: string[]
-    public ageRestriction!: boolean
-    public contentWarning!: boolean
-    public readonly createdAt!: Date
-    public readonly updatedAt!: Date
+    declare id: bigint
+    declare momentId: bigint | null
+    declare level: string
+    declare allowedUsers: string[]
+    declare blockedUsers: string[]
+    declare ageRestriction: boolean
+    declare contentWarning: boolean
+    declare readonly createdAt: Date
+    declare readonly updatedAt: Date
 
     static initialize(sequelize: Sequelize): void {
         MomentVisibility.init(

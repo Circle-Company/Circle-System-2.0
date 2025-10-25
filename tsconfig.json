@@ -10,8 +10,9 @@
         "**/*.spec.ts"
     ],
     "compilerOptions": {
-        "target": "es2020",
-        "module": "commonjs",
+        "target": "ES2022",
+        "module": "ES2022",
+        "moduleResolution": "bundler",
         "rootDir": "./src",
         "outDir": "./build",
         "incremental": true,
@@ -20,7 +21,7 @@
         "checkJs": false,
         "noEmitOnError": false,
         "forceConsistentCasingInFileNames": false,
-        "strict": true,
+        "strict": false,
         "noImplicitAny": false,
         "skipLibCheck": true,
         "noUnusedLocals": false,

@@ -1,3 +1,5 @@
+import { MomentMetrics } from "./moment.metrics.type"
+
 // ===== ENUMS =====
 export enum MomentStatusEnum {
     PUBLISHED = "published",
@@ -216,8 +218,3 @@ export interface ViewabilityResult {
     timestamp: Date
     momentId: string
 }
-
-// ===== IMPORT METRICS =====
-// Importar métricas robustas do arquivo separado
-import { MomentMetrics } from "./moment.metrics.type"
-export { MomentMetrics }

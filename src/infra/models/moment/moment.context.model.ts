@@ -18,10 +18,10 @@ export default class MomentContext
     extends Model<MomentContextAttributes, MomentContextCreationAttributes>
     implements MomentContextAttributes
 {
-    public id!: string
-    public momentId!: string
-    public readonly createdAt!: Date
-    public readonly updatedAt!: Date
+    declare id: string
+    declare momentId: string
+    declare readonly createdAt: Date
+    declare readonly updatedAt: Date
 
     static initialize(sequelize: Sequelize): void {
         MomentContext.init(

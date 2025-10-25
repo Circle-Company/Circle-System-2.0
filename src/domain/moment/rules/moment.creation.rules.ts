@@ -110,7 +110,6 @@ export const DEFAULT_MOMENT_CREATION_RULES: MomentCreationRules = {
         },
         allowedResolutions: [
             { width: 360, height: 558, quality: MomentQualityEnum.MEDIUM },
-            { width: 720, height: 1116, quality: MomentQualityEnum.HIGH },
             { width: 1080, height: 1674, quality: MomentQualityEnum.HIGH },
         ],
     },

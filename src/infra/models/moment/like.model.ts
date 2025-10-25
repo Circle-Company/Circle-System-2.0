@@ -16,11 +16,11 @@ export default class Like
     extends Model<LikeAttributes, LikeCreationAttributes>
     implements LikeAttributes
 {
-    public readonly id!: string
-    public momentId!: string
-    public userId!: string
-    public readonly createdAt!: Date
-    public readonly updatedAt!: Date
+    declare readonly id: string
+    declare momentId: string
+    declare userId: string
+    declare readonly createdAt: Date
+    declare readonly updatedAt: Date
 
     static initialize(sequelize: Sequelize): void {
         Like.init(

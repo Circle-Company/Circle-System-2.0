@@ -1,0 +1,61 @@
+# Node
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Build
+build
+dist
+*.tsbuildinfo
+
+# Tests
+**/__tests__
+**/*.test.ts
+**/*.spec.ts
+coverage
+.nyc_output
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env.local
+.env.*.local
+
+# Docker
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Documentation
+*.md
+docs
+
+# Uploads (serão criados no container)
+uploads
+
+# Models (devem ser baixados no container se necessário)
+models
+
+# Logs
+logs
+*.log
+
+# Temporary files
+tmp
+temp
+*.tmp
+

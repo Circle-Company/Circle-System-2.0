@@ -1,18 +1,13 @@
-// Admin Use Cases
-import {
-    DeleteMomentUseCase as AdminDeleteMomentUseCase,
-    BlockMomentUseCase,
-    ChangeMomentStatusUseCase,
-    ListAllMomentsUseCase,
-    UnblockMomentUseCase,
-} from "@/application/moment/use.cases/admin"
 // Use Cases
 import {
+    AdminBlockMomentUseCase,
+    AdminChangeMomentStatusUseCase,
+    AdminDeleteMomentUseCase,
+    AdminUnblockMomentUseCase,
     CommentMomentUseCase,
     CreateMomentUseCase,
     DeleteMomentCommentUseCase,
     DeleteMomentUseCase,
-    EditMomentCommentUseCase,
     GetCommentedMomentsUseCase,
     GetLikedMomentsUseCase,
     GetMomentCommentsUseCase,
@@ -20,12 +15,8 @@ import {
     GetMomentReportsUseCase,
     GetMomentUseCase,
     GetMomentsAnalyticsUseCase,
-    GetUserMomentReportsUseCase,
     GetUserMomentsUseCase,
-    GetUserReportedMomentsUseCase,
     LikeMomentUseCase,
-    ListMomentsUseCase,
-    PublishMomentUseCase,
     ReportMomentUseCase,
     UnlikeMomentUseCase,
 } from "@/application/moment/use.cases"
@@ -58,7 +49,7 @@ export class MomentFactory {
      * Cria um MomentRepository com DatabaseAdapter
      */
     static createMomentRepository(database: DatabaseAdapter): IMomentRepository {
-        return new MomentRepositoryImpl(database) as unknown as IMomentRepository
+        return new MomentRepositoryImpl(database) as IMomentRepository
     }
 
     /**
@@ -102,19 +93,8 @@ export class MomentFactory {
     static createMomentService(database: DatabaseAdapter): MomentService {
         const momentRepository = this.createMomentRepository(database)
         const momentMetricsService = this.createMomentMetricsService(database)
-
-        // Criar storage adapter REAL para processamento de conteúdo
-        const storageAdapter = StorageAdapterFactory.create("real-local")
-
-        // TODO: Configurar ModerationEngine quando necessário
-        // Por enquanto o ModerationEngine é opcional
-        return new MomentService(
-            momentRepository,
-            momentMetricsService,
-            undefined, // config
-            storageAdapter, // storageAdapter
-            undefined, // moderationEngine (opcional)
-        )
+        const storageAdapter = StorageAdapterFactory.create("local")
+        return new MomentService(momentRepository, momentMetricsService, undefined, storageAdapter)
     }
 
     /**
@@ -140,15 +120,21 @@ export class MomentFactory {
             createMoment: new CreateMomentUseCase(momentService, userRepository),
             getMoment: new GetMomentUseCase(userRepository, momentRepository, momentService),
             deleteMoment: new DeleteMomentUseCase(momentRepository, momentService),
-            publishMoment: new PublishMomentUseCase(momentRepository, momentService),
-
-            // Listing and Search
-            listMoments: new ListMomentsUseCase(momentRepository, momentService),
-            getUserMoments: new GetUserMomentsUseCase(momentRepository),
 
             // User Actions
-            likeMoment: new LikeMomentUseCase(momentRepository, momentService, userRepository),
-            unlikeMoment: new UnlikeMomentUseCase(momentRepository, momentService),
+            getUserMoments: new GetUserMomentsUseCase(momentRepository, userRepository),
+            likeMoment: new LikeMomentUseCase(
+                momentRepository,
+                userRepository,
+                momentMetricsService,
+                momentService,
+            ),
+            unlikeMoment: new UnlikeMomentUseCase(
+                momentRepository,
+                userRepository,
+                momentMetricsService,
+                momentService,
+            ),
             getLikedMoments: new GetLikedMomentsUseCase(momentRepository, momentService),
 
             // Comments
@@ -158,7 +144,6 @@ export class MomentFactory {
                 userRepository,
             ),
             getMomentComments: new GetMomentCommentsUseCase(commentRepository),
-            editMomentComment: new EditMomentCommentUseCase(commentRepository, userRepository),
             deleteMomentComment: new DeleteMomentCommentUseCase(commentRepository, userRepository),
             getCommentedMoments: new GetCommentedMomentsUseCase(
                 commentRepository,
@@ -168,22 +153,16 @@ export class MomentFactory {
             // Reports
             reportMoment: new ReportMomentUseCase(momentRepository, momentService),
             getMomentReports: new GetMomentReportsUseCase(momentRepository, momentService),
-            getUserMomentReports: new GetUserMomentReportsUseCase(momentRepository, momentService),
-            getUserReportedMoments: new GetUserReportedMomentsUseCase(
-                momentRepository,
-                momentService,
-            ),
 
             // Metrics
             getMomentMetrics: new GetMomentMetricsUseCase(momentRepository, momentService),
             getMomentsAnalytics: new GetMomentsAnalyticsUseCase(momentRepository, momentService),
 
             // Admin Operations
-            adminBlockMoment: new BlockMomentUseCase(momentService),
-            adminUnblockMoment: new UnblockMomentUseCase(momentService),
-            adminChangeMomentStatus: new ChangeMomentStatusUseCase(momentService),
+            adminBlockMoment: new AdminBlockMomentUseCase(momentService),
+            adminUnblockMoment: new AdminUnblockMomentUseCase(momentService),
+            adminChangeMomentStatus: new AdminChangeMomentStatusUseCase(momentService),
             adminDeleteMoment: new AdminDeleteMomentUseCase(momentService),
-            adminListAllMoments: new ListAllMomentsUseCase(momentService),
         }
     }
 
@@ -197,16 +176,12 @@ export class MomentFactory {
             useCases.createMoment,
             useCases.getMoment,
             useCases.deleteMoment,
-            useCases.publishMoment,
-            useCases.listMoments,
             useCases.getUserMoments,
             useCases.likeMoment,
             useCases.unlikeMoment,
             useCases.getLikedMoments,
             useCases.reportMoment,
             useCases.getMomentReports,
-            useCases.getUserMomentReports,
-            useCases.getUserReportedMoments,
         )
     }
 
@@ -254,7 +229,6 @@ export class MomentFactory {
         return new MomentCommentController(
             useCases.commentMoment,
             useCases.getMomentComments,
-            useCases.editMomentComment,
             useCases.deleteMomentComment,
             useCases.getCommentedMoments,
         )

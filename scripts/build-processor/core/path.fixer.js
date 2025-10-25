@@ -4,8 +4,8 @@
  * Converte aliases @/ para caminhos relativos corretos baseados na estrutura de diretórios
  */
 
-const fs = require("fs")
-const path = require("path")
+import fs from "fs"
+import path from "path"
 
 class AdvancedPathFixer {
     constructor(options = {}) {
@@ -199,6 +199,4 @@ class AdvancedPathFixer {
     }
 }
 
-module.exports = {
-    AdvancedPathFixer,
-}
+export { AdvancedPathFixer }

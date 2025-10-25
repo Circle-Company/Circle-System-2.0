@@ -28,20 +28,20 @@ class PostCluster
     extends Model<PostClusterAttributes, PostClusterCreationAttributes>
     implements PostClusterAttributes
 {
-    public id!: bigint
-    public name!: string
-    public centroid!: string
-    public topics!: string[]
-    public memberIds!: string[]
-    public category!: string
-    public tags!: string[]
-    public size!: number
-    public density!: number
-    public avgEngagement!: number
-    public metadata!: Record<string, any>
+    declare id: bigint
+    declare name: string
+    declare centroid: string
+    declare topics: string[]
+    declare memberIds: string[]
+    declare category: string
+    declare tags: string[]
+    declare size: number
+    declare density: number
+    declare avgEngagement: number
+    declare metadata: Record<string, any>
 
-    public readonly createdAt!: Date
-    public readonly updatedAt!: Date
+    declare readonly createdAt: Date
+    declare readonly updatedAt: Date
 
     // Método para converter para o formato ClusterInfo
     public toClusterInfo(): ClusterInfo {

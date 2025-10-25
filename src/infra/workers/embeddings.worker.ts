@@ -47,10 +47,7 @@ export class EmbeddingsWorker {
      * Inicia o worker
      */
     start(): void {
-        if (this.isProcessing) {
-            console.log("[EmbeddingsWorker] ⚠️ Worker já está rodando")
-            return
-        }
+        if (this.isProcessing) return
 
         console.log("[EmbeddingsWorker] 🚀 Iniciando worker de embeddings...")
 
@@ -69,16 +66,9 @@ export class EmbeddingsWorker {
      * Para o worker
      */
     async stop(): Promise<void> {
-        if (!this.isProcessing) {
-            return
-        }
-
-        console.log("[EmbeddingsWorker] 🛑 Parando worker...")
-
+        if (!this.isProcessing) return
         await this.queue.close()
         this.isProcessing = false
-
-        console.log("[EmbeddingsWorker] ✅ Worker parado")
     }
 
     /**
@@ -110,9 +100,7 @@ export class EmbeddingsWorker {
             // 4. Buscar moment e atualizar embedding
             const moment = await this.momentRepository.findById(momentId)
 
-            if (!moment) {
-                throw new Error(`Moment ${momentId} not found`)
-            }
+            if (!moment) throw new Error(`Moment ${momentId} not found`)
 
             moment.updateEmbedding(
                 JSON.stringify(embedding.vector),
@@ -120,8 +108,7 @@ export class EmbeddingsWorker {
                 embedding.metadata,
             )
 
-            // 5. Atualizar status: processing → embeddings_processed
-            moment.processing.status = MomentProcessingStatusEnum.EMBEDDINGS_PROCESSED
+            moment.updateProcessingStatus(MomentProcessingStatusEnum.EMBEDDINGS_PROCESSED, 100)
 
             // 6. Salvar moment com embedding
             await this.momentRepository.update(moment)
@@ -134,9 +121,6 @@ export class EmbeddingsWorker {
 
             return {
                 success: true,
-                momentId,
-                embeddingDimension: embedding.dimension,
-                processingTime,
                 metadata: {
                     components: Object.keys(embedding.metadata.components),
                     model: embedding.metadata.model,
@@ -152,8 +136,6 @@ export class EmbeddingsWorker {
 
             return {
                 success: false,
-                momentId,
-                processingTime,
                 error: error instanceof Error ? error.message : String(error),
             }
         }

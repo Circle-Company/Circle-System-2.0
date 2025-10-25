@@ -24,16 +24,16 @@ class InteractionEvent
     extends Model<InteractionEventAttributes, InteractionEventCreationAttributes>
     implements InteractionEventAttributes
 {
-    public id!: bigint
-    public userId!: bigint
-    public entityId!: bigint
-    public entityType!: EntityType
-    public type!: InteractionType
-    public timestamp!: Date
-    public metadata!: Record<string, any>
+    declare id: bigint
+    declare userId: bigint
+    declare entityId: bigint
+    declare entityType: EntityType
+    declare type: InteractionType
+    declare timestamp: Date
+    declare metadata: Record<string, any>
 
-    public readonly createdAt!: Date
-    public readonly updatedAt!: Date
+    declare readonly createdAt: Date
+    declare readonly updatedAt: Date
 
     // Converte para o tipo UserInteraction do core
     public toUserInteraction(): UserInteraction {

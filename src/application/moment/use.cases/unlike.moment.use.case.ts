@@ -1,6 +1,9 @@
-import { MomentEntity, MomentStatusEnum } from "@/domain/moment"
+import { Moment } from "@/domain/moment"
 
 import { IMomentRepository } from "@/domain/moment/repositories/moment.repository"
+import { User } from "@/domain/user/entities/user.entity"
+import { IUserRepository } from "@/domain/user/repositories/user.repository"
+import { MomentMetricsService } from "../services/moment.metrics.service"
 import { MomentService } from "../services/moment.service"
 
 export interface UnlikeMomentRequest {
@@ -17,60 +20,35 @@ export interface UnlikeMomentResponse {
 export class UnlikeMomentUseCase {
     constructor(
         private readonly momentRepository: IMomentRepository,
+        private readonly userRepository: IUserRepository,
+        private readonly metricsService: MomentMetricsService,
         private readonly momentService: MomentService,
     ) {}
 
     async execute(request: UnlikeMomentRequest): Promise<UnlikeMomentResponse> {
         try {
-            // Validar parâmetros
-            if (!request.momentId) {
-                return {
-                    success: false,
-                    error: "Moment ID is required",
-                }
+            const [moment, requestingUser] = await Promise.all([
+                this.momentRepository.findById(request.momentId)!,
+                this.userRepository.findById(request.userId),
+            ])
+
+            const [isInteractable, alreadyLiked, isOwner] = await Promise.all([
+                moment?.isInteractable(this.userRepository, requestingUser!),
+                this.momentService.hasUserLikedMoment(request.momentId, request.userId),
+                moment?.ownerId === request.userId,
+            ])
+
+            this._validateData(requestingUser, moment, isOwner, isInteractable, alreadyLiked)
+
+            // Remover like do momento + adicionar unlike na métrica se o usuário não já removeu o like do momento
+            if (isInteractable && alreadyLiked && !isOwner) {
+                await Promise.all([
+                    this.momentService.unlikeMoment(moment!.id, requestingUser!.id),
+                    this.metricsService.recordUnlike(moment!.id, {
+                        userId: requestingUser!.id,
+                    }),
+                ])
             }
-
-            if (!request.userId) {
-                return {
-                    success: false,
-                    error: "User ID is required",
-                }
-            }
-
-            // Buscar o momento
-            const moment = await this.momentService.getMomentById(request.momentId)
-
-            if (!moment) {
-                return {
-                    success: false,
-                    error: "Moment not found",
-                }
-            }
-
-            // Verificar se o momento pode ser descurtido
-            if (!this.canUnlikeMoment(moment)) {
-                return {
-                    success: false,
-                    error: "Moment cannot be unliked in current state",
-                }
-            }
-
-            // Verificar se o usuário curtiu o momento
-            const hasLiked = await this.momentService.hasUserLikedMoment(
-                request.momentId,
-                request.userId,
-            )
-
-            if (!hasLiked) {
-                return {
-                    success: false,
-                    error: "User has not liked this moment",
-                }
-            }
-
-            // Descurtir o momento
-            await this.momentService.unlikeMoment(request.momentId, request.userId)
-
             return {
                 success: true,
                 unliked: true,
@@ -82,23 +60,38 @@ export class UnlikeMomentUseCase {
             }
         }
     }
+    private _validateData(
+        requestingUser: User | null,
+        moment: Moment | null,
+        isOwner: boolean | undefined,
+        isInteractable: boolean | undefined,
+        alreadyLiked: boolean | undefined,
+    ) {
+        if (!requestingUser) return { success: false, error: "User not found" }
 
-    private canUnlikeMoment(moment: MomentEntity): boolean {
-        // Verificar se o momento não está deletado
-        if (moment.deletedAt) {
-            return false
+        if (!moment)
+            return {
+                success: false,
+                error: "Moment not found",
+            }
+
+        if (isOwner)
+            return {
+                success: false,
+                error: "User cannot like their own moment",
+            }
+
+        // Verificar se o momento pode ser curtido
+        if (!isInteractable)
+            return {
+                success: false,
+                error: "Moment cannot be liked in current state",
+            }
+        if (alreadyLiked) {
+            return {
+                success: false,
+                error: "User has already liked this moment",
+            }
         }
-
-        // Verificar se o momento está publicado
-        if (moment.status.current !== MomentStatusEnum.PUBLISHED) {
-            return false
-        }
-
-        // Verificar se o momento não está bloqueado
-        if (moment.status.current === MomentStatusEnum.BLOCKED) {
-            return false
-        }
-
-        return true
     }
 }

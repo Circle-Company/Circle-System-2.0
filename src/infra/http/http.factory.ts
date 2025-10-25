@@ -1,6 +1,9 @@
 import { FastifyAdapter, MockAdapter } from "./http.adapters"
 import { AdapterType, HttpAdapter } from "./http.type"
 
+import multipart from "@fastify/multipart"
+import Fastify from "fastify"
+
 /**
  * Configuração HTTP genérica
  */
@@ -28,7 +31,6 @@ export class HttpFactory {
         }
 
         // Se for configuração, criar instância do Fastify internamente
-        const Fastify = require("fastify")
         const fastifyInstance = Fastify({
             logger: config.logging ? { level: "info" } : false,
             disableRequestLogging: !config.logging,
@@ -54,7 +56,7 @@ export class HttpFactory {
         })
 
         // Registrar plugin multipart para processar form-data
-        fastifyInstance.register(require("@fastify/multipart"), {
+        fastifyInstance.register(multipart, {
             limits: {
                 fileSize: 500 * 1024 * 1024, // 500MB para arquivos de vídeo
                 files: 10,

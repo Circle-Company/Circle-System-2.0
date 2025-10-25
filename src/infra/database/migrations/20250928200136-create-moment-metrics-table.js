@@ -86,6 +86,17 @@ module.exports = {
                 allowNull: false,
                 defaultValue: 0,
             },
+            // Métricas de cliques (campos utilizados no repositório)
+            total_clicks: {
+                type: Sequelize.INTEGER,
+                allowNull: false,
+                defaultValue: 0,
+            },
+            click_rate: {
+                type: Sequelize.FLOAT,
+                allowNull: false,
+                defaultValue: 0,
+            },
             // Métricas de performance
             load_time: {
                 type: Sequelize.INTEGER,
@@ -102,33 +113,8 @@ module.exports = {
                 allowNull: false,
                 defaultValue: 0,
             },
-            quality_switches: {
-                type: Sequelize.INTEGER,
-                allowNull: false,
-                defaultValue: 0,
-            },
             // Métricas de viralidade
             viral_score: {
-                type: Sequelize.FLOAT,
-                allowNull: false,
-                defaultValue: 0,
-            },
-            trending_score: {
-                type: Sequelize.FLOAT,
-                allowNull: false,
-                defaultValue: 0,
-            },
-            reach_score: {
-                type: Sequelize.FLOAT,
-                allowNull: false,
-                defaultValue: 0,
-            },
-            influence_score: {
-                type: Sequelize.FLOAT,
-                allowNull: false,
-                defaultValue: 0,
-            },
-            growth_rate: {
                 type: Sequelize.FLOAT,
                 allowNull: false,
                 defaultValue: 0,
@@ -140,21 +126,6 @@ module.exports = {
             },
             // Métricas de qualidade
             content_quality_score: {
-                type: Sequelize.FLOAT,
-                allowNull: false,
-                defaultValue: 0,
-            },
-            audio_quality_score: {
-                type: Sequelize.FLOAT,
-                allowNull: false,
-                defaultValue: 0,
-            },
-            video_quality_score: {
-                type: Sequelize.FLOAT,
-                allowNull: false,
-                defaultValue: 0,
-            },
-            face_detection_rate: {
                 type: Sequelize.FLOAT,
                 allowNull: false,
                 defaultValue: 0,
@@ -196,7 +167,6 @@ module.exports = {
         await queryInterface.addIndex("moment_metrics", ["moment_id"])
         await queryInterface.addIndex("moment_metrics", ["total_views"])
         await queryInterface.addIndex("moment_metrics", ["viral_score"])
-        await queryInterface.addIndex("moment_metrics", ["trending_score"])
         await queryInterface.addIndex("moment_metrics", ["last_metrics_update"])
     },
 

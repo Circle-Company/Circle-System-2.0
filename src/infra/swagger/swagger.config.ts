@@ -6,9 +6,12 @@
  * @version 2.0.0
  */
 
-import { AllSchemas } from "@/infra/swagger/schemas"
-import { SWAGGER_CUSTOM_CSS } from "./swagger.theme"
 import { API_TAGS, TAG_ORDER } from "./tags.config"
+
+import { AllSchemas } from "@/infra/swagger/schemas"
+import fastifySwagger from "@fastify/swagger"
+import fastifySwaggerUi from "@fastify/swagger-ui"
+import { SWAGGER_CUSTOM_CSS } from "./swagger.theme"
 
 // Flag global para controle de registro
 let swaggerRegistered = false
@@ -671,7 +674,7 @@ export async function registerSwagger(httpAdapter: any) {
 
             // Register Swagger with try-catch for decorator duplication
             try {
-                await httpAdapter.registerPlugin(require("@fastify/swagger"), swaggerOptions)
+                await httpAdapter.registerPlugin(fastifySwagger, swaggerOptions)
             } catch (error: any) {
                 if (error.code === "FST_ERR_DEC_ALREADY_PRESENT") {
                     if (httpAdapter.log) {
@@ -688,7 +691,7 @@ export async function registerSwagger(httpAdapter: any) {
 
             // Register Swagger UI with try-catch for decorator duplication
             try {
-                await httpAdapter.registerPlugin(require("@fastify/swagger-ui"), swaggerUIConfig)
+                await httpAdapter.registerPlugin(fastifySwaggerUi, swaggerUIConfig)
             } catch (error: any) {
                 if (error.code === "FST_ERR_DEC_ALREADY_PRESENT") {
                     if (httpAdapter.log) {

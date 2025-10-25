@@ -68,19 +68,19 @@ export interface VideoMetadataExtractionResult {
 
 export interface StorageAdapter {
     uploadVideo(
-        key: string,
+        baseKey: string,
         data: Buffer,
         metadata: Record<string, any>,
     ): Promise<StorageUploadResult>
     uploadThumbnail(
-        key: string,
+        baseKey: string,
         data: Buffer,
         metadata: Record<string, any>,
     ): Promise<StorageUploadResult>
-    deleteVideo(key: string): Promise<void>
-    deleteThumbnail(key: string): Promise<void>
-    getVideoUrl(key: string, quality?: "low" | "medium" | "high"): Promise<string>
-    getThumbnailUrl(key: string): Promise<string>
+    deleteVideo(baseKey: string): Promise<void>
+    deleteThumbnail(baseKey: string): Promise<void>
+    getVideoUrl(baseKey: string, quality?: "low" | "medium" | "high"): Promise<string>
+    getThumbnailUrl(baseKey: string): Promise<string>
 }
 
 export interface StorageUploadResult {

@@ -22,7 +22,7 @@ export default class UserMetadata
     extends Model<UserMetadataAttributes>
     implements UserMetadataAttributes
 {
-    public readonly id!: bigint
+    declare readonly id: bigint
     public user_id?: bigint
     public device_type?: string
     public device_name?: string

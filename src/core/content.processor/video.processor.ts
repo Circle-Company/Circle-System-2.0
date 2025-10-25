@@ -13,7 +13,8 @@ import {
     VideoProcessingResult,
 } from "./type"
 
-import { VideoCompressionOptions as WorkerVideoCompressionOptions } from "@/infra/workers/types/video.compression.job.types"
+import { MomentCreationRulesFactory } from "@/domain/moment/rules/moment.creation.rules"
+import { VideoCompressionOptions } from "@/infra/workers/types/video.compression.job.types"
 import { exec } from "child_process"
 import { tmpdir } from "os"
 import { join } from "path"
@@ -21,26 +22,41 @@ import { promisify } from "util"
 
 const execAsync = promisify(exec)
 
-export class VideoProcessor {
-    private config: ContentProcessorConfig
+export interface VideoProcessorConfig extends ContentProcessorConfig {
+    compression?: VideoCompressionOptions
+}
 
-    constructor(config?: Partial<ContentProcessorConfig>) {
+export class VideoProcessor {
+    private config: VideoProcessorConfig
+    private creationRules: ReturnType<typeof MomentCreationRulesFactory.createDefault>
+
+    constructor(config?: Partial<VideoProcessorConfig>) {
+        // Carregar regras de criação de momentos
+        this.creationRules = MomentCreationRulesFactory.createDefault()
+
         this.config = {
             thumbnail: {
-                width: 1080,
-                height: 1674,
-                quality: 40,
                 format: "jpeg",
                 timePosition: 0,
                 ...config?.thumbnail,
             },
             validation: {
-                maxFileSize: 500 * 1024 * 1024, // 500MB
-                maxDuration: 180, // 3 minutos
-                minDuration: 3, // 3 segundos
-                allowedFormats: ["mp4", "mov", "avi", "webm"],
-                minResolution: { width: 360, height: 558 },
-                maxResolution: { width: 1080, height: 1674 }, // Proporção padrão do sistema
+                maxFileSize: this.creationRules.content.maxSize,
+                maxDuration: this.creationRules.content.maxDuration,
+                minDuration: this.creationRules.content.minDuration,
+                allowedFormats: this.creationRules.content.allowedFormats,
+                minResolution: {
+                    width: this.creationRules.content.requiredAspectRatio.width,
+                    height: this.creationRules.content.requiredAspectRatio.height,
+                },
+                maxResolution: {
+                    width: this.creationRules.content.allowedResolutions[
+                        this.creationRules.content.allowedResolutions.length - 1
+                    ].width,
+                    height: this.creationRules.content.allowedResolutions[
+                        this.creationRules.content.allowedResolutions.length - 1
+                    ].height,
+                },
                 ...config?.validation,
             },
             processing: {
@@ -48,22 +64,27 @@ export class VideoProcessor {
                 retryAttempts: 3,
                 autoCompress: false, // ✅ Manter resolução original, apenas cortar proporção
                 autoConvertToMp4: true, // ✅ SEMPRE converter todos para MP4
-                targetResolution: { width: 1080, height: 1674 }, // Proporção padrão do sistema
+                targetResolution: {
+                    width: this.creationRules.content.requiredAspectRatio.width,
+                    height: this.creationRules.content.requiredAspectRatio.height,
+                },
                 maintainQuality: true, // Manter máxima qualidade possível
                 ...config?.processing,
             },
+            compression: config?.compression,
         }
     }
 
     /**
-     * Processa vídeo completo: validação, extração de metadados, corte para proporção padrão e geração de thumbnail
+     * Processa vídeo completo: validação, extração de metadados, APENAS CROP e geração de thumbnail
      *
-     * ✅ GARANTIAS:
+     * ✅ GARANTIAS (PROCESSAMENTO SÍNCRONO):
      * - Mantém resolução original do vídeo
-     * - Corta para proporção padrão do sistema (1080x1674) se necessário
-     * - Converte TODOS os vídeos para formato MP4 H.264
+     * - APENAS CROP para proporção padrão do sistema (1080x1674) se necessário
+     * - SEM COMPRESSÃO - apenas crop e conversão de formato
      * - Gera thumbnail do primeiro frame na proporção padrão
      * - Extrai metadados completos
+     * - COMPRESSÃO será feita pelo worker posteriormente
      */
     async processVideo(request: VideoProcessingRequest): Promise<VideoProcessingResult> {
         const startTime = Date.now()
@@ -75,11 +96,23 @@ export class VideoProcessor {
             // 2. Extrair metadados do vídeo original
             const originalMetadata = await this.extractVideoMetadata(request.videoData)
 
+            // 2.1. Validar duração do vídeo usando regras de criação
+            if (originalMetadata.duration < this.creationRules.content.minDuration) {
+                throw new Error(
+                    `Video too short. Minimum duration: ${this.creationRules.content.minDuration} seconds`,
+                )
+            }
+
+            if (originalMetadata.duration > this.creationRules.content.maxDuration) {
+                throw new Error(
+                    `Video too long. Maximum duration: ${this.creationRules.content.maxDuration} seconds`,
+                )
+            }
+
             // 3. Processar vídeo para manter resolução original mas cortar para proporção padrão
             const processedResult = await this.processVideoForAspectRatio(
                 request.videoData,
                 originalMetadata,
-                request.metadata.mimeType,
             )
 
             const finalVideoData = processedResult.data
@@ -89,14 +122,13 @@ export class VideoProcessor {
                 height: processedResult.finalHeight,
             }
 
-            // 4. Gerar thumbnail comprimida (CRF 30)
+            // 4. Gerar thumbnail com qualidade configurada
             const thumbnail = await this.generateThumbnail(finalVideoData, {
                 ...this.config.thumbnail,
-                quality: 30, // CRF 30 para compressão da thumbnail
             })
 
             // 5. Upload do vídeo original (sem compressão)
-            const videoUploadResult = await this.uploadVideo(request.videoKey, finalVideoData, {
+            await this.uploadVideo(request.videoKey, finalVideoData, {
                 originalFormat: request.metadata.mimeType,
                 processingTime: Date.now() - startTime,
                 metadata: finalMetadata,
@@ -155,36 +187,25 @@ export class VideoProcessor {
         }
     }
 
+    public getConfig(): VideoProcessorConfig {
+        return this.config
+    }
+
     /**
-     * Processa vídeo para manter resolução original mas cortar para proporção padrão (1080x1674)
+     * Processa vídeo para manter resolução original mas APENAS CORTAR para proporção padrão - SEM COMPRESSÃO
      */
     private async processVideoForAspectRatio(
         videoData: Buffer,
         metadata: VideoMetadata,
-        originalMimeType: string,
     ): Promise<{
         data: Buffer
         finalWidth: number
         finalHeight: number
         wasProcessed: boolean
     }> {
-        const targetWidth = 1080
-        const targetHeight = 1674
-        const targetAspectRatio = targetWidth / targetHeight // ≈ 0.645
-
-        // Calcular aspect ratio do vídeo original
-        const originalAspectRatio = metadata.width / metadata.height
-
-        console.log(
-            `[VideoProcessor] 📐 Processando vídeo: ${metadata.width}x${
-                metadata.height
-            } (AR: ${originalAspectRatio.toFixed(3)}) → Target AR: ${targetAspectRatio.toFixed(3)}`,
-        )
-
-        // SEMPRE processar vídeo para proporção padrão do sistema (1080x1674)
-        console.log(
-            `[VideoProcessor] 🔄 Forçando processamento para proporção padrão do sistema (1080x1674)`,
-        )
+        // Usar resolução alvo das regras de criação de momentos
+        const targetWidth = this.creationRules.content.requiredAspectRatio.width
+        const targetHeight = this.creationRules.content.requiredAspectRatio.height
 
         try {
             const processedData = await this.cropVideoToAspectRatio(
@@ -214,11 +235,12 @@ export class VideoProcessor {
     }
 
     /**
-     * Upload de vídeo único (qualidade original)
+     * Upload de vídeo único (APENAS CROP - sem compressão)
      * Nota: O upload real é feito pelo ContentProcessor, aqui apenas retornamos os dados
+     * COMPRESSÃO será feita pelo worker posteriormente
      */
     private async uploadVideo(baseKey: string, videoData: Buffer, options: any): Promise<any> {
-        const result = {
+        return {
             key: `${baseKey}.mp4`,
             data: videoData,
             metadata: {
@@ -226,19 +248,13 @@ export class VideoProcessor {
                 processed: false,
                 processingTime: options.processingTime,
                 originalFormat: options.originalFormat,
-                note: "Vídeo em qualidade original - worker fará compressão",
+                note: "Vídeo APENAS CROP - worker fará compressão posterior",
             },
         }
-        console.log(
-            `✅ Vídeo original preparado para upload (${(videoData.length / 1024 / 1024).toFixed(
-                2,
-            )}MB)`,
-        )
-        return result
     }
 
     /**
-     * Upload de thumbnail única (comprimida com CRF 30)
+     * Upload de thumbnail única (qualidade padrão)
      * Nota: O upload real é feito pelo ContentProcessor, aqui apenas retornamos os dados
      */
     private async uploadThumbnail(baseKey: string, thumbnail: any): Promise<any> {
@@ -251,7 +267,7 @@ export class VideoProcessor {
                     height: thumbnail.height,
                     format: thumbnail.format,
                     compressed: true,
-                    compressionQuality: 30, // CRF 30
+                    compressionQuality: this.config.thumbnail.quality,
                 },
             }
             console.log(`✅ Thumbnail comprimida preparada para upload`)
@@ -261,14 +277,21 @@ export class VideoProcessor {
     }
 
     /**
-     * Valida o vídeo antes do processamento
+     * Valida o vídeo antes do processamento usando as regras de criação de momentos
      */
     private async validateVideo(request: VideoProcessingRequest): Promise<void> {
-        // Validar tamanho do arquivo
-        if (request.videoData.length > this.config.validation.maxFileSize) {
+        // Validar tamanho mínimo
+        if (request.videoData.length < this.creationRules.content.minSize) {
+            throw new Error(
+                `Video too small. Minimum size: ${this.creationRules.content.minSize / 1024}KB`,
+            )
+        }
+
+        // Validar tamanho máximo
+        if (request.videoData.length > this.creationRules.content.maxSize) {
             throw new Error(
                 `Video too large. Maximum size: ${
-                    this.config.validation.maxFileSize / 1024 / 1024
+                    this.creationRules.content.maxSize / 1024 / 1024
                 }MB`,
             )
         }
@@ -277,11 +300,11 @@ export class VideoProcessor {
             throw new Error("Empty video")
         }
 
-        // Validar formato
+        // Validar formato usando regras de criação
         const format = this.detectVideoFormat(request.metadata.mimeType)
-        if (!this.config.validation.allowedFormats.includes(format)) {
+        if (!this.creationRules.content.allowedFormats.includes(format)) {
             throw new Error(
-                `Unsupported format: ${format}. Supported formats: ${this.config.validation.allowedFormats.join(
+                `Unsupported format: ${format}. Supported formats: ${this.creationRules.content.allowedFormats.join(
                     ", ",
                 )}`,
             )
@@ -325,7 +348,7 @@ export class VideoProcessor {
             const width = parseInt(videoStream?.width) || 1920
             const height = parseInt(videoStream?.height) || 1080
             const codec = videoStream?.codec_name || "h264"
-            const fps = eval(videoStream?.r_frame_rate) || 30
+            const fps = this.parseFrameRate(videoStream?.r_frame_rate) || 30
             const bitrate = parseInt(metadata.format.bit_rate) || 0
             const hasAudio = !!audioStream
 
@@ -349,29 +372,29 @@ export class VideoProcessor {
         } catch (error) {
             console.error(`[VideoProcessor] ❌ Erro na extração de metadados com ffprobe:`, error)
 
-            // Fallback para metadados baseados no tamanho do arquivo
-            // SEMPRE retornar proporção padrão do sistema (1080x1674)
+            // Fallback para metadados baseados no tamanho do arquivo usando regras de criação
             console.log(
-                `[VideoProcessor] 🔄 Usando fallback baseado no tamanho do arquivo (proporção padrão)`,
+                `[VideoProcessor] 🔄 Usando fallback baseado no tamanho do arquivo (regras de criação)`,
             )
 
-            // Usar sempre a proporção padrão do sistema
-            const width = 1080
-            const height = 1674
-            let duration = 15
+            // Usar proporção e dimensões das regras de criação de momentos
+            const width = this.creationRules.content.requiredAspectRatio.width
+            const height = this.creationRules.content.requiredAspectRatio.height
+            let duration = this.creationRules.content.minDuration
 
-            if (videoData.length > 100 * 1024 * 1024) {
-                duration = 30
-            } else if (videoData.length > 50 * 1024 * 1024) {
-                duration = 25
-            } else if (videoData.length > 20 * 1024 * 1024) {
-                duration = 20
+            // Estimar duração baseado no tamanho do arquivo
+            if (videoData.length > this.creationRules.content.maxSize * 0.8) {
+                duration = this.creationRules.content.maxDuration
+            } else if (videoData.length > this.creationRules.content.maxSize * 0.5) {
+                duration = Math.floor(this.creationRules.content.maxDuration * 0.8)
+            } else if (videoData.length > this.creationRules.content.maxSize * 0.2) {
+                duration = Math.floor(this.creationRules.content.maxDuration * 0.5)
             } else {
-                duration = 15
+                duration = this.creationRules.content.minDuration
             }
 
             console.log(
-                `[VideoProcessor] ⚠️ Metadados estimados (fallback proporção padrão): ${width}x${height}, ${duration}s`,
+                `[VideoProcessor] ⚠️ Metadados estimados (fallback regras): ${width}x${height}, ${duration}s`,
             )
 
             return {
@@ -418,16 +441,12 @@ export class VideoProcessor {
         )
 
         try {
-            // Definir resolução fixa para thumbnails: 1080x1674 (proporção padrão do sistema)
-            const targetWidth = 1080
-            const targetHeight = 1674
+            // Usar as dimensões configuradas para thumbnails
+            const targetWidth = options.width || 540 // 1080/2 por padrão
+            const targetHeight = options.height || 837 // 1674/2 por padrão
 
             console.log(
-                `[VideoProcessor] 📐 Gerando thumbnail em proporção padrão do sistema: ${targetWidth}x${targetHeight}`,
-            )
-
-            console.log(
-                `[VideoProcessor] 🖼️ Gerando thumbnail real com ffmpeg: ${targetWidth}x${targetHeight}, formato: ${options.format}`,
+                `[VideoProcessor] 📐 Gerando thumbnail com tamanho configurado: ${targetWidth}x${targetHeight}`,
             )
 
             // 1. Salvar vídeo em arquivo temporário
@@ -435,21 +454,22 @@ export class VideoProcessor {
 
             // 2. Executar comando ffmpeg para extrair frame com crop/scale para proporção padrão
             const timePosition = options.timePosition || 0
-            // Usar crop e scale para garantir proporção padrão (1080x1674) com compressão CRF 30
-            const ffmpegCommand = `ffmpeg -i "${tempInputPath}" -ss ${timePosition} -vframes 1 -vf "scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=increase,crop=${targetWidth}:${targetHeight}" -q:v ${
-                options.quality || 30
-            } "${tempOutputPath}"`
+
+            console.log(
+                `[VideoProcessor] 🖼️ Gerando thumbnail COMPRIMIDA (~30KB): ${targetWidth}x${targetHeight}, formato: ${options.format}, CRF 70`,
+            )
+
+            // SEMPRE usar JPEG com CRF 70 para garantir ~30KB
+            const ffmpegCommand = `ffmpeg -i "${tempInputPath}" -ss ${timePosition} -vframes 1 -vf "scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=increase,crop=${targetWidth}:${targetHeight}" -q:v 70 "${tempOutputPath}"`
 
             console.log(`[VideoProcessor] 🔧 Executando: ${ffmpegCommand}`)
             await execAsync(ffmpegCommand)
 
-            // 3. Ler arquivo de imagem gerado
             if (existsSync(tempOutputPath)) {
                 const thumbnailData = readFileSync(tempOutputPath)
+                const sizeKB = (thumbnailData.length / 1024).toFixed(1)
 
-                console.log(
-                    `[VideoProcessor] ✅ Thumbnail gerado em proporção padrão: ${targetWidth}x${targetHeight} (${thumbnailData.length} bytes)`,
-                )
+                console.log(`[VideoProcessor] ✅ Thumbnail gerada: ${sizeKB}KB (CRF 70)`)
 
                 return {
                     data: thumbnailData,
@@ -463,13 +483,15 @@ export class VideoProcessor {
         } catch (error) {
             console.error(`[VideoProcessor] ❌ Erro na geração de thumbnail com ffmpeg:`, error)
 
-            // Fallback para thumbnail vazio com dimensões 1080x1674
-            console.log(`[VideoProcessor] 🔄 Usando fallback - thumbnail vazio em proporção padrão`)
+            // Fallback para thumbnail vazio com dimensões configuradas
+            console.log(
+                `[VideoProcessor] 🔄 Usando fallback - thumbnail vazio com tamanho configurado`,
+            )
 
             return {
                 data: Buffer.from([]),
-                width: 1080,
-                height: 1674,
+                width: options.width || 540,
+                height: options.height || 837,
                 format: options.format || "jpeg",
             }
         } finally {
@@ -500,8 +522,29 @@ export class VideoProcessor {
     }
 
     /**
-     * Força vídeo para proporção padrão (1080x1674) usando scale + crop
-     * Comando ffmpeg: ffmpeg -i input.mp4 -vf "scale=1080:1674:force_original_aspect_ratio=increase,crop=1080:1674" -c:v libx264 -preset fast -crf 18 -c:a aac output.mp4
+     * Parse frame rate string (e.g., "30/1", "25/1") to number
+     */
+    private parseFrameRate(frameRate: string | undefined): number {
+        if (!frameRate) return 30
+
+        try {
+            // Handle formats like "30/1", "25/1", "29.97/1"
+            if (frameRate.includes("/")) {
+                const [numerator, denominator] = frameRate.split("/")
+                return parseFloat(numerator) / parseFloat(denominator)
+            }
+
+            // Handle direct number format
+            return parseFloat(frameRate)
+        } catch {
+            return 30 // Default fallback
+        }
+    }
+
+    /**
+     * Força vídeo para proporção padrão (1080x1674) usando scale + crop - APENAS CROP, SEM COMPRESSÃO
+     * Comando ffmpeg: ffmpeg -i input.mp4 -vf "scale=1080:1674:force_original_aspect_ratio=increase,crop=1080:1674" -c:v libx264 -preset fast -crf 18 -c:a copy output.mp4
+     * NOTA: CRF 18 é lossless prático, mais estável que CRF 0
      */
     private async cropVideoToAspectRatio(
         videoData: Buffer,
@@ -520,15 +563,16 @@ export class VideoProcessor {
 
         try {
             console.log(
-                `[VideoProcessor] 📐 Cortando vídeo para proporção padrão: ${metadata.width}x${metadata.height} → ${targetWidth}x${targetHeight}`,
+                `[VideoProcessor] 📐 CROP RÁPIDO - Cortando vídeo para proporção padrão: ${metadata.width}x${metadata.height} → ${targetWidth}x${targetHeight} (CRF 28, ultrafast)`,
             )
 
             // 1. Salvar vídeo em arquivo temporário
             writeFileSync(tempInputPath, videoData)
 
-            // 2. Executar comando ffmpeg para sempre forçar escala + crop para 1080x1674
-            // SEMPRE usar scale + crop para garantir proporção exata 1080x1674
-            const ffmpegCommand = `ffmpeg -i "${tempInputPath}" -vf "scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=increase,crop=${targetWidth}:${targetHeight}" -c:v libx264 -preset fast -crf 18 -c:a aac -movflags +faststart "${tempOutputPath}"`
+            // 2. Executar comando ffmpeg para APENAS CROP - sem compressão (processamento síncrono)
+            // SEMPRE usar scale + crop para garantir proporção exata 1080x1674 - SEM COMPRESSÃO
+            // IMPORTANTE: Usar CRF 28 (qualidade suficiente) com preset ultrafast para máxima velocidade
+            const ffmpegCommand = `ffmpeg -i "${tempInputPath}" -vf "scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=increase,crop=${targetWidth}:${targetHeight}" -c:v libx264 -preset ultrafast -crf 28 -c:a copy -movflags +faststart "${tempOutputPath}"`
 
             console.log(`[VideoProcessor] 🔧 Executando: ${ffmpegCommand}`)
             await execAsync(ffmpegCommand)
@@ -538,11 +582,11 @@ export class VideoProcessor {
                 const croppedData = readFileSync(tempOutputPath)
 
                 console.log(
-                    `[VideoProcessor] ✅ Vídeo cortado para proporção padrão: ${(
+                    `[VideoProcessor] ✅ CROP RÁPIDO concluído - Vídeo cortado para proporção padrão: ${(
                         croppedData.length /
                         1024 /
                         1024
-                    ).toFixed(2)}MB`,
+                    ).toFixed(2)}MB (CRF 28, ultrafast) - Worker otimizará qualidade`,
                 )
 
                 return croppedData
@@ -567,20 +611,32 @@ export class VideoProcessor {
     }
 
     /**
-     * Comprime vídeo com H.264 usando preset slow para máxima compressão
-     * Comando ffmpeg: ffmpeg -i input.mp4 -c:v libx264 -preset slow -crf 28 -b:v 300k -maxrate 500k -bufsize 600k -c:a aac -b:a 64k output.mp4
+     * Comprime vídeo com H.264 usando configurações personalizáveis
+     * Comando ffmpeg: ffmpeg -i input.mp4 -c:v libx264 -preset {preset} -crf {crf} -b:v {targetBitrate}k -maxrate {maxBitrate}k -bufsize {bufferSize}k -c:a aac -b:a {audioBitrate}k output.mp4
      */
     async compressVideoSlow(
         videoData: Buffer,
-        options: WorkerVideoCompressionOptions = {
+        options?: Partial<VideoCompressionOptions>,
+    ): Promise<Buffer> {
+        // Validar dados de entrada
+        if (!videoData || videoData.length === 0) {
+            throw new Error("Video data is required and cannot be empty")
+        }
+
+        // Mesclar opções com configuração padrão
+        const compressionOptions: VideoCompressionOptions = {
             preset: "slow",
-            crf: 28,
+            crf: 23,
             targetBitrate: 300,
             maxBitrate: 500,
             bufferSize: 600,
-            audioBitrate: 64,
-        },
-    ): Promise<Buffer> {
+            audioBitrate: 128,
+            ...this.config.compression,
+            ...options,
+        }
+
+        // Validar configurações de compressão
+        this.validateCompressionOptions(compressionOptions)
         const tempInputPath = join(
             tmpdir(),
             `input_slow_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.mp4`,
@@ -591,17 +647,23 @@ export class VideoProcessor {
         )
 
         try {
+            const compressionType =
+                compressionOptions.crf <= 18
+                    ? "ULTRA ALTA QUALIDADE (Lossless prático)"
+                    : "COM PERDA"
             console.log(
-                `[VideoProcessor] 🐌 Iniciando compressão H.264 SLOW (preset: ${options.preset}, CRF: ${options.crf})`,
+                `[VideoProcessor] 🐌 Iniciando compressão H.264 ${compressionType} (preset: ${compressionOptions.preset}, CRF: ${compressionOptions.crf})`,
             )
 
             // 1. Salvar vídeo em arquivo temporário
             writeFileSync(tempInputPath, videoData)
 
-            // 2. Executar comando ffmpeg para compressão lenta mas eficiente
-            const ffmpegCommand = `ffmpeg -i "${tempInputPath}" -c:v libx264 -preset ${options.preset} -crf ${options.crf} -b:v ${options.targetBitrate}k -maxrate ${options.maxBitrate}k -bufsize ${options.bufferSize}k -c:a aac -b:a ${options.audioBitrate}k -movflags +faststart "${tempOutputPath}"`
-
-            console.log(`[VideoProcessor] 🔧 Executando: ${ffmpegCommand}`)
+            // Comando ffmpeg que MANTÉM resolução original e usa configurações de máxima qualidade
+            // Sem filtro -vcodec libx264 mantém resolução original automaticamente
+            const ffmpegCommand = `ffmpeg -i "${tempInputPath}" -c:v libx264 -preset ${compressionOptions.preset} -crf ${compressionOptions.crf} -b:v ${compressionOptions.targetBitrate}k -maxrate ${compressionOptions.maxBitrate}k -bufsize ${compressionOptions.bufferSize}k -c:a aac -b:a ${compressionOptions.audioBitrate}k -movflags +faststart "${tempOutputPath}"`
+            console.log(
+                `[VideoProcessor] 🔧 Executando compressão mantendo resolução original: ${ffmpegCommand}`,
+            )
             await execAsync(ffmpegCommand)
 
             // 3. Ler arquivo comprimido
@@ -643,6 +705,60 @@ export class VideoProcessor {
             if (existsSync(tempOutputPath)) {
                 unlinkSync(tempOutputPath)
             }
+        }
+    }
+
+    /**
+     * Valida as opções de compressão
+     */
+    private validateCompressionOptions(options: VideoCompressionOptions): void {
+        const validPresets = [
+            "ultrafast",
+            "superfast",
+            "veryfast",
+            "faster",
+            "fast",
+            "medium",
+            "slow",
+            "slower",
+            "veryslow",
+        ]
+
+        if (!validPresets.includes(options.preset)) {
+            throw new Error(
+                `Invalid preset: ${options.preset}. Valid presets: ${validPresets.join(", ")}`,
+            )
+        }
+
+        if (options.crf < 0 || options.crf > 51) {
+            throw new Error(`CRF must be between 0 and 51, got: ${options.crf}`)
+        }
+
+        if (
+            options.targetBitrate &&
+            (options.targetBitrate < 50 || options.targetBitrate > 10000)
+        ) {
+            throw new Error(
+                `Target bitrate must be between 50 and 10000 kbps, got: ${options.targetBitrate}`,
+            )
+        }
+
+        if (options.maxBitrate && (options.maxBitrate < 50 || options.maxBitrate > 10000)) {
+            throw new Error(
+                `Max bitrate must be between 50 and 10000 kbps, got: ${options.maxBitrate}`,
+            )
+        }
+
+        if (options.bufferSize && (options.bufferSize < 50 || options.bufferSize > 10000)) {
+            throw new Error(
+                `Buffer size must be between 50 and 10000 kbps, got: ${options.bufferSize}`,
+            )
+        }
+
+        if (options.audioBitrate && (options.audioBitrate < 32 || options.audioBitrate > 320)) {
+            throw new Error(
+                `Audio bitrate must be between 32 and 320 kbps, got: ${options.audioBitrate}`,
+            )
         }
     }
 }

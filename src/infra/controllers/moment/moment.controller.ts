@@ -5,17 +5,14 @@ import {
     GetLikedMomentsUseCase,
     GetMomentReportsUseCase,
     GetMomentUseCase,
-    GetUserMomentReportsUseCase,
     GetUserMomentsUseCase,
-    GetUserReportedMomentsUseCase,
     LikeMomentUseCase,
-    ListMomentsUseCase,
-    PublishMomentUseCase,
     ReportMomentUseCase,
     UnlikeMomentUseCase,
 } from "@/application/moment/use.cases"
 
 import { GetUserMomentsResponse } from "@/application/moment/use.cases/get.user.moments.use.case"
+import { MomentVisibilityEnum } from "@/domain/moment"
 import { AuthenticatedUser } from "@/infra/middlewares"
 import { z } from "zod"
 
@@ -28,11 +25,8 @@ export interface CreateMomentRequest {
         size: number
     }
     description?: string
-    hashtags?: string[]
     mentions?: string[]
     visibility?: "public" | "followers_only" | "private" | "unlisted"
-    ageRestriction?: boolean
-    contentWarning?: boolean
     location?: {
         latitude: number
         longitude: number
@@ -102,7 +96,6 @@ export interface MomentResponse {
         views: {
             totalViews: number
             uniqueViews: number
-            repeatViews: number
             completionViews: number
             averageWatchTime: number
             averageCompletionRate: number
@@ -110,8 +103,10 @@ export interface MomentResponse {
         }
         engagement: {
             totalLikes: number
+            totalComments: number
             totalReports: number
             likeRate: number
+            commentRate: number
             reportRate: number
         }
         performance: {
@@ -119,6 +114,13 @@ export interface MomentResponse {
             bufferTime: number
             errorRate: number
             successRate: number
+        }
+        viral: {
+            viralScore: number
+            viralReach: number
+        }
+        content: {
+            qualityScore: number
         }
     }
     createdAt: Date
@@ -155,16 +157,12 @@ export class MomentController {
         private readonly createMomentUseCase: CreateMomentUseCase,
         private readonly getMomentUseCase: GetMomentUseCase,
         private readonly deleteMomentUseCase: DeleteMomentUseCase,
-        private readonly publishMomentUseCase: PublishMomentUseCase,
-        private readonly listMomentsUseCase: ListMomentsUseCase,
         private readonly getUserMomentsUseCase: GetUserMomentsUseCase,
         private readonly likeMomentUseCase: LikeMomentUseCase,
         private readonly unlikeMomentUseCase: UnlikeMomentUseCase,
         private readonly getLikedMomentsUseCase: GetLikedMomentsUseCase,
         private readonly reportMomentUseCase: ReportMomentUseCase,
         private readonly getMomentReportsUseCase: GetMomentReportsUseCase,
-        private readonly getUserMomentReportsUseCase: GetUserMomentReportsUseCase,
-        private readonly getUserReportedMomentsUseCase: GetUserReportedMomentsUseCase,
     ) {}
 
     // ===== CRUD OPERATIONS =====
@@ -172,8 +170,12 @@ export class MomentController {
     /**
      * Cria um novo momento
      */
-    async createMoment(request: CreateMomentRequest, userId: string): Promise<MomentResponse> {
+    async createMoment(request: CreateMomentRequest, userId: string): Promise<void> {
         try {
+            console.log(
+                `[MomentController] 🚀 Iniciando processamento em background para usuário ${userId}`,
+            )
+
             // Validação básica dos dados obrigatórios
             if (!request.videoData || request.videoData.length === 0) {
                 throw new Error("Dados do vídeo são obrigatórios")
@@ -188,21 +190,22 @@ export class MomentController {
                 throw new Error("Você não pode mencionar a si mesmo")
             }
 
-            const result = await this.createMomentUseCase.execute({
+            await this.createMomentUseCase.execute({
                 ownerId: userId,
                 videoData: request.videoData,
                 videoMetadata: request.videoMetadata,
+                visibility: request.visibility as MomentVisibilityEnum,
                 description: request.description,
                 location: request.location,
                 device: request.device,
             })
 
-            if (!result.success || !result.moment) {
-                throw new Error(result.error || "Error to create moment")
-            }
-
-            return result.moment as any
+            console.log(
+                `[MomentController] ✅ Processamento em background concluído para usuário ${userId}`,
+            )
         } catch (error) {
+            console.error(`[MomentController] ❌ Erro no processamento em background:`, error)
+
             if (error instanceof z.ZodError) {
                 throw new Error(
                     `Validation error: ${error.issues.map((e) => e.message).join(", ")}`,
@@ -262,73 +265,9 @@ export class MomentController {
     }
 
     /**
-     * Publica um momento
-     */
-    async publishMoment(momentId: string, userId: string): Promise<MomentResponse> {
-        try {
-            const result = await this.publishMomentUseCase.execute({
-                momentId: momentId,
-                userId: userId,
-            })
-
-            return this.mapToResponse(result)
-        } catch (error) {
-            if (error instanceof Error && error.message === "Moment not found") {
-                throw new Error("Moment not found")
-            }
-            if (error instanceof Error && error.message === "Unauthorized") {
-                throw new Error("Unauthorized")
-            }
-            throw new Error(
-                `Error to publish moment: ${
-                    error instanceof Error ? error.message : "Unknown error"
-                }`,
-            )
-        }
-    }
-
-    // ===== LISTING AND SEARCH =====
-
-    /**
-     * Lista momentos com filtros
-     */
-    async listMoments(query: ListMomentsQuery): Promise<MomentResponse[]> {
-        try {
-            // Validação com Zod
-            const validatedQuery = ListMomentsQuerySchema.parse(query)
-
-            const result = await this.listMomentsUseCase.execute({
-                limit: validatedQuery.limit,
-                offset: (validatedQuery.page - 1) * validatedQuery.limit,
-                sortBy: validatedQuery.sortBy,
-                sortOrder: validatedQuery.sortOrder,
-                status: validatedQuery.status as any,
-            })
-
-            if (!result.success || !result.moments) {
-                throw new Error(result.error || "Error to list moments")
-            }
-
-            return result.moments.map((moment) => this.mapToResponse(moment))
-        } catch (error) {
-            if (error instanceof z.ZodError) {
-                throw new Error(
-                    `Validation error: ${error.issues.map((e) => e.message).join(", ")}`,
-                )
-            }
-            throw new Error(
-                `Error to list moments: ${
-                    error instanceof Error ? error.message : "Unknown error"
-                }`,
-            )
-        }
-    }
-
-    /**
      * Lista momentos de um usuário específico
      */
     async getUserMoments(
-        userId: string,
         requestingUser: AuthenticatedUser,
         query: ListMomentsQuery,
     ): Promise<GetUserMomentsResponse> {
@@ -337,13 +276,14 @@ export class MomentController {
             const validatedQuery = ListMomentsQuerySchema.parse(query)
 
             const result = await this.getUserMomentsUseCase.execute({
-                ownerId: userId,
                 requestingUser: requestingUser,
-                limit: validatedQuery.limit,
-                offset: (validatedQuery.page - 1) * validatedQuery.limit,
-                sortBy: validatedQuery.sortBy,
-                sortOrder: validatedQuery.sortOrder,
-                status: validatedQuery.status as any,
+                query: {
+                    status: validatedQuery.status as any,
+                    visibility: MomentVisibilityEnum.PUBLIC,
+                    includeDeleted: false,
+                    sortBy: validatedQuery.sortBy,
+                    sortOrder: validatedQuery.sortOrder,
+                },
             })
 
             if (!result.success || !result.moments) {
@@ -538,87 +478,6 @@ export class MomentController {
     }
 
     /**
-     * Lista reports dos momentos de um usuário (apenas owner)
-     */
-    async getUserMomentReports(
-        ownerId: string,
-        query: ListMomentsQuery,
-    ): Promise<MomentResponse[]> {
-        try {
-            // Validação com Zod
-            const validatedQuery = ListMomentsQuerySchema.parse(query)
-
-            const result = await this.getUserMomentReportsUseCase.execute({
-                userId: ownerId,
-                limit: validatedQuery.limit,
-                offset: (validatedQuery.page - 1) * validatedQuery.limit,
-            })
-
-            if (!result.success) {
-                throw new Error(result.error || "Error to list reports of user's moments")
-            }
-
-            // Retornar array vazio por enquanto, pois este use case retorna reports, não momentos
-            return []
-        } catch (error) {
-            if (error instanceof z.ZodError) {
-                throw new Error(
-                    `Validation error: ${error.issues.map((e) => e.message).join(", ")}`,
-                )
-            }
-            if (error instanceof Error && error.message === "Unauthorized") {
-                throw new Error("Unauthorized")
-            }
-            throw new Error(
-                `Error to list reports of user's moments: ${
-                    error instanceof Error ? error.message : "Unknown error"
-                }`,
-            )
-        }
-    }
-
-    /**
-     * Lista momentos reportados por um usuário
-     */
-    async getUserReportedMoments(
-        userId: string,
-        currentUserId: string,
-        query: ListMomentsQuery,
-    ): Promise<MomentResponse[]> {
-        try {
-            // Validação com Zod
-            const validatedQuery = ListMomentsQuerySchema.parse(query)
-
-            const result = await this.getUserReportedMomentsUseCase.execute({
-                userId: userId,
-                limit: validatedQuery.limit,
-                offset: (validatedQuery.page - 1) * validatedQuery.limit,
-            })
-
-            if (!result.success) {
-                throw new Error(result.error || "Error to list reported moments of user")
-            }
-
-            // Retornar array vazio por enquanto, pois este use case retorna reports, não momentos
-            return []
-        } catch (error) {
-            if (error instanceof z.ZodError) {
-                throw new Error(
-                    `Validation error: ${error.issues.map((e) => e.message).join(", ")}`,
-                )
-            }
-            if (error instanceof Error && error.message === "Unauthorized") {
-                throw new Error("Unauthorized")
-            }
-            throw new Error(
-                `Error to list reported moments of user: ${
-                    error instanceof Error ? error.message : "Unknown error"
-                }`,
-            )
-        }
-    }
-
-    /**
      * Map entity Moment to MomentResponse
      */
     private mapToResponse(moment: any): MomentResponse {
@@ -665,17 +524,18 @@ export class MomentController {
                       views: {
                           totalViews: momentData.metrics.views?.totalViews || 0,
                           uniqueViews: momentData.metrics.views?.uniqueViews || 0,
-                          repeatViews: momentData.metrics.views?.repeatViews || 0,
                           completionViews: momentData.metrics.views?.completionViews || 0,
                           averageWatchTime: momentData.metrics.views?.averageWatchTime || 0,
                           averageCompletionRate:
                               momentData.metrics.views?.averageCompletionRate || 0,
-                          bounceRate: momentData.metrics.views?.bounceRate || 0,
+                          bounceRate: momentData.metrics.audience?.behavior?.bounceRate || 0,
                       },
                       engagement: {
                           totalLikes: momentData.metrics.engagement?.totalLikes || 0,
+                          totalComments: momentData.metrics.engagement?.totalComments || 0,
                           totalReports: momentData.metrics.engagement?.totalReports || 0,
                           likeRate: momentData.metrics.engagement?.likeRate || 0,
+                          commentRate: momentData.metrics.engagement?.commentRate || 0,
                           reportRate: momentData.metrics.engagement?.reportRate || 0,
                       },
                       performance: {
@@ -684,12 +544,18 @@ export class MomentController {
                           errorRate: momentData.metrics.performance?.errorRate || 0,
                           successRate: momentData.metrics.performance?.successRate || 0,
                       },
+                      viral: {
+                          viralScore: momentData.metrics.viral?.viralScore || 0,
+                          viralReach: momentData.metrics.viral?.viralReach || 0,
+                      },
+                      content: {
+                          qualityScore: momentData.metrics.content?.qualityScore || 0,
+                      },
                   }
                 : {
                       views: {
                           totalViews: 0,
                           uniqueViews: 0,
-                          repeatViews: 0,
                           completionViews: 0,
                           averageWatchTime: 0,
                           averageCompletionRate: 0,
@@ -697,8 +563,10 @@ export class MomentController {
                       },
                       engagement: {
                           totalLikes: 0,
+                          totalComments: 0,
                           totalReports: 0,
                           likeRate: 0,
+                          commentRate: 0,
                           reportRate: 0,
                       },
                       performance: {
@@ -706,6 +574,13 @@ export class MomentController {
                           bufferTime: 0,
                           errorRate: 0,
                           successRate: 0,
+                      },
+                      viral: {
+                          viralScore: 0,
+                          viralReach: 0,
+                      },
+                      content: {
+                          qualityScore: 0,
                       },
                   },
             createdAt: momentData.createdAt,

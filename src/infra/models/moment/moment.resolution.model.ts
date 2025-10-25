@@ -21,13 +21,13 @@ export default class MomentResolution
     extends Model<MomentResolutionAttributes, MomentResolutionCreationAttributes>
     implements MomentResolutionAttributes
 {
-    public id!: string
-    public contentId!: string
-    public width!: number
-    public height!: number
-    public quality!: string
-    public readonly createdAt!: Date
-    public readonly updatedAt!: Date
+    declare id: string
+    declare contentId: string
+    declare width: number
+    declare height: number
+    declare quality: string
+    declare readonly createdAt: Date
+    declare readonly updatedAt: Date
 
     static initialize(sequelize: Sequelize): void {
         MomentResolution.init(

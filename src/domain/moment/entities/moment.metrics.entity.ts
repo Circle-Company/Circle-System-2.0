@@ -2,6 +2,7 @@
 export interface ViewMetrics {
     // Contadores básicos
     totalViews: number
+    totalClicks: number
     uniqueViews: number
     repeatViews: number
     completionViews: number // visualizações que chegaram ao final
@@ -279,6 +280,12 @@ export class MomentMetricsEntity {
         this._updateMetricsTimestamp()
     }
 
+    incrementClicks(count: number = 1): void {
+        this._views.totalClicks += count
+        this._recalculateEngagementRates()
+        this._updateMetricsTimestamp()
+    }
+
     incrementCompletionViews(count: number = 1): void {
         this._views.completionViews += count
         this._updateMetricsTimestamp()
@@ -472,6 +479,7 @@ export class MomentMetricsEntity {
             this._engagement.likeRate = this._engagement.totalLikes / this._views.totalViews
             this._engagement.commentRate = this._engagement.totalComments / this._views.totalViews
             this._engagement.reportRate = this._engagement.totalReports / this._views.totalViews
+            this._engagement.clickRate = this._views.totalClicks / this._views.totalViews
         }
     }
 
@@ -526,6 +534,7 @@ export class MomentMetricsEntity {
 // ===== MÉTRICAS PADRÃO =====
 export const DEFAULT_VIEW_METRICS: ViewMetrics = {
     totalViews: 0,
+    totalClicks: 0,
     uniqueViews: 0,
     repeatViews: 0,
     completionViews: 0,

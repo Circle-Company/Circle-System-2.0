@@ -38,6 +38,8 @@ temp/
 
 # Hugging Face Models (muito grandes para Git)
 models/huggingface/
+uploads/
+test-moment-creation/
 
 # Database
 *.sqlite

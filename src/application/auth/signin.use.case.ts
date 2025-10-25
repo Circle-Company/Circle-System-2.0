@@ -1,6 +1,5 @@
 import { AuthLogRepository, AuthLogStatus, AuthLogType } from "@/domain/auth"
 import { SignInInputDto, SignInOutputDto, SignRequest } from "@/domain/auth/auth.dtos"
-import { Device } from "@/domain/authorization"
 import {
     IUserRepository,
     TimezoneCode,
@@ -26,7 +25,7 @@ import {
 import { ProcessSignRequest, ProcessSignRequestResponse } from "./process.sign.request"
 
 import { SignStatus } from "@/domain/auth/auth.type"
-import { Level } from "@/domain/authorization"
+import { Device, Level } from "@/domain/authorization"
 import { SignType } from "@/infra/models/auth/sign.logs.model"
 import { Timezone } from "@/shared"
 
@@ -235,12 +234,12 @@ export class SignInUseCase {
         }
 
         // 2. Validar device (obrigatório)
-        if (!metadata.device) {
-            throw new InvalidDeviceError("Device is required")
+        if (!metadata.device || typeof metadata.device !== "string") {
+            throw new InvalidDeviceError("Device is required and must be a string")
         }
 
         // Normalizar device para UPPERCASE antes de validar
-        const normalizedDevice = (metadata.device as string).toUpperCase() as Device
+        const normalizedDevice = metadata.device.toUpperCase() as Device
         metadata.device = normalizedDevice
 
         const validDevices = Object.values(Device)
