@@ -11,11 +11,11 @@ interface UserTermAttributes {
 }
 
 export default class UserTerm extends Model<UserTermAttributes> implements UserTermAttributes {
-    public readonly id!: bigint
-    public user_id!: bigint
-    public terms_and_conditions_agreed!: boolean
-    public terms_and_conditions_agreed_version!: string | null
-    public terms_and_conditions_agreed_at!: Date | string | null
+    declare readonly id: bigint
+    declare user_id: bigint
+    declare terms_and_conditions_agreed: boolean
+    declare terms_and_conditions_agreed_version: string | null
+    declare terms_and_conditions_agreed_at: Date | string | null
     static initialize(sequelize: Sequelize) {
         UserTerm.init(
             {

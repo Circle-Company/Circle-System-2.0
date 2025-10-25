@@ -23,14 +23,14 @@ class UserEmbedding
     extends Model<UserEmbeddingAttributes, UserEmbeddingCreationAttributes>
     implements UserEmbeddingAttributes
 {
-    public id!: bigint
-    public userId!: bigint
-    public vector!: string
-    public dimension!: number
-    public metadata!: Record<string, any>
+    declare id: bigint
+    declare userId: bigint
+    declare vector: string
+    declare dimension: number
+    declare metadata: Record<string, any>
 
-    public readonly createdAt!: Date
-    public readonly updatedAt!: Date
+    declare readonly createdAt: Date
+    declare readonly updatedAt: Date
 
     // Método estático para inicializar o modelo
     public static initialize(sequelize: Sequelize): void {

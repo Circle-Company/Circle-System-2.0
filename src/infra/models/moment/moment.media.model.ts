@@ -23,15 +23,15 @@ export default class MomentMedia
     extends Model<MomentMediaAttributes, MomentMediaCreationAttributes>
     implements MomentMediaAttributes
 {
-    public id!: string
-    public momentId!: string
-    public url!: string
-    public storageProvider!: string
-    public bucket!: string
-    public key!: string
-    public region!: string
-    public readonly createdAt!: Date
-    public readonly updatedAt!: Date
+    declare id: string
+    declare momentId: string
+    declare url: string
+    declare storageProvider: string
+    declare bucket: string
+    declare key: string
+    declare region: string
+    declare readonly createdAt: Date
+    declare readonly updatedAt: Date
 
     static initialize(sequelize: Sequelize): void {
         MomentMedia.init(

@@ -54,35 +54,35 @@ export default class MomentMetrics
     extends Model<MomentMetricsAttributes, MomentMetricsCreationAttributes>
     implements MomentMetricsAttributes
 {
-    public id!: string
-    public momentId!: string
-    public totalViews!: number
-    public totalClicks!: number
-    public uniqueViews!: number
-    public repeatViews!: number
-    public completionViews!: number
-    public averageWatchTime!: number
-    public averageCompletionRate!: number
-    public bounceRate!: number
-    public totalLikes!: number
-    public totalComments!: number
-    public totalReports!: number
-    public likeRate!: number
-    public clickRate!: number
-    public commentRate!: number
-    public reportRate!: number
-    public loadTime!: number
-    public bufferTime!: number
-    public errorRate!: number
-    public viralScore!: number
-    public totalReach!: number
-    public contentQualityScore!: number
-    public lastMetricsUpdate!: Date
-    public metricsVersion!: string
-    public dataQuality!: number
-    public confidenceLevel!: number
-    public readonly createdAt!: Date
-    public readonly updatedAt!: Date
+    declare id: string
+    declare momentId: string
+    declare totalViews: number
+    declare totalClicks: number
+    declare uniqueViews: number
+    declare repeatViews: number
+    declare completionViews: number
+    declare averageWatchTime: number
+    declare averageCompletionRate: number
+    declare bounceRate: number
+    declare totalLikes: number
+    declare totalComments: number
+    declare totalReports: number
+    declare likeRate: number
+    declare clickRate: number
+    declare commentRate: number
+    declare reportRate: number
+    declare loadTime: number
+    declare bufferTime: number
+    declare errorRate: number
+    declare viralScore: number
+    declare totalReach: number
+    declare contentQualityScore: number
+    declare lastMetricsUpdate: Date
+    declare metricsVersion: string
+    declare dataQuality: number
+    declare confidenceLevel: number
+    declare readonly createdAt: Date
+    declare readonly updatedAt: Date
 
     static initialize(sequelize: Sequelize): void {
         MomentMetrics.init(

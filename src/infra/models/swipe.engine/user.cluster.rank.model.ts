@@ -25,18 +25,18 @@ class UserClusterRank
     extends Model<UserClusterRankAttributes, UserClusterRankCreationAttributes>
     implements UserClusterRankAttributes
 {
-    public id!: bigint
-    public userId!: bigint
-    public clusterId!: bigint
-    public score!: number
-    public similarity!: number
-    public interactionScore!: number
-    public matchScore!: number
-    public isActive!: boolean
-    public lastInteractionDate!: Date
+    declare id: bigint
+    declare userId: bigint
+    declare clusterId: bigint
+    declare score: number
+    declare similarity: number
+    declare interactionScore: number
+    declare matchScore: number
+    declare isActive: boolean
+    declare lastInteractionDate: Date
 
-    public readonly createdAt!: Date
-    public readonly updatedAt!: Date
+    declare readonly createdAt: Date
+    declare readonly updatedAt: Date
 
     // Método estático para inicializar o modelo
     public static initialize(sequelize: Sequelize): void {

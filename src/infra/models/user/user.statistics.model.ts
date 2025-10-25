@@ -76,8 +76,8 @@ export default class UserStatistics
     extends Model<UserStatisticsAttributes>
     implements UserStatisticsAttributes
 {
-    public readonly id!: bigint
-    public user_id!: bigint
+    declare readonly id: bigint
+    declare user_id: bigint
     public access_level?: Level
     public verified?: boolean
     public deleted?: boolean

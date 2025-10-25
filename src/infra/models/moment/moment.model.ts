@@ -24,16 +24,16 @@ export default class Moment
     extends Model<MomentAttributes, MomentCreationAttributes>
     implements MomentAttributes
 {
-    public id!: bigint
-    public ownerId!: bigint | null
-    public description!: string
-    public hashtags!: string[]
-    public mentions!: string[]
-    public readonly createdAt!: Date
-    public readonly updatedAt!: Date
-    public publishedAt!: Date | null
-    public archivedAt!: Date | null
-    public deletedAt!: Date | null
+    declare id: bigint
+    declare ownerId: bigint | null
+    declare description: string
+    declare hashtags: string[]
+    declare mentions: string[]
+    declare readonly createdAt: Date
+    declare readonly updatedAt: Date
+    declare publishedAt: Date | null
+    declare archivedAt: Date | null
+    declare deletedAt: Date | null
 
     static initialize(sequelize: Sequelize): void {
         Moment.init(

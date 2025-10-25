@@ -24,16 +24,16 @@ export default class MomentDevice
     extends Model<MomentDeviceAttributes, MomentDeviceCreationAttributes>
     implements MomentDeviceAttributes
 {
-    public id!: string
-    public contextId!: string
-    public type!: string
-    public os!: string
-    public osVersion!: string
-    public model!: string
-    public screenResolution!: string
-    public orientation!: string
-    public readonly createdAt!: Date
-    public readonly updatedAt!: Date
+    declare id: string
+    declare contextId: string
+    declare type: string
+    declare os: string
+    declare osVersion: string
+    declare model: string
+    declare screenResolution: string
+    declare orientation: string
+    declare readonly createdAt: Date
+    declare readonly updatedAt: Date
 
     static initialize(sequelize: Sequelize): void {
         MomentDevice.init(

@@ -23,15 +23,15 @@ export default class MomentStatus
     extends Model<MomentStatusAttributes, MomentStatusCreationAttributes>
     implements MomentStatusAttributes
 {
-    public id!: string
-    public momentId!: string
-    public current!: string
-    public previousStatus!: string | null
-    public reason!: string | null
-    public changedBy!: string | null
-    public changedAt!: Date
-    public readonly createdAt!: Date
-    public readonly updatedAt!: Date
+    declare id: string
+    declare momentId: string
+    declare current: string
+    declare previousStatus: string | null
+    declare reason: string | null
+    declare changedBy: string | null
+    declare changedAt: Date
+    declare readonly createdAt: Date
+    declare readonly updatedAt: Date
 
     static initialize(sequelize: Sequelize): void {
         MomentStatus.init(

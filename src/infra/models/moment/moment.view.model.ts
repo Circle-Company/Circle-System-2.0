@@ -22,15 +22,15 @@ export default class MomentView
     extends Model<MomentViewAttributes, MomentViewCreationAttributes>
     implements MomentViewAttributes
 {
-    public id!: bigint
-    public momentId!: string
-    public viewerId!: string
-    public viewTimestamp!: Date
+    declare id: bigint
+    declare momentId: string
+    declare viewerId: string
+    declare viewTimestamp: Date
     public viewDuration?: number
     public viewSource?: string
-    public isComplete!: boolean
-    public readonly createdAt!: Date
-    public readonly updatedAt!: Date
+    declare isComplete: boolean
+    declare readonly createdAt: Date
+    declare readonly updatedAt: Date
 
     static initialize(sequelize: Sequelize): void {
         MomentView.init(

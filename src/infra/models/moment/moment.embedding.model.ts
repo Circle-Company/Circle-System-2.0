@@ -21,13 +21,13 @@ export default class MomentEmbedding
     extends Model<MomentEmbeddingAttributes, MomentEmbeddingCreationAttributes>
     implements MomentEmbeddingAttributes
 {
-    public id!: string
-    public momentId!: string
-    public vector!: string
-    public dimension!: number
-    public metadata!: Record<string, any>
-    public readonly createdAt!: Date
-    public readonly updatedAt!: Date
+    declare id: string
+    declare momentId: string
+    declare vector: string
+    declare dimension: number
+    declare metadata: Record<string, any>
+    declare readonly createdAt: Date
+    declare readonly updatedAt: Date
 
     static initialize(sequelize: Sequelize): void {
         MomentEmbedding.init(

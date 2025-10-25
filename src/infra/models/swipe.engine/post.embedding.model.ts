@@ -21,14 +21,14 @@ class PostEmbedding
     extends Model<PostEmbeddingAttributes, PostEmbeddingCreationAttributes>
     implements PostEmbeddingAttributes
 {
-    public id!: bigint
-    public postId!: bigint
-    public vector!: string
-    public dimension!: number
-    public metadata!: Record<string, any>
+    declare id: bigint
+    declare postId: bigint
+    declare vector: string
+    declare dimension: number
+    declare metadata: Record<string, any>
 
-    public readonly createdAt!: Date
-    public readonly updatedAt!: Date
+    declare readonly createdAt: Date
+    declare readonly updatedAt: Date
 
     // Converte para o tipo PostEmbedding do core
     public toPostEmbeddingType(): any {
