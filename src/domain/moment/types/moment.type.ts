@@ -219,5 +219,5 @@ export interface ViewabilityResult {
 
 // ===== IMPORT METRICS =====
 // Importar métricas robustas do arquivo separado
-import { MomentMetrics } from "./moment.metrics.type"
+import { MomentMetrics } from "../entities/moment.metrics.entity"
 export { MomentMetrics }
