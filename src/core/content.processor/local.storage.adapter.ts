@@ -45,9 +45,12 @@ export class LocalStorageAdapter implements StorageAdapter {
             const machineIP = getMachineIP()
             const port = process.env.PORT || "3000"
             this.baseUrl = `http://${machineIP}:${port}`
+            console.log(`[LocalStorageAdapter] 🌐 IP da máquina detectado: ${machineIP}`)
+            console.log(`[LocalStorageAdapter] 🔗 BaseURL configurada: ${this.baseUrl}`)
         } else {
             // Garantir que baseUrl não tenha /uploads no final
             this.baseUrl = baseUrl.replace(/\/uploads$/, "")
+            console.log(`[LocalStorageAdapter] 🔗 BaseURL fornecida: ${this.baseUrl}`)
         }
 
         this.video_filename = ""

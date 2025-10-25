@@ -1,10 +1,27 @@
 import { HttpRequest, HttpResponse } from "@/infra/http/http.type"
 import { extractErrorInfo, generateId, isBaseError, logger } from "@/shared"
 import { existsSync, mkdirSync } from "fs"
+import { networkInterfaces } from "os"
 
 import { ENABLE_LOGGING } from "@/infra/database/environment"
 import { HttpFactory } from "@/infra/http/http.factory"
 import { join } from "path"
+
+/**
+ * Obtém o IP da máquina
+ */
+function getMachineIP(): string {
+    const interfaces = networkInterfaces()
+    for (const name of Object.keys(interfaces)) {
+        for (const iface of interfaces[name] || []) {
+            // Ignorar endereços internos e IPv6
+            if (iface.family === "IPv4" && !iface.internal) {
+                return iface.address
+            }
+        }
+    }
+    return "localhost"
+}
 
 // Configuração da aplicação
 const ENV_CONFIG = {
@@ -321,9 +338,10 @@ if (ENV_CONFIG.environment === "development") {
             }
 
             const files = listFiles(uploadsDir)
+            const machineIP = getMachineIP()
             response.send({
                 success: true,
-                baseUrl: `http://localhost:${ENV_CONFIG.port}/storage/`,
+                baseUrl: `http://${machineIP}:${ENV_CONFIG.port}/storage/`,
                 files: files,
             })
         } catch (error) {

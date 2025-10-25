@@ -7,6 +7,23 @@ import { resetSwaggerRegistration } from "@/infra/swagger/swagger.config"
 import { EmbeddingsWorker } from "@/infra/workers/embeddings.worker"
 import { VideoCompressionWorker } from "@/infra/workers/video.compression.worker"
 import { logger } from "@/shared/logger"
+import { networkInterfaces } from "os"
+
+/**
+ * Obtém o IP da máquina
+ */
+function getMachineIP(): string {
+    const interfaces = networkInterfaces()
+    for (const name of Object.keys(interfaces)) {
+        for (const iface of interfaces[name] || []) {
+            // Ignorar endereços internos e IPv6
+            if (iface.family === "IPv4" && !iface.internal) {
+                return iface.address
+            }
+        }
+    }
+    return "localhost"
+}
 
 /**
  * Configurações de ambiente da aplicação
@@ -408,7 +425,7 @@ export class ApplicationBootstrapper {
             })
 
             this.log("info", "Swagger documentation configured successfully", {
-                docsUrl: `http://localhost:${this.config.port}/docs`,
+                docsUrl: `http://${getMachineIP()}:${this.config.port}/docs`,
             })
         } catch (error) {
             this.log("error", "Failed to configure Swagger", { error: (error as Error).message })
@@ -425,7 +442,7 @@ export class ApplicationBootstrapper {
         this.log("info", "HTTP server started successfully", {
             port: this.config.port,
             environment: this.config.environment,
-            url: `http://localhost:${this.config.port}`,
+            url: `http://${getMachineIP()}:${this.config.port}`,
         })
     }
 
