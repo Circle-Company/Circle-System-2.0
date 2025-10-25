@@ -111,7 +111,9 @@ export class VideoCompressionWorker {
             )
 
             // Usar o momentId como key (o LocalStorageAdapter adiciona prefixo e extensão automaticamente)
-            console.log(`[VideoCompressionWorker] 🔄 Substituindo vídeo original do moment: ${momentId}`)
+            console.log(
+                `[VideoCompressionWorker] 🔄 Substituindo vídeo original do moment: ${momentId}`,
+            )
 
             const uploadResult = await this.storageAdapter.uploadVideo(
                 momentId, // Usar momentId como key (sem prefixo nem extensão)
