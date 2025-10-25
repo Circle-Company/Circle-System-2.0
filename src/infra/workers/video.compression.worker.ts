@@ -181,8 +181,8 @@ export class VideoCompressionWorker {
                 )
             }
 
-            // 6. Deletar vídeo original do storage
-            await this.deleteOriginalVideo(originalVideoUrl)
+            // 6. Não deletar o vídeo original - o upload já substituiu com o comprimido
+            // await this.deleteOriginalVideo(originalVideoUrl)
 
             const processingTime = Date.now() - startTime
             const originalSize = originalVideoData.length
