@@ -138,8 +138,13 @@ export class ProcessSignRequest {
     }
 
     private isSuspiciousIP(ip: string): boolean {
+        // Em desenvolvimento, permitir IPs privados
+        const isDevelopment = process.env.NODE_ENV !== "production"
+        
         return (
-            this.suspiciousIPs.includes(ip) || this.isPrivateIP(ip) || this.isKnownMaliciousIP(ip)
+            this.suspiciousIPs.includes(ip) || 
+            (!isDevelopment && this.isPrivateIP(ip)) || 
+            this.isKnownMaliciousIP(ip)
         )
     }
 
@@ -206,7 +211,7 @@ export class ProcessSignRequest {
             /^test$/i, // Exatamente "test"
             /^guest$/i, // Exatamente "guest"
             /\d{4,}/, // 4 ou mais dígitos consecutivos
-            /[^a-zA-Z0-9_]/, // Caracteres especiais
+            /[^a-zA-Z0-9_.\-]/, // Caracteres especiais (permite . e -)
         ]
 
         return suspiciousPatterns.some((pattern) => pattern.test(username))

@@ -1,7 +1,8 @@
 import { FastifyAdapter, MockAdapter } from "./http.adapters"
 import { AdapterType, HttpAdapter } from "./http.type"
-import Fastify from "fastify"
+
 import multipart from "@fastify/multipart"
+import Fastify from "fastify"
 
 /**
  * Configuração HTTP genérica

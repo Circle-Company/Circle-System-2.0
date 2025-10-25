@@ -6,11 +6,12 @@
  * @version 2.0.0
  */
 
-import { AllSchemas } from "@/infra/swagger/schemas"
-import { SWAGGER_CUSTOM_CSS } from "./swagger.theme"
 import { API_TAGS, TAG_ORDER } from "./tags.config"
+
+import { AllSchemas } from "@/infra/swagger/schemas"
 import fastifySwagger from "@fastify/swagger"
 import fastifySwaggerUi from "@fastify/swagger-ui"
+import { SWAGGER_CUSTOM_CSS } from "./swagger.theme"
 
 // Flag global para controle de registro
 let swaggerRegistered = false

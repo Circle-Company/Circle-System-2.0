@@ -1,9 +1,9 @@
 // ===== SWAGGER INTEGRATION =====
 
-import { FastifyInstance } from "fastify"
-import { swaggerConfig } from "./swagger.config"
 import fastifySwagger from "@fastify/swagger"
 import fastifySwaggerUi from "@fastify/swagger-ui"
+import { FastifyInstance } from "fastify"
+import { swaggerConfig } from "./swagger.config"
 
 export async function registerSwagger(fastify: FastifyInstance) {
     // Register Swagger

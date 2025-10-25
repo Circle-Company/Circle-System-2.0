@@ -2,9 +2,9 @@
 
 import { HttpAdapter, HttpRequest, HttpResponse } from "@/infra/http/http.type"
 
-import { swaggerConfig } from "../swagger.config"
 import fastifySwagger from "@fastify/swagger"
 import fastifySwaggerUi from "@fastify/swagger-ui"
+import { swaggerConfig } from "../swagger.config"
 
 // Interface estendida para Swagger
 interface SwaggerHttpAdapter extends HttpAdapter {
