@@ -4,9 +4,9 @@ import { existsSync, mkdirSync, readdirSync, statSync } from "fs"
 
 import { ENABLE_LOGGING } from "@/infra/database/environment"
 import { HttpFactory } from "@/infra/http/http.factory"
+import fastifyStatic from "@fastify/static"
 import { networkInterfaces } from "os"
 import { join } from "path"
-import fastifyStatic from "@fastify/static"
 
 /**
  * Obtém o IP da máquina
@@ -308,7 +308,6 @@ if (fastifyInstance) {
 // Endpoint para listar arquivos disponíveis (apenas para desenvolvimento)
 if (ENV_CONFIG.environment === "development") {
     api.get("/storage/list", async (request: HttpRequest, response: HttpResponse) => {
-
         try {
             const listFiles = (dir: string, basePath: string = ""): any[] => {
                 const files = readdirSync(dir)

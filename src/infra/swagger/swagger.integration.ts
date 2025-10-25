@@ -2,13 +2,15 @@
 
 import { FastifyInstance } from "fastify"
 import { swaggerConfig } from "./swagger.config"
+import fastifySwagger from "@fastify/swagger"
+import fastifySwaggerUi from "@fastify/swagger-ui"
 
 export async function registerSwagger(fastify: FastifyInstance) {
     // Register Swagger
-    await fastify.register(require("@fastify/swagger"), swaggerConfig.swagger)
+    await fastify.register(fastifySwagger, swaggerConfig.swagger)
 
     // Register Swagger UI
-    await fastify.register(require("@fastify/swagger-ui"), swaggerConfig.swaggerUi)
+    await fastify.register(fastifySwaggerUi, swaggerConfig.swaggerUi)
 
     // Add route for Swagger documentation
     fastify.get("/docs", async (request, reply) => {

@@ -3,6 +3,8 @@
 import { HttpAdapter, HttpRequest, HttpResponse } from "@/infra/http/http.type"
 
 import { swaggerConfig } from "../swagger.config"
+import fastifySwagger from "@fastify/swagger"
+import fastifySwaggerUi from "@fastify/swagger-ui"
 
 // Interface estendida para Swagger
 interface SwaggerHttpAdapter extends HttpAdapter {
@@ -38,7 +40,7 @@ export class SwaggerGenerator {
                 }
 
                 // Register Swagger
-                await this.httpAdapter.registerPlugin(require("@fastify/swagger"), {
+                await this.httpAdapter.registerPlugin(fastifySwagger, {
                     openapi: {
                         openapi: "3.0.0",
                         info: {
@@ -58,7 +60,7 @@ export class SwaggerGenerator {
                 })
 
                 // Register Swagger UI
-                await this.httpAdapter.registerPlugin(require("@fastify/swagger-ui"), {
+                await this.httpAdapter.registerPlugin(fastifySwaggerUi, {
                     routePrefix: "/docs",
                     uiConfig: {
                         docExpansion: "list",
