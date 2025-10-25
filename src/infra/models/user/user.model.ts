@@ -15,16 +15,16 @@ export interface UserAttributes {
 }
 
 export default class User extends Model<UserAttributes> implements UserAttributes {
-    public readonly id!: bigint
-    public username!: string
-    public name?: string | null
-    public search_match_term!: string
-    public encrypted_password!: string
-    public old_encrypted_password?: string | null
-    public description?: string | null
-    public last_password_updated_at!: Date | string | null
-    public created_at!: Date | string
-    public updated_at!: Date | string
+    declare readonly id: bigint
+    declare username: string
+    declare name: string | null
+    declare search_match_term: string
+    declare encrypted_password: string
+    declare old_encrypted_password: string | null
+    declare description: string | null
+    declare last_password_updated_at: Date | string | null
+    declare created_at: Date | string
+    declare updated_at: Date | string
     static initialize(sequelize: Sequelize) {
         User.init(
             {

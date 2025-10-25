@@ -445,13 +445,26 @@ export class UserRepository implements UserRepositoryInterface, IUserRepository 
     }
 
     async findByUsername(username: string): Promise<User | null> {
+        console.log("🔍 findByUsername chamado para:", username)
+        
         // ✅ OTIMIZADO: Usar include otimizado para reduzir memória em ~80%
         const user = await UserModel.findOne({
             where: { username },
             include: this.getAuthIncludeOptions(),
         })
 
+        console.log("🔍 Resultado da busca:", user ? "encontrado" : "não encontrado")
+
         if (!user) return null
+
+        console.log("🔍 User encontrado - dados:", {
+            id: user.id,
+            username: user.username,
+            name: user.name,
+            hasStatus: !!user.status,
+            hasPreferences: !!user.preferences,
+            raw: JSON.stringify(user.toJSON()).substring(0, 200)
+        })
 
         return UserMapper.toDomain(user as any)
     }
