@@ -29,18 +29,18 @@ export interface SignLogAttributes {
 }
 
 export default class SignLog extends Model<SignLogAttributes> implements SignLogAttributes {
-    public readonly id!: bigint
-    public typed_username!: string
-    public sign_type!: SignType
-    public status!: SignStatus
-    public security_risk!: SecurityRisk
-    public ip_address!: string
-    public user_agent!: string
-    public machine_id?: string | null
-    public latitude?: number | null
-    public longitude?: number | null
-    public timezone?: string | null
-    public session_duration?: number | null
+    declare readonly id: bigint
+    declare typed_username: string
+    declare sign_type: SignType
+    declare status: SignStatus
+    declare security_risk: SecurityRisk
+    declare ip_address: string
+    declare user_agent: string
+    declare machine_id?: string | null
+    declare latitude?: number | null
+    declare longitude?: number | null
+    declare timezone?: string | null
+    declare session_duration?: number | null
 
     static initialize(sequelize: Sequelize) {
         SignLog.init(
