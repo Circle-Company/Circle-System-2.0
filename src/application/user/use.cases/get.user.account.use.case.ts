@@ -15,8 +15,10 @@
  * @version 2.0.0
  */
 
-import { IUserRepository, TimezoneCode, User, UserProfilePicture } from "@/domain/user"
-import { Timezone, textLib } from "@/shared/circle.text.library"
+import { IUserRepository, User, UserProfilePicture } from "@/domain/user"
+
+import { IMomentRepository } from "@/domain/moment"
+import { textLib } from "@/shared/circle.text.library"
 
 export interface Moment {
     id: string
@@ -46,8 +48,13 @@ export interface UserAccount {
         verified: boolean
     }
     metrics: {
-        totalMomentsCreated: number
         totalFollowers: number
+        totalFollowing: number
+        totalLikesReceived: number
+        totalViewsReceived: number
+        followerGrowthRate30d: number
+        engagementGrowthRate30d: number
+        interactionsGrowthRate30d: number
     }
 }
 
@@ -67,7 +74,10 @@ export interface UserRelationship {
 // ===== USE CASE =====
 
 export class GetUserAccountUseCase {
-    constructor(private readonly userRepository: IUserRepository) {}
+    constructor(
+        private readonly userRepository: IUserRepository,
+        private readonly momentRepository: IMomentRepository,
+    ) {}
 
     /**
      * Executa o caso de uso de obtenção de perfil de usuário
@@ -85,7 +95,7 @@ export class GetUserAccountUseCase {
             if (!userResult.success) {
                 return {
                     success: false,
-                    error: userResult.error,
+                    error: "error" in userResult ? userResult.error : "User not found",
                 }
             }
 
@@ -111,7 +121,7 @@ export class GetUserAccountUseCase {
      * Valida os dados de entrada da requisição
      */
     private validateRequest(userId: string): GetUserAccountResponse | null {
-        if (userId) {
+        if (!userId) {
             return {
                 success: false,
                 error: "User ID is required",
@@ -128,6 +138,7 @@ export class GetUserAccountUseCase {
     ): Promise<{ success: true; user: User } | { success: false; error: string }> {
         // Buscar o usuário
         const user = await this.userRepository.findById(userId)
+
         if (!user) {
             return { success: false, error: "User not found" }
         }
@@ -140,49 +151,6 @@ export class GetUserAccountUseCase {
             success: true,
             user,
         }
-    }
-
-    /**
-     * Verifica permissões de acesso ao perfil usando método da entidade User
-     */
-    private checkAccessPermissions(
-        targetUser: User,
-        requestingUser: User,
-        isFollowing: boolean,
-    ): GetUserAccountResponse | null {
-        // Usar o método da entidade User para verificar se pode visualizar o perfil
-        const canView = requestingUser.canViewProfile(targetUser, isFollowing)
-
-        if (!canView) {
-            return {
-                success: false,
-                error: "Access denied to user profile",
-            }
-        }
-
-        return null
-    }
-
-    /**
-     * Calcula a data de última publicação com timezone do usuário
-     */
-    private calculateLastPublishedAt(moments: Moment[], timezoneCode?: TimezoneCode): Date | null {
-        if (moments.length === 0) {
-            return null
-        }
-
-        // Já está ordenado por mais recente, pegar o primeiro
-        const mostRecentMoment = moments[0]
-        const lastPublishedAt = mostRecentMoment.createdAt
-
-        // Converter para timezone local do usuário se fornecido
-        if (timezoneCode) {
-            const tz = new Timezone()
-            tz.setLocalTimezone(timezoneCode)
-            return tz.UTCToLocal(lastPublishedAt)
-        }
-
-        return lastPublishedAt
     }
 
     // ===== MÉTODOS PRIVADOS DE CONSTRUÇÃO DE RESPOSTA =====
@@ -204,8 +172,13 @@ export class GetUserAccountUseCase {
                 verified: user.isVerified(),
             },
             metrics: {
-                totalMomentsCreated: user.metrics?.totalMomentsCreated || 0,
                 totalFollowers: user.metrics?.totalFollowers || 0,
+                totalFollowing: user.metrics?.totalFollowing || 0,
+                totalLikesReceived: user.metrics?.totalLikesReceived || 0,
+                totalViewsReceived: user.metrics?.totalViewsReceived || 0,
+                followerGrowthRate30d: user.metrics?.followerGrowthRate30d || 0,
+                engagementGrowthRate30d: user.metrics?.engagementGrowthRate30d || 0,
+                interactionsGrowthRate30d: user.metrics?.interactionsGrowthRate30d || 0,
             },
         }
     }

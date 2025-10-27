@@ -57,7 +57,6 @@ export class UserFactory {
 
         return new MomentService(
             momentRepository,
-            metricsService,
             undefined, // config
             storageAdapter, // storageAdapter
             undefined, // moderationEngine (opcional)
@@ -72,10 +71,12 @@ export class UserFactory {
     }
 
     /**
-     * Cria GetUserAccountUseCase com UserRepository
+     * Cria GetUserAccountUseCase com UserRepository e MomentRepository
      */
-    static createGetUserAccountUseCase(userRepository: UserRepository): GetUserAccountUseCase {
-        return new GetUserAccountUseCase(userRepository)
+    static createGetUserAccountUseCase(database: DatabaseAdapter): GetUserAccountUseCase {
+        const userRepository = this.createUserRepository(database)
+        const momentRepository = this.createMomentRepository(database)
+        return new GetUserAccountUseCase(userRepository, momentRepository)
     }
 
     /**
@@ -103,7 +104,7 @@ export class UserFactory {
     static createUserControllerWithDeps(database: DatabaseAdapter): UserController {
         const userRepository = this.createUserRepository(database)
         const getUserProfileUseCase = this.createGetUserProfileUseCase(userRepository)
-        const getUserAccountUseCase = this.createGetUserAccountUseCase(userRepository)
+        const getUserAccountUseCase = this.createGetUserAccountUseCase(database)
         return this.createUserController(getUserProfileUseCase, getUserAccountUseCase)
     }
 
@@ -137,7 +138,7 @@ export class UserFactory {
     } {
         const userRepository = this.createUserRepository(database)
         const getUserProfileUseCase = this.createGetUserProfileUseCase(userRepository)
-        const getUserAccountUseCase = this.createGetUserAccountUseCase(userRepository)
+        const getUserAccountUseCase = this.createGetUserAccountUseCase(database)
         const userController = this.createUserController(
             getUserProfileUseCase,
             getUserAccountUseCase,
@@ -184,7 +185,7 @@ export class UserFactory {
     } {
         const userRepository = this.createUserPermissionRepository(database)
         const getUserProfileUseCase = this.createGetUserProfileUseCase(userRepository)
-        const getUserAccountUseCase = this.createGetUserAccountUseCase(userRepository)
+        const getUserAccountUseCase = this.createGetUserAccountUseCase(database)
         const userController = this.createUserController(
             getUserProfileUseCase,
             getUserAccountUseCase,
@@ -205,7 +206,7 @@ export class UserFactory {
     } {
         const userRepository = this.createUserMetricsRepository(database)
         const getUserProfileUseCase = this.createGetUserProfileUseCase(userRepository)
-        const getUserAccountUseCase = this.createGetUserAccountUseCase(userRepository)
+        const getUserAccountUseCase = this.createGetUserAccountUseCase(database)
         const userController = this.createUserController(
             getUserProfileUseCase,
             getUserAccountUseCase,
@@ -226,7 +227,7 @@ export class UserFactory {
     } {
         const userRepository = this.createUserAdminRepository(database)
         const getUserProfileUseCase = this.createGetUserProfileUseCase(userRepository)
-        const getUserAccountUseCase = this.createGetUserAccountUseCase(userRepository)
+        const getUserAccountUseCase = this.createGetUserAccountUseCase(database)
         const userController = this.createUserController(
             getUserProfileUseCase,
             getUserAccountUseCase,
@@ -247,7 +248,7 @@ export class UserFactory {
     } {
         const userRepository = this.createUserRepository(database)
         const getUserProfileUseCase = this.createGetUserProfileUseCase(userRepository)
-        const getUserAccountUseCase = this.createGetUserAccountUseCase(userRepository)
+        const getUserAccountUseCase = this.createGetUserAccountUseCase(database)
         const userController = this.createUserController(
             getUserProfileUseCase,
             getUserAccountUseCase,

@@ -46,7 +46,6 @@ export class UserRouter {
                             success: false,
                             error: "User not authenticated",
                             code: "AUTHENTICATION_REQUIRED",
-                            timestamp: new Date().toISOString(),
                         })
                     }
 
@@ -57,14 +56,12 @@ export class UserRouter {
                             success: false,
                             error: "User not found",
                             code: "USER_NOT_FOUND",
-                            timestamp: new Date().toISOString(),
                         })
                     }
 
                     response.status(200).send({
                         success: true,
-                        user: userData,
-                        timestamp: new Date().toISOString(),
+                        account: userData,
                     })
                 } catch (error) {
                     response.status(500).send({
