@@ -20,7 +20,6 @@ import { EmbeddingJobPriority } from "@/infra/workers/types/embedding.job.types"
 import { IMomentRepository } from "@/domain/moment/repositories/moment.repository"
 // Redis Queue para processamento assíncrono
 import { ModerationEngine } from "@/core/content.moderation"
-import { MomentMetricsService } from "./moment.metrics.service"
 // Fallback para old system se necessário
 import { TimezoneCode } from "@/domain/user"
 import { VideoCompressionQueue } from "@/infra/queue/video.compression.queue"
@@ -112,7 +111,6 @@ export class MomentService {
 
     constructor(
         private repository: IMomentRepository,
-        private metricsService: MomentMetricsService,
         config?: Partial<MomentServiceConfig>,
         storageAdapter?: StorageAdapter,
         moderationEngine?: ModerationEngine,
@@ -121,7 +119,7 @@ export class MomentService {
             enableValidation: true,
             enableMetrics: true,
             enableProcessing: true,
-            defaultVisibility: MomentVisibilityEnum.PRIVATE,
+            defaultVisibility: MomentVisibilityEnum.PUBLIC,
             defaultStatus: MomentStatusEnum.PUBLISHED,
             maxSearchResults: 1000,
             enableCaching: false,
