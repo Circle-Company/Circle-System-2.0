@@ -13,7 +13,7 @@ import { AuthenticatedUser } from "@/infra/middlewares"
 import { Timezone } from "@/shared/circle.text.library"
 
 export interface GetUserMomentsRequest {
-    requestingUser: AuthenticatedUser
+    user: AuthenticatedUser
     query: {
         status: MomentStatusEnum
         visibility: MomentVisibilityEnum
@@ -55,7 +55,7 @@ export class GetUserMomentsUseCase {
     async execute(request: GetUserMomentsRequest): Promise<GetUserMomentsResponse> {
         try {
             // Validar parâmetros obrigatórios
-            if (!request.requestingUser.id) {
+            if (!request.user.id) {
                 return { success: false, error: "User ID is required" }
             }
 
@@ -71,12 +71,12 @@ export class GetUserMomentsUseCase {
             const limit = request.limit || 20
             const offset = request.offset || 0
 
-            const tz = this.setLocalTimezone(request.requestingUser)
-            const requestingUser = await this.userRepository.findById(request.requestingUser.id)
+            const tz = this.setLocalTimezone(request.user)
+            const requestingUser = await this.userRepository.findById(request.user.id)
 
             // Buscar momentos do usuário
             const moments = await this.momentRepository.findByOwnerId(
-                request.requestingUser.id,
+                request.user.id,
                 limit,
                 offset,
             )
