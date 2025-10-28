@@ -1416,7 +1416,7 @@ export class MomentRepositoryImpl implements IMomentRepository {
 
     async hasUserLikedMoment(momentId: string, userId: string): Promise<boolean> {
         try {
-            const like = await this.database.getConnection().models.Like.findOne({
+            const like = await this.database.getConnection().models.MomentLike.findOne({
                 where: {
                     momentId,
                     userId,
@@ -1434,7 +1434,7 @@ export class MomentRepositoryImpl implements IMomentRepository {
 
     async addLike(momentId: string, userId: string): Promise<void> {
         try {
-            await this.database.getConnection().models.Like.create({
+            await this.database.getConnection().models.MomentLike.create({
                 momentId,
                 userId,
             })
@@ -1449,7 +1449,7 @@ export class MomentRepositoryImpl implements IMomentRepository {
 
     async removeLike(momentId: string, userId: string): Promise<void> {
         try {
-            await this.database.getConnection().models.Like.destroy({
+            await this.database.getConnection().models.MomentLike.destroy({
                 where: {
                     momentId,
                     userId,

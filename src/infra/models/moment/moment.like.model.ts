@@ -1,38 +1,40 @@
 import { DataTypes, Model, Sequelize } from "sequelize"
 
-interface LikeAttributes {
-    id: string
-    momentId: string
-    userId: string
+import { generateId } from "@/shared"
+
+interface MomentLikeAttributes {
+    id: bigint
+    momentId: bigint
+    userId: bigint
     createdAt: Date
     updatedAt: Date
 }
 
-interface LikeCreationAttributes extends Omit<LikeAttributes, "id" | "createdAt" | "updatedAt"> {
-    id?: string
+interface MomentLikeCreationAttributes extends Omit<MomentLikeAttributes, "id" | "createdAt" | "updatedAt"> {
+    id?: bigint
 }
 
-export default class Like
-    extends Model<LikeAttributes, LikeCreationAttributes>
-    implements LikeAttributes
+export default class MomentLike
+    extends Model<MomentLikeAttributes, MomentLikeCreationAttributes>
+    implements MomentLikeAttributes
 {
-    declare readonly id: string
-    declare momentId: string
-    declare userId: string
+    declare id: bigint
+    declare momentId: bigint
+    declare userId: bigint
     declare readonly createdAt: Date
     declare readonly updatedAt: Date
 
     static initialize(sequelize: Sequelize): void {
-        Like.init(
+        MomentLike.init(
             {
                 id: {
-                    type: DataTypes.STRING,
+                    type: DataTypes.BIGINT,
                     primaryKey: true,
                     allowNull: false,
-                    field: "id",
+                    defaultValue: () => generateId(),
                 },
                 momentId: {
-                    type: DataTypes.STRING,
+                    type: DataTypes.BIGINT,
                     allowNull: false,
                     field: "moment_id",
                     references: {
@@ -41,7 +43,7 @@ export default class Like
                     },
                 },
                 userId: {
-                    type: DataTypes.STRING,
+                    type: DataTypes.BIGINT,
                     allowNull: false,
                     field: "user_id",
                     references: {
@@ -62,44 +64,53 @@ export default class Like
             },
             {
                 sequelize,
-                tableName: "likes",
+                tableName: "moment_likes",
                 timestamps: true,
-                createdAt: "created_at",
-                updatedAt: "updated_at",
+                underscored: true,
                 indexes: [
                     {
                         unique: true,
                         fields: ["moment_id", "user_id"],
-                        name: "likes_moment_user_unique",
+                        name: "moment_likes_unique",
                     },
                     {
                         fields: ["moment_id"],
-                        name: "likes_moment_id_idx",
+                        name: "moment_likes_moment_id",
                     },
                     {
                         fields: ["user_id"],
-                        name: "likes_user_id_idx",
+                        name: "moment_likes_user_id",
                     },
                     {
                         fields: ["created_at"],
-                        name: "likes_created_at_idx",
+                        name: "moment_likes_created_at",
                     },
                 ],
             },
         )
     }
 
-    static associate(models: any) {
+    static associate(models: any): void {
+        // Associação com Moment
         if (models.Moment) {
-            this.belongsTo(models.Moment, {
-                foreignKey: "momentId",
+            MomentLike.belongsTo(models.Moment, {
+                foreignKey: "moment_id",
                 as: "moment",
             })
+
+            // hasMany no Moment
+            if (models.Moment.hasMany) {
+                models.Moment.hasMany(MomentLike, {
+                    foreignKey: "moment_id",
+                    as: "likes",
+                })
+            }
         }
 
+        // Associação com User
         if (models.User) {
-            this.belongsTo(models.User, {
-                foreignKey: "userId",
+            MomentLike.belongsTo(models.User, {
+                foreignKey: "user_id",
                 as: "user",
             })
         }

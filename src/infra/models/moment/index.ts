@@ -31,3 +31,12 @@ export { default as MomentEmbedding } from "./moment.embedding.model"
 // Media models
 export { default as MomentMedia } from "./moment.media.model"
 export { default as MomentThumbnail } from "./moment.thumbnail.model"
+
+// Comment model
+export { default as MomentComment } from "./moment.comment.model"
+
+// Interaction models
+export { default as MomentLike } from "./moment.like.model"
+export { default as MomentReport } from "./moment.report.model"
+export { default as MomentShare } from "./moment.share.model"
+
