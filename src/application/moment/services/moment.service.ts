@@ -20,7 +20,6 @@ import { EmbeddingJobPriority } from "@/infra/workers/types/embedding.job.types"
 import { IMomentRepository } from "@/domain/moment/repositories/moment.repository"
 // Redis Queue para processamento assíncrono
 import { ModerationEngine } from "@/core/content.moderation"
-import { MomentMetricsService } from "./moment.metrics.service"
 // Fallback para old system se necessário
 import { TimezoneCode } from "@/domain/user"
 import { VideoCompressionQueue } from "@/infra/queue/video.compression.queue"
@@ -112,7 +111,6 @@ export class MomentService {
 
     constructor(
         private repository: IMomentRepository,
-        private metricsService: MomentMetricsService,
         config?: Partial<MomentServiceConfig>,
         storageAdapter?: StorageAdapter,
         moderationEngine?: ModerationEngine,
@@ -121,7 +119,7 @@ export class MomentService {
             enableValidation: true,
             enableMetrics: true,
             enableProcessing: true,
-            defaultVisibility: MomentVisibilityEnum.PRIVATE,
+            defaultVisibility: MomentVisibilityEnum.PUBLIC,
             defaultStatus: MomentStatusEnum.PUBLISHED,
             maxSearchResults: 1000,
             enableCaching: false,
@@ -634,14 +632,14 @@ export class MomentService {
                 size: processingResult.videoMetadata?.size || 0,
                 format: processingResult.videoMetadata?.format || ("mp4" as any),
                 resolution: {
-                    width: processingResult.videoMetadata?.width || 0,
-                    height: processingResult.videoMetadata?.height || 0,
-                    quality: "medium" as any,
+                    width: 1080, // Resolução final após crop
+                    height: 1674, // Resolução final após crop
+                    quality: "high" as any, // Qualidade high para 1080x1674
                 },
                 hasAudio: processingResult.videoMetadata?.hasAudio || false,
                 codec: processingResult.videoMetadata?.codec || ("h264" as any),
                 createdAt: new Date(),
-                updatedAt: new Date(),
+                updatedAt: new Date()
             },
             description: data.description || "",
             hashtags: [],
@@ -659,8 +657,8 @@ export class MomentService {
             },
             thumbnail: {
                 url: processingResult.thumbnailUrl,
-                width: processingResult.videoMetadata?.width || 0,
-                height: processingResult.videoMetadata?.height || 0,
+                width: 540, // Metade da resolução do vídeo (1080/2)
+                height: 837, // Metade da resolução do vídeo (1674/2)
                 storage: {
                     provider: processingResult.storage.provider as any,
                     bucket: processingResult.storage.bucket || "",
@@ -749,9 +747,9 @@ export class MomentService {
             },
             createdAt: new Date(),
             updatedAt: new Date(),
-            publishedAt: null,
-            archivedAt: null,
-            deletedAt: null,
+            publishedAt: this.config.defaultStatus === MomentStatusEnum.PUBLISHED ? new Date() : null,
+            archivedAt: this.config.defaultStatus === MomentStatusEnum.ARCHIVED ? new Date() : null,
+            deletedAt: this.config.defaultStatus === MomentStatusEnum.DELETED ? new Date() : null,
         }
     }
 }

@@ -8,7 +8,12 @@ export interface IMomentRepository {
     delete(id: string): Promise<void>
 
     // Operações de busca
-    findByOwnerId(ownerId: string, limit?: number, offset?: number): Promise<Moment[]>
+    findByOwnerId(
+        ownerId: string,
+        limit?: number,
+        offset?: number,
+        filters?: { status?: string; visibility?: string },
+    ): Promise<Moment[]>
     findByStatus(status: string, limit?: number, offset?: number): Promise<Moment[]>
     findByVisibility(visibility: string, limit?: number, offset?: number): Promise<Moment[]>
     findByHashtag(hashtag: string, limit?: number, offset?: number): Promise<Moment[]>

@@ -1,3 +1,5 @@
+import { IUserMetricsRepository, UserRepository } from "../../domain/user"
+
 import { MomentMetricsService } from "../../application/moment/services/moment.metrics.service"
 import { MomentService } from "../../application/moment/services/moment.service"
 import { GetUserMomentsUseCase } from "../../application/moment/use.cases/get.user.moments.use.case"
@@ -5,7 +7,6 @@ import { GetUserAccountUseCase } from "../../application/user/use.cases/get.user
 import { GetUserProfileUseCase } from "../../application/user/use.cases/get.user.profile.use.case"
 import { IMomentRepository } from "../../domain/moment"
 import { IMomentMetricsRepository } from "../../domain/moment/repositories/moment.metrics.repository"
-import { UserRepository } from "../../domain/user"
 import { UserController } from "../controllers/user.controller"
 import { DatabaseAdapter } from "../database/adapter"
 import { MomentMetricsRepositoryImpl } from "../repository.impl/moment.metrics.repository.impl"
@@ -57,7 +58,6 @@ export class UserFactory {
 
         return new MomentService(
             momentRepository,
-            metricsService,
             undefined, // config
             storageAdapter, // storageAdapter
             undefined, // moderationEngine (opcional)
@@ -65,17 +65,74 @@ export class UserFactory {
     }
 
     /**
-     * Cria GetUserProfileUseCase com UserRepository
+     * Cria UserMetricsRepository com DatabaseAdapter
      */
-    static createGetUserProfileUseCase(userRepository: UserRepository): GetUserProfileUseCase {
-        return new GetUserProfileUseCase(userRepository)
+    static createUserMetricsRepository(database: DatabaseAdapter): IUserMetricsRepository {
+        // TODO: Implementar UserMetricsRepositoryImpl quando disponível
+        // Por enquanto, retornamos um mock básico
+        const mockRepository: IUserMetricsRepository = {
+            create: async (metrics) => metrics,
+            findById: async (id) => null,
+            findByUserId: async (userId) => null,
+            update: async (metrics) => metrics,
+            delete: async (id) => {},
+            findTopByEngagement: async () => [],
+            findTopByFollowers: async () => [],
+            findTopByActivity: async () => [],
+            findTopByGrowth: async () => [],
+            findActiveUsers: async () => [],
+            findInfluencers: async () => [],
+            findUsersWithModerationIssues: async () => [],
+            getAverageMetrics: async () => ({
+                averageEngagementRate: 0,
+                averageActivityRate: 0,
+                averageGrowthRate: 0,
+                averageFollowers: 0,
+            }),
+            getMetricsDistribution: async () => ({
+                engagementDistribution: {},
+                activityDistribution: {},
+                followersDistribution: {},
+                growthDistribution: {},
+            }),
+            getMetricsByTimeRange: async () => [],
+            countByEngagementRange: async () => 0,
+            countByFollowersRange: async () => 0,
+            countByActivityRange: async () => 0,
+            countByGrowthRange: async () => 0,
+            exists: async () => false,
+            existsByUserId: async () => false,
+            createMany: async (metrics) => metrics,
+            updateMany: async (metrics) => metrics,
+            deleteMany: async (ids) => {},
+            findPaginated: async () => ({
+                metrics: [],
+                total: 0,
+                page: 1,
+                limit: 10,
+                totalPages: 0,
+            }),
+        }
+        return mockRepository
     }
 
     /**
-     * Cria GetUserAccountUseCase com UserRepository
+     * Cria GetUserProfileUseCase com UserRepository e UserMetricsRepository
      */
-    static createGetUserAccountUseCase(userRepository: UserRepository): GetUserAccountUseCase {
-        return new GetUserAccountUseCase(userRepository)
+    static createGetUserProfileUseCase(
+        userRepository: UserRepository,
+        userMetricsRepository: IUserMetricsRepository,
+    ): GetUserProfileUseCase {
+        return new GetUserProfileUseCase(userRepository, userMetricsRepository)
+    }
+
+    /**
+     * Cria GetUserAccountUseCase com UserRepository e MomentRepository
+     */
+    static createGetUserAccountUseCase(database: DatabaseAdapter): GetUserAccountUseCase {
+        const userRepository = this.createUserRepository(database)
+        const momentRepository = this.createMomentRepository(database)
+        return new GetUserAccountUseCase(userRepository, momentRepository)
     }
 
     /**
@@ -102,8 +159,12 @@ export class UserFactory {
      */
     static createUserControllerWithDeps(database: DatabaseAdapter): UserController {
         const userRepository = this.createUserRepository(database)
-        const getUserProfileUseCase = this.createGetUserProfileUseCase(userRepository)
-        const getUserAccountUseCase = this.createGetUserAccountUseCase(userRepository)
+        const userMetricsRepository = this.createUserMetricsRepository(database)
+        const getUserProfileUseCase = this.createGetUserProfileUseCase(
+            userRepository,
+            userMetricsRepository,
+        )
+        const getUserAccountUseCase = this.createGetUserAccountUseCase(database)
         return this.createUserController(getUserProfileUseCase, getUserAccountUseCase)
     }
 
@@ -111,13 +172,6 @@ export class UserFactory {
      * Cria um UserRepository com funcionalidades de permissão
      */
     static createUserPermissionRepository(database: DatabaseAdapter): UserRepository {
-        return new UserRepository(database)
-    }
-
-    /**
-     * Cria um UserRepository com funcionalidades de métricas
-     */
-    static createUserMetricsRepository(database: DatabaseAdapter): UserRepository {
         return new UserRepository(database)
     }
 
@@ -136,8 +190,12 @@ export class UserFactory {
         userController: UserController
     } {
         const userRepository = this.createUserRepository(database)
-        const getUserProfileUseCase = this.createGetUserProfileUseCase(userRepository)
-        const getUserAccountUseCase = this.createGetUserAccountUseCase(userRepository)
+        const userMetricsRepository = this.createUserMetricsRepository(database)
+        const getUserProfileUseCase = this.createGetUserProfileUseCase(
+            userRepository,
+            userMetricsRepository,
+        )
+        const getUserAccountUseCase = this.createGetUserAccountUseCase(database)
         const userController = this.createUserController(
             getUserProfileUseCase,
             getUserAccountUseCase,
@@ -183,8 +241,12 @@ export class UserFactory {
         userController: UserController
     } {
         const userRepository = this.createUserPermissionRepository(database)
-        const getUserProfileUseCase = this.createGetUserProfileUseCase(userRepository)
-        const getUserAccountUseCase = this.createGetUserAccountUseCase(userRepository)
+        const userMetricsRepository = this.createUserMetricsRepository(database)
+        const getUserProfileUseCase = this.createGetUserProfileUseCase(
+            userRepository,
+            userMetricsRepository,
+        )
+        const getUserAccountUseCase = this.createGetUserAccountUseCase(database)
         const userController = this.createUserController(
             getUserProfileUseCase,
             getUserAccountUseCase,
@@ -203,9 +265,13 @@ export class UserFactory {
         userRepository: UserRepository
         userController: UserController
     } {
-        const userRepository = this.createUserMetricsRepository(database)
-        const getUserProfileUseCase = this.createGetUserProfileUseCase(userRepository)
-        const getUserAccountUseCase = this.createGetUserAccountUseCase(userRepository)
+        const userRepository = this.createUserRepository(database)
+        const userMetricsRepository = this.createUserMetricsRepository(database)
+        const getUserProfileUseCase = this.createGetUserProfileUseCase(
+            userRepository,
+            userMetricsRepository,
+        )
+        const getUserAccountUseCase = this.createGetUserAccountUseCase(database)
         const userController = this.createUserController(
             getUserProfileUseCase,
             getUserAccountUseCase,
@@ -225,8 +291,12 @@ export class UserFactory {
         userController: UserController
     } {
         const userRepository = this.createUserAdminRepository(database)
-        const getUserProfileUseCase = this.createGetUserProfileUseCase(userRepository)
-        const getUserAccountUseCase = this.createGetUserAccountUseCase(userRepository)
+        const userMetricsRepository = this.createUserMetricsRepository(database)
+        const getUserProfileUseCase = this.createGetUserProfileUseCase(
+            userRepository,
+            userMetricsRepository,
+        )
+        const getUserAccountUseCase = this.createGetUserAccountUseCase(database)
         const userController = this.createUserController(
             getUserProfileUseCase,
             getUserAccountUseCase,
@@ -246,8 +316,12 @@ export class UserFactory {
         userController: UserController
     } {
         const userRepository = this.createUserRepository(database)
-        const getUserProfileUseCase = this.createGetUserProfileUseCase(userRepository)
-        const getUserAccountUseCase = this.createGetUserAccountUseCase(userRepository)
+        const userMetricsRepository = this.createUserMetricsRepository(database)
+        const getUserProfileUseCase = this.createGetUserProfileUseCase(
+            userRepository,
+            userMetricsRepository,
+        )
+        const getUserAccountUseCase = this.createGetUserAccountUseCase(database)
         const userController = this.createUserController(
             getUserProfileUseCase,
             getUserAccountUseCase,

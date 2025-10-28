@@ -32,6 +32,24 @@ export interface UserPublicProfile {
     profilePicture: UserProfilePicture | null
 }
 
+export interface UserMetadata {
+    id?: string
+    userId: string
+    deviceType?: string
+    deviceName?: string
+    deviceId?: string
+    deviceToken?: string
+    osVersion?: string
+    screenResolutionWidth?: number
+    screenResolutionHeight?: number
+    osLanguage?: string
+    totalDeviceMemory?: string
+    hasNotch?: boolean
+    uniqueId?: string
+    createdAt?: Date
+    updatedAt?: Date
+}
+
 export interface UserProps {
     id?: string
     username: string
@@ -48,6 +66,7 @@ export interface UserProps {
     terms?: UserTerm
     embedding?: UserEmbedding
     interctionsSummary?: UserInterctionsSummary
+    metadata?: UserMetadata
     createdAt?: Date
     updatedAt?: Date
 }

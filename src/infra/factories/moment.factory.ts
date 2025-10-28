@@ -8,6 +8,7 @@ import {
     CreateMomentUseCase,
     DeleteMomentCommentUseCase,
     DeleteMomentUseCase,
+    GetAccountMomentsUseCase,
     GetCommentedMomentsUseCase,
     GetLikedMomentsUseCase,
     GetMomentCommentsUseCase,
@@ -92,9 +93,8 @@ export class MomentFactory {
      */
     static createMomentService(database: DatabaseAdapter): MomentService {
         const momentRepository = this.createMomentRepository(database)
-        const momentMetricsService = this.createMomentMetricsService(database)
         const storageAdapter = StorageAdapterFactory.create("local")
-        return new MomentService(momentRepository, momentMetricsService, undefined, storageAdapter)
+        return new MomentService(momentRepository, undefined, storageAdapter)
     }
 
     /**
@@ -123,6 +123,7 @@ export class MomentFactory {
 
             // User Actions
             getUserMoments: new GetUserMomentsUseCase(momentRepository, userRepository),
+            getAccountMoments: new GetAccountMomentsUseCase(momentRepository),
             likeMoment: new LikeMomentUseCase(
                 momentRepository,
                 userRepository,
@@ -177,6 +178,7 @@ export class MomentFactory {
             useCases.getMoment,
             useCases.deleteMoment,
             useCases.getUserMoments,
+            useCases.getAccountMoments,
             useCases.likeMoment,
             useCases.unlikeMoment,
             useCases.getLikedMoments,

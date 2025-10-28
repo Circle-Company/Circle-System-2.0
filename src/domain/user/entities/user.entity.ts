@@ -2,6 +2,7 @@ import { Encrypt, generateId, textLib } from "@/shared"
 import {
     UserEmbedding,
     UserInterctionsSummary,
+    UserMetadata,
     UserPreferences,
     UserProfilePicture,
     UserProps,
@@ -54,6 +55,7 @@ export class User {
     private _terms: UserTerm | null
     private _embedding: UserEmbedding | null
     private _interctionsSummary: UserInterctionsSummary | null
+    private _metadata: UserMetadata | null
     private readonly _createdAt: Date
     private _updatedAt: Date
 
@@ -73,6 +75,7 @@ export class User {
         this._terms = props.terms || null
         this._embedding = props.embedding || null
         this._interctionsSummary = props.interctionsSummary || null
+        this._metadata = props.metadata || null
         this._createdAt = props.createdAt || new Date()
         this._updatedAt = props.updatedAt || new Date()
 
@@ -138,6 +141,10 @@ export class User {
 
     get interctionsSummary(): UserInterctionsSummary | null {
         return this._interctionsSummary
+    }
+
+    get metadata(): UserMetadata | null {
+        return this._metadata
     }
 
     get createdAt(): Date {
@@ -729,8 +736,7 @@ export class User {
 
         let activityLevel: "low" | "medium" | "high" = "low"
         if (this._metrics) {
-            const totalActions =
-                this._metrics.totalMomentsCreated + this._metrics.totalMemoriesCreated
+            const totalActions = this._metrics.totalMomentsCreated
             if (totalActions > 50) activityLevel = "high"
             else if (totalActions > 10) activityLevel = "medium"
         }
@@ -786,7 +792,7 @@ export class User {
         )
 
         // Cálculo da atividade (0-200 pontos)
-        const totalContent = metrics.totalMomentsCreated + metrics.totalMemoriesCreated
+        const totalContent = metrics.totalMomentsCreated
         const activityScore = Math.min(totalContent * activityWeight, 200)
 
         // Cálculo do alcance (0-150 pontos)
@@ -797,7 +803,7 @@ export class User {
 
         // Cálculo da consistência (0-100 pontos)
         const consistencyScore = Math.min(
-            (metrics.momentsPerDayAverage + metrics.memoriesPerDayAverage) * consistencyWeight * 10,
+            metrics.momentsPerDayAverage * consistencyWeight * 10,
             100,
         )
 
@@ -879,17 +885,12 @@ export class User {
                     250,
                 ),
             ),
-            activity: Math.round(
-                Math.min((metrics.totalMomentsCreated + metrics.totalMemoriesCreated) * 0.2, 200),
-            ),
+            activity: Math.round(Math.min(metrics.totalMomentsCreated * 0.2, 200)),
             reach: Math.round(
                 Math.min((metrics.totalFollowers * 0.1 + metrics.reachRate * 100) * 0.15, 150),
             ),
             consistency: Math.round(
-                Math.min(
-                    (metrics.momentsPerDayAverage + metrics.memoriesPerDayAverage) * 0.1 * 10,
-                    100,
-                ),
+                Math.min(metrics.momentsPerDayAverage * 0.1 * 10, 100),
             ),
         }
 
@@ -933,9 +934,88 @@ export class User {
         const encrypt = new Encrypt(props.password)
         const hashedPassword = await encrypt.hashStr()
 
+        // Gerar ID para o usuário
+        const userId = generateId()
+
+        // Criar métricas padrão para o usuário
+        const metrics = props.metrics
+            ? props.metrics
+            : new UserMetrics({
+                  id: generateId(),
+                  userId: userId,
+                  totalLikesReceived: 0,
+                  totalViewsReceived: 0,
+                  totalSharesReceived: 0,
+                  totalCommentsReceived: 0,
+                  totalMomentsCreated: 0,
+                  totalLikesGiven: 0,
+                  totalCommentsGiven: 0,
+                  totalSharesGiven: 0,
+                  totalFollowsGiven: 0,
+                  totalReportsGiven: 0,
+                  totalFollowers: 0,
+                  totalFollowing: 0,
+                  totalRelations: 0,
+                  engagementRate: 0,
+                  reachRate: 0,
+                  momentsPublishedGrowthRate30d: 0,
+                  followerGrowthRate30d: 0,
+                  engagementGrowthRate30d: 0,
+                  interactionsGrowthRate30d: 0,
+                  momentsPerDayAverage: 0,
+                  reportsReceived: 0,
+                  violationsCount: 0,
+                  lastMetricsUpdate: new Date(),
+                  createdAt: new Date(),
+                  updatedAt: new Date(),
+              })
+
+        // Criar status padrão para o usuário
+        const status = props.status
+            ? props.status
+            : {
+                  accessLevel: Level.USER,
+                  verified: false,
+                  deleted: false,
+                  blocked: false,
+                  muted: false,
+                  lastLoginAt: null,
+                  lastLoginIp: null,
+                  lastLoginDevice: null,
+                  lastLoginUserAgent: null,
+                  lastPasswordChangedAt: new Date(),
+                  createdAt: new Date(),
+                  updatedAt: new Date(),
+              }
+
+        // Criar metadata padrão para o usuário
+        const metadata = props.metadata
+            ? props.metadata
+            : {
+                  id: generateId(),
+                  userId: userId,
+                  deviceType: null,
+                  deviceName: null,
+                  deviceId: null,
+                  deviceToken: null,
+                  osVersion: null,
+                  screenResolutionWidth: null,
+                  screenResolutionHeight: null,
+                  osLanguage: null,
+                  totalDeviceMemory: null,
+                  hasNotch: null,
+                  uniqueId: null,
+                  createdAt: new Date(),
+                  updatedAt: new Date(),
+              }
+
         return new User({
             ...props,
+            id: userId,
             password: hashedPassword,
+            metrics,
+            status,
+            metadata,
         })
     }
 
@@ -957,6 +1037,7 @@ export class User {
             terms: this._terms || undefined,
             embedding: this._embedding || undefined,
             interctionsSummary: this._interctionsSummary || undefined,
+            metadata: this._metadata || undefined,
             createdAt: this._createdAt,
             updatedAt: this._updatedAt,
         }

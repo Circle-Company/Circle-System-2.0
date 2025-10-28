@@ -254,6 +254,68 @@ class MomentRouteHandlers {
     }
 
     /**
+     * Wrapper para obter momentos da conta do usuário
+     */
+    async getAccountMoments(request: HttpRequest, response: HttpResponse): Promise<void> {
+        try {
+            if (!request.user) {
+                return response.status(401).send({
+                    success: false,
+                    error: "User not authenticated",
+                    code: "AUTHENTICATION_REQUIRED",
+                })
+            }
+
+            // Extrair query params
+            const page = request.query.page ? parseInt(request.query.page as string, 10) : 1
+            const pageSize = request.query.pageSize
+                ? parseInt(request.query.pageSize as string, 10)
+                : 20
+
+            // Calcular offset a partir de page e pageSize
+            const offset = (page - 1) * pageSize
+
+            const status = request.query.status as string | undefined
+            const visibility = request.query.visibility as string | undefined
+            const sortBy = request.query.sortBy as string | undefined
+            const sortOrder = request.query.sortOrder as string | undefined
+
+            const result = await this.momentController.getAccountMoments({
+                requestingUser: request.user,
+                query: {
+                    status: status || "published",
+                    visibility: visibility || "public",
+                    includeDeleted: false,
+                    sortBy,
+                    sortOrder,
+                },
+                limit: pageSize,
+                offset,
+            })
+
+            if (!result.success) {
+                return response.status(400).send({
+                    success: false,
+                    error: result.error,
+                })
+            }
+
+            response.status(200).send({
+                success: true,
+                moments: result.moments,
+                pagination: result.pagination,
+            })
+        } catch (error: any) {
+            response.status(500).send({
+                success: false,
+                error: error instanceof Error ? error.message : "Internal server error",
+                code: "INTERNAL_ERROR",
+                timestamp: new Date().toISOString(),
+            })
+        }
+    }
+
+    /**
      * Wrapper para obter momento específico
      */
     async getMoment(request: HttpRequest, response: HttpResponse): Promise<void> {
@@ -406,6 +468,14 @@ export class MomentRouter {
             preHandler: [
                 this.authMiddleware.execute.bind(this.authMiddleware),
                 requirePermission(Permission.READ_PROFILE_MOMENTS),
+            ],
+        })
+
+        // Obter momentos da conta do usuário autenticado
+        this.api.get("/account/moments", this.handlers.getAccountMoments.bind(this.handlers), {
+            preHandler: [
+                this.authMiddleware.execute.bind(this.authMiddleware),
+                requirePermission(Permission.READ_OWN_ACCOUNT),
             ],
         })
 

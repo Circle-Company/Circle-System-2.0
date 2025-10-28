@@ -2,6 +2,7 @@
 import {
     CreateMomentUseCase,
     DeleteMomentUseCase,
+    GetAccountMomentsUseCase,
     GetLikedMomentsUseCase,
     GetMomentReportsUseCase,
     GetMomentUseCase,
@@ -11,6 +12,7 @@ import {
     UnlikeMomentUseCase,
 } from "@/application/moment/use.cases"
 
+import { GetAccountMomentsResponse } from "@/application/moment/use.cases/get.account.moments.use.case"
 import { GetUserMomentsResponse } from "@/application/moment/use.cases/get.user.moments.use.case"
 import { MomentVisibilityEnum } from "@/domain/moment"
 import { AuthenticatedUser } from "@/infra/middlewares"
@@ -158,6 +160,7 @@ export class MomentController {
         private readonly getMomentUseCase: GetMomentUseCase,
         private readonly deleteMomentUseCase: DeleteMomentUseCase,
         private readonly getUserMomentsUseCase: GetUserMomentsUseCase,
+        private readonly getAccountMomentsUseCase: GetAccountMomentsUseCase,
         private readonly likeMomentUseCase: LikeMomentUseCase,
         private readonly unlikeMomentUseCase: UnlikeMomentUseCase,
         private readonly getLikedMomentsUseCase: GetLikedMomentsUseCase,
@@ -268,7 +271,7 @@ export class MomentController {
      * Lista momentos de um usuário específico
      */
     async getUserMoments(
-        requestingUser: AuthenticatedUser,
+        user: AuthenticatedUser,
         query: ListMomentsQuery,
     ): Promise<GetUserMomentsResponse> {
         try {
@@ -276,7 +279,7 @@ export class MomentController {
             const validatedQuery = ListMomentsQuerySchema.parse(query)
 
             const result = await this.getUserMomentsUseCase.execute({
-                requestingUser: requestingUser,
+                user: user,
                 query: {
                     status: validatedQuery.status as any,
                     visibility: MomentVisibilityEnum.PUBLIC,
@@ -586,5 +589,34 @@ export class MomentController {
             createdAt: momentData.createdAt,
             updatedAt: momentData.updatedAt,
         }
+    }
+
+    /**
+     * Obtém momentos da conta do usuário autenticado
+     */
+    async getAccountMoments(request: {
+        requestingUser: AuthenticatedUser
+        query: {
+            status: string
+            visibility: string
+            includeDeleted?: boolean
+            sortBy?: string
+            sortOrder?: string
+        }
+        limit?: number
+        offset?: number
+    }): Promise<GetAccountMomentsResponse> {
+        return await this.getAccountMomentsUseCase.execute({
+            requestingUser: request.requestingUser,
+            query: {
+                status: request.query.status as any,
+                visibility: request.query.visibility as any,
+                includeDeleted: request.query.includeDeleted,
+                sortBy: request.query.sortBy as any,
+                sortOrder: request.query.sortOrder as any,
+            },
+            limit: request.limit,
+            offset: request.offset,
+        })
     }
 }

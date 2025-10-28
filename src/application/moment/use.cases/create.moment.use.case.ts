@@ -1,5 +1,6 @@
-import { MomentService } from "@/application/moment/services/moment.service"
 import { Moment, MomentVisibilityEnum } from "@/domain/moment"
+
+import { MomentService } from "@/application/moment/services/moment.service"
 import { IUserRepository } from "@/domain/user/repositories/user.repository"
 
 export interface CreateMomentRequest {
@@ -92,6 +93,9 @@ export class CreateMomentUseCase {
             }
 
             // Criar o momento usando o service
+            // Se nenhuma visibilidade for fornecida, usar PUBLIC como padrão
+            const visibility = request.visibility || MomentVisibilityEnum.PUBLIC
+
             const moment = await this.momentService.createMoment({
                 ownerId: owner.id,
                 ownerUsername: owner.username,
@@ -100,7 +104,7 @@ export class CreateMomentUseCase {
                 description: request.description || "",
                 location: request.location,
                 device: request.device,
-                visibility: request.visibility as MomentVisibilityEnum,
+                visibility,
             })
 
             return {

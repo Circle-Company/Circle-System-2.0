@@ -11,6 +11,7 @@ export { ReportMomentUseCase } from "./report.moment.use.case"
 export { UnlikeMomentUseCase } from "./unlike.moment.use.case"
 
 // User moments management
+export { GetAccountMomentsUseCase } from "./get.account.moments.use.case"
 export { GetUserMomentsUseCase } from "./get.user.moments.use.case"
 
 // Analytics and metrics

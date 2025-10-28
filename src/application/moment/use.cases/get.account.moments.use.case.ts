@@ -1,19 +1,32 @@
+/**
+ * Get Account Moments Use Case
+ *
+ * Caso de uso responsável por buscar e retornar os momentos da conta do usuário autenticado
+ *
+ * Features:
+ * - Busca momentos do próprio usuário autenticado
+ * - Filtros por status, visibilidade, ordenação
+ * - Paginação via page e pageSize
+ * - Timezone do usuário
+ *
+ * @author Circle System Team
+ * @version 1.0.0
+ */
+
 import {
-    Moment,
     MomentEntity,
     MomentMedia,
     MomentStatusEnum,
     MomentThumbnail,
     MomentVisibilityEnum,
 } from "@/domain/moment"
-import { IUserRepository, User } from "@/domain/user"
 
 import { IMomentRepository } from "@/domain/moment/repositories/moment.repository"
 import { AuthenticatedUser } from "@/infra/middlewares"
 import { Timezone } from "@/shared/circle.text.library"
 
-export interface GetUserMomentsRequest {
-    user: AuthenticatedUser
+export interface GetAccountMomentsRequest {
+    requestingUser: AuthenticatedUser
     query: {
         status: MomentStatusEnum
         visibility: MomentVisibilityEnum
@@ -33,7 +46,7 @@ export interface MomentPreview {
     publishedAt: Date | null
 }
 
-export interface GetUserMomentsResponse {
+export interface GetAccountMomentsResponse {
     success: boolean
     moments?: MomentPreview[]
     pagination?: {
@@ -42,20 +55,16 @@ export interface GetUserMomentsResponse {
         limit?: number
         totalPages?: number
     }
-
     error?: string
 }
 
-export class GetUserMomentsUseCase {
-    constructor(
-        private readonly momentRepository: IMomentRepository,
-        private readonly userRepository: IUserRepository,
-    ) {}
+export class GetAccountMomentsUseCase {
+    constructor(private readonly momentRepository: IMomentRepository) {}
 
-    async execute(request: GetUserMomentsRequest): Promise<GetUserMomentsResponse> {
+    async execute(request: GetAccountMomentsRequest): Promise<GetAccountMomentsResponse> {
         try {
             // Validar parâmetros obrigatórios
-            if (!request.user.id) {
+            if (!request.requestingUser.id) {
                 return { success: false, error: "User ID is required" }
             }
 
@@ -71,26 +80,37 @@ export class GetUserMomentsUseCase {
             const limit = request.limit || 20
             const offset = request.offset || 0
 
-            const tz = this.setLocalTimezone(request.user)
-            const requestingUser = await this.userRepository.findById(request.user.id)
+            const tz = this.setLocalTimezone(request.requestingUser)
 
-            // Buscar momentos do usuário
+            // Normalizar valores de enum (uppercase → lowercase)
+            const normalizedStatus = String(request.query.status).toLowerCase()
+            const normalizedVisibility = String(request.query.visibility).toLowerCase()
+
+            // Buscar momentos do próprio usuário com filtros aplicados no banco de dados
             const moments = await this.momentRepository.findByOwnerId(
-                request.user.id,
+                request.requestingUser.id,
                 limit,
                 offset,
+                {
+                    status: normalizedStatus,
+                    visibility: normalizedVisibility,
+                },
             )
 
-            const filteredMoments = await this.filterResult(moments, request, requestingUser!)
-            const momentsPreview = this.mapToPreview(tz, filteredMoments)
+            const momentsPreview = this.mapToPreview(tz, moments)
+
+            // Calcular informações de paginação
+            const page = Math.floor(offset / limit) + 1
+            const totalPages = Math.ceil(moments.length / limit)
+
             return {
                 success: true,
                 moments: momentsPreview,
                 pagination: {
                     total: momentsPreview.length,
-                    page: Math.floor(offset / limit) + 1,
+                    page,
                     limit,
-                    totalPages: Math.ceil(momentsPreview.length / limit),
+                    totalPages,
                 },
             }
         } catch (error) {
@@ -99,41 +119,6 @@ export class GetUserMomentsUseCase {
                 error: error instanceof Error ? error.message : "Internal server error",
             }
         }
-    }
-
-    private async filterResult(
-        result: MomentEntity[],
-        request: GetUserMomentsRequest,
-        requestingUser: User,
-    ): Promise<MomentEntity[]> {
-        // Converter entidades para objetos de domínio para usar métodos de negócio
-        const domainMoments = result.map((entity) => Moment.fromEntity(entity))
-
-        // Aplicar filtros
-        const filteredDomainMoments: Moment[] = []
-
-        for (const moment of domainMoments) {
-            // Filtro por status
-            if (moment.status.current !== request.query.status) {
-                continue
-            }
-
-            // Filtro por visibilidade
-            if (moment.visibility.level !== request.query.visibility) {
-                continue
-            }
-
-            // Filtro por visualização (método de negócio)
-            const viewabilityResult = await moment.isViewable(requestingUser, this.userRepository)
-            if (!viewabilityResult.allowed) {
-                continue
-            }
-
-            filteredDomainMoments.push(moment)
-        }
-
-        // Converter de volta para entidades
-        return filteredDomainMoments.map((moment) => moment.toEntity())
     }
 
     private setLocalTimezone(user: AuthenticatedUser): Timezone {

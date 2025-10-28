@@ -15,8 +15,15 @@
  * @version 2.0.0
  */
 
-import { IUserRepository, TimezoneCode, User, UserProfilePicture } from "@/domain/user"
-import { Timezone, textLib } from "@/shared/circle.text.library"
+import {
+    IUserMetricsRepository,
+    IUserRepository,
+    User,
+    UserMetrics,
+    UserProfilePicture,
+} from "@/domain/user"
+
+import { textLib } from "@/shared/circle.text.library"
 
 export interface Moment {
     id: string
@@ -78,7 +85,10 @@ export interface UserRelationship {
 // ===== USE CASE =====
 
 export class GetUserProfileUseCase {
-    constructor(private readonly userRepository: IUserRepository) {}
+    constructor(
+        private readonly userRepository: IUserRepository,
+        private readonly userMetricsRepository: IUserMetricsRepository,
+    ) {}
 
     /**
      * Executa o caso de uso de obtenção de perfil de usuário
@@ -86,21 +96,26 @@ export class GetUserProfileUseCase {
     async execute(request: GetUserProfileRequest): Promise<GetUserProfileResponse> {
         try {
             // Validar entrada
-            const validationError = this.validateRequest(request)
+            const validationError = this._validateRequest(request)
             if (validationError) {
                 return validationError
             }
 
             // Buscar e validar usuários
-            const usersResult = await this.fetchAndValidateUsers(request)
+            const usersResult = await this._fetchAndValidateUsers(request)
             if (!usersResult.success) {
                 return {
                     success: false,
-                    error: usersResult.error,
+                    error: "error" in usersResult ? usersResult.error : "Failed to fetch users",
                 }
             }
 
-            const { targetUser, requestingUser } = usersResult
+            const { targetUser, requestingUser, targetUserMetrics } = usersResult
+
+            // Incrementar contador de visualizações do perfil do usuário alvo (se métricas existirem)
+            if (targetUserMetrics) {
+                await this._incrementProfileViewCount(targetUserMetrics)
+            }
 
             // Buscar informações de relacionamento em paralelo usando apenas funções do repositório
             const [isFollowing, isFollowedBy, isBlocking, isBlockedBy] = await Promise.all([
@@ -115,7 +130,7 @@ export class GetUserProfileUseCase {
             ])
 
             // Verificar permissões de acesso usando as informações de relacionamento
-            const accessError = this.checkAccessPermissions(
+            const accessError = this._checkAccessPermissions(
                 targetUser!,
                 requestingUser!,
                 isFollowing,
@@ -133,7 +148,7 @@ export class GetUserProfileUseCase {
             }
 
             // Construir perfil do usuário
-            const userProfile = await this.buildUserProfile(targetUser!, relationship)
+            const userProfile = await this._formatProfile(targetUser!, relationship)
 
             return {
                 success: true,
@@ -148,12 +163,7 @@ export class GetUserProfileUseCase {
         }
     }
 
-    // ===== MÉTODOS PRIVADOS DE VALIDAÇÃO =====
-
-    /**
-     * Valida os dados de entrada da requisição
-     */
-    private validateRequest(request: GetUserProfileRequest): GetUserProfileResponse | null {
+    private _validateRequest(request: GetUserProfileRequest): GetUserProfileResponse | null {
         if (!request.requestingUserId) {
             return {
                 success: false,
@@ -163,19 +173,22 @@ export class GetUserProfileUseCase {
         return null
     }
 
-    /**
-     * Busca e valida ambos os usuários (alvo e solicitante)
-     */
-    private async fetchAndValidateUsers(
+    private async _fetchAndValidateUsers(
         request: GetUserProfileRequest,
     ): Promise<
-        | { success: true; targetUser: User; requestingUser: User }
+        | {
+              success: true
+              targetUser: User
+              requestingUser: User
+              targetUserMetrics: UserMetrics | null
+          }
         | { success: false; error: string }
     > {
         // Buscar ambos usuários em paralelo
-        const [targetUser, requestingUser] = await Promise.all([
+        const [targetUser, requestingUser, targetUserMetrics] = await Promise.all([
             this.userRepository.findById(request.userId),
             this.userRepository.findById(request.requestingUserId!),
+            this.userMetricsRepository.findByUserId(request.userId),
         ])
 
         // Validar usuário alvo
@@ -200,13 +213,11 @@ export class GetUserProfileUseCase {
             success: true,
             targetUser,
             requestingUser,
+            targetUserMetrics,
         }
     }
 
-    /**
-     * Verifica permissões de acesso ao perfil usando método da entidade User
-     */
-    private checkAccessPermissions(
+    private _checkAccessPermissions(
         targetUser: User,
         requestingUser: User,
         isFollowing: boolean,
@@ -224,37 +235,7 @@ export class GetUserProfileUseCase {
         return null
     }
 
-    /**
-     * Calcula a data de última publicação com timezone do usuário
-     */
-    private calculateLastPublishedAt(moments: Moment[], timezoneCode?: TimezoneCode): Date | null {
-        if (moments.length === 0) {
-            return null
-        }
-
-        // Já está ordenado por mais recente, pegar o primeiro
-        const mostRecentMoment = moments[0]
-        const lastPublishedAt = mostRecentMoment.createdAt
-
-        // Converter para timezone local do usuário se fornecido
-        if (timezoneCode) {
-            const tz = new Timezone()
-            tz.setLocalTimezone(timezoneCode)
-            return tz.UTCToLocal(lastPublishedAt)
-        }
-
-        return lastPublishedAt
-    }
-
-    // ===== MÉTODOS PRIVADOS DE CONSTRUÇÃO DE RESPOSTA =====
-
-    /**
-     * Constrói o objeto UserProfile completo
-     */
-    private async buildUserProfile(
-        user: User,
-        relationship: UserRelationship,
-    ): Promise<UserProfile> {
+    private async _formatProfile(user: User, relationship: UserRelationship): Promise<UserProfile> {
         return {
             id: user.id,
             username: user.username,
@@ -278,5 +259,10 @@ export class GetUserProfileUseCase {
                 isBlocking: relationship.isBlocked,
             },
         }
+    }
+
+    private async _incrementProfileViewCount(metrics: UserMetrics): Promise<void> {
+        metrics.incrementReceivedMetrics({ viewsReceived: 1 })
+        await this.userMetricsRepository.update(metrics)
     }
 }

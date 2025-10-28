@@ -1,7 +1,5 @@
 import { ErrorCode, SystemError } from "../../shared/errors"
 
-// Importar todos os modelos
-import { Sequelize } from "sequelize"
 import AuthLog from "../models/auth/sign.logs.model"
 import MomentContent from "../models/moment/moment.content.model"
 import MomentContext from "../models/moment/moment.context.model"
@@ -22,20 +20,24 @@ import InteractionEvent from "../models/swipe.engine/interaction.event.model"
 import PostCluster from "../models/swipe.engine/post.cluster.model"
 import PostClusterRank from "../models/swipe.engine/post.cluster.rank.model"
 import PostEmbedding from "../models/swipe.engine/post.embedding.model"
+import { ENVIRONMENT } from "./environment"
+// Importar todos os modelos
+import { Sequelize } from "sequelize"
 import UserClusterRank from "../models/swipe.engine/user.cluster.rank.model"
 import UserEmbedding from "../models/swipe.engine/user.embedding.model"
 import UserInteractionHistory from "../models/swipe.engine/user.interaction.history.model"
 import UserInteractionSummary from "../models/swipe.engine/user.interaction.summary.model"
 import UserMetadata from "../models/user/user.metadata.model"
+import UserMetrics from "../models/user/user.metrics.model"
 import User from "../models/user/user.model"
 import UserPreferences from "../models/user/user.preferences.model"
 import UserProfilePicture from "../models/user/user.profile.picture.model"
 import UserStatistics from "../models/user/user.statistics.model"
 import UserStatus from "../models/user/user.status.model"
 import UserTerm from "../models/user/user.terms.model"
-import { ENVIRONMENT } from "./environment"
 // Moment models
 import { logger } from "@/shared"
+
 // Swipe Engine models
 
 /**
@@ -65,6 +67,7 @@ export class DatabaseManager {
         UserPreferences,
         UserProfilePicture,
         UserStatistics,
+        UserMetrics,
 
         // Moment models
         Moment,

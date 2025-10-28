@@ -1,4 +1,3 @@
-import { Op, WhereOptions } from "sequelize"
 import {
     IMomentAnalytics,
     IMomentFilters,
@@ -6,9 +5,10 @@ import {
     IMomentRepositoryStats,
     Moment,
 } from "../../domain/moment"
-
 // Importar as interfaces corretas das métricas
-import { IUserRepository } from "@/domain/user"
+import { IUserRepository, User } from "@/domain/user"
+import { Op, WhereOptions } from "sequelize"
+
 import { generateId } from "@/shared"
 
 export class MomentRepositoryImpl implements IMomentRepository {
@@ -482,20 +482,53 @@ export class MomentRepositoryImpl implements IMomentRepository {
 
     // ===== OPERAÇÕES DE BUSCA =====
 
-    async findByOwnerId(ownerId: string, limit = 20, offset = 0): Promise<Moment[]> {
+    async findByOwnerId(
+        ownerId: string,
+        limit = 20,
+        offset = 0,
+        filters?: { status?: string; visibility?: string },
+    ): Promise<Moment[]> {
+        const include: any[] = []
+
+        // Status com filtro se fornecido
+        if (filters?.status) {
+            include.push({
+                model: this.database.getConnection().models.MomentStatus,
+                as: "status",
+                where: { current: filters.status },
+            })
+        } else {
+            include.push({ model: this.database.getConnection().models.MomentStatus, as: "status" })
+        }
+
+        // Visibility com filtro se fornecido
+        if (filters?.visibility) {
+            include.push({
+                model: this.database.getConnection().models.MomentVisibility,
+                as: "visibility",
+                where: { level: filters.visibility },
+            })
+        } else {
+            include.push({
+                model: this.database.getConnection().models.MomentVisibility,
+                as: "visibility",
+            })
+        }
+
+        // Sempre incluir estes models
+        include.push(
+            { model: this.database.getConnection().models.MomentContent, as: "content" },
+            { model: this.database.getConnection().models.MomentMetrics, as: "metrics" },
+            { model: this.database.getConnection().models.MomentMedia, as: "media" },
+            { model: this.database.getConnection().models.MomentThumbnail, as: "thumbnail" },
+        )
+
         const moments = await this.database.getConnection().models.Moment.findAll({
             where: { ownerId },
             limit,
             offset,
             order: [["createdAt", "DESC"]],
-            include: [
-                { model: this.database.getConnection().models.MomentContent, as: "content" },
-                { model: this.database.getConnection().models.MomentStatus, as: "status" },
-                { model: this.database.getConnection().models.MomentVisibility, as: "visibility" },
-                { model: this.database.getConnection().models.MomentMetrics, as: "metrics" },
-                { model: this.database.getConnection().models.MomentMedia, as: "media" },
-                { model: this.database.getConnection().models.MomentThumbnail, as: "thumbnail" },
-            ],
+            include,
         })
 
         return moments.map((moment: any) => this.mapToDomainEntity(moment))
@@ -1446,7 +1479,10 @@ export class MomentRepositoryImpl implements IMomentRepository {
             }
 
             // Usar o método isInteractable da entidade Moment
-            return await moment.isInteractable(userWhoWantsToInteract, userRepository)
+            return await moment.isInteractable(
+                userRepository,
+                userWhoWantsToInteract as unknown as User,
+            )
         } catch (error) {
             console.error("Erro ao verificar interatividade:", error)
             return false
