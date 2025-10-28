@@ -23,14 +23,15 @@ export default {
                 type: Sequelize.ENUM(
                     "pending",
                     "processing",
+                    "completed",
+                    "failed",
                     "uploaded",
                     "media_processed",
                     "embeddings_queued",
                     "embeddings_processed",
-                    "completed",
-                    "failed",
                 ),
                 allowNull: false,
+                defaultValue: "pending",
                 comment: "Status do processamento",
             },
             progress: {
