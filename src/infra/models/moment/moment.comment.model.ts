@@ -118,6 +118,7 @@ export default class MomentComment
             {
                 sequelize,
                 tableName: "moment_comments",
+                modelName: "MomentComment",
                 timestamps: true,
                 underscored: true,
                 indexes: [
