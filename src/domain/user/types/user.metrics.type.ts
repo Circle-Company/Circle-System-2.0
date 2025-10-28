@@ -11,7 +11,6 @@ export interface UserMetricsProps {
     totalViewsReceived: number
     totalSharesReceived: number
     totalCommentsReceived: number
-    totalMemoriesCreated: number
     totalMomentsCreated: number
     totalLikesGiven: number
     totalCommentsGiven: number
@@ -24,11 +23,9 @@ export interface UserMetricsProps {
     engagementRate: number
     reachRate: number
     momentsPublishedGrowthRate30d: number
-    memoriesPublishedGrowthRate30d: number
     followerGrowthRate30d: number
     engagementGrowthRate30d: number
     interactionsGrowthRate30d: number
-    memoriesPerDayAverage: number
     momentsPerDayAverage: number
     reportsReceived: number
     violationsCount: number
@@ -42,7 +39,6 @@ export interface MetricsUpdateInput {
     viewsReceived?: number
     sharesReceived?: number
     commentsReceived?: number
-    memoriesCreated?: number
     momentsCreated?: number
     likesGiven?: number
     commentsGiven?: number
@@ -57,14 +53,12 @@ export interface MetricsUpdateInput {
 
 export interface GrowthMetrics {
     momentsPublishedGrowthRate30d: number
-    memoriesPublishedGrowthRate30d: number
     followerGrowthRate30d: number
     engagementGrowthRate30d: number
     interactionsGrowthRate30d: number
 }
 
 export interface ActivityMetrics {
-    memoriesPerDayAverage: number
     momentsPerDayAverage: number
     engagementRate: number
     reachRate: number
