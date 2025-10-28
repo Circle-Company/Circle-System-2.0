@@ -36,7 +36,7 @@ export class VideoCompressionWorker {
         this.videoProcessor = new VideoProcessor({
             compression: {
                 preset: "veryslow", // Preset mais lento possível para máxima qualidade
-                crf: 18, // Alta qualidade (very high quality)
+                crf: 34, // Alta qualidade (lossless prático)
                 targetBitrate: 800, // Bitrate alto para manter qualidade
                 maxBitrate: 1000, // Bitrate máximo alto para qualidade preservada
                 bufferSize: 1000, // Buffer grande para evitar variações
@@ -93,8 +93,14 @@ export class VideoCompressionWorker {
         const startTime = Date.now()
         const { momentId, originalVideoUrl, videoMetadata } = job.data
 
+        console.log(`[VideoCompressionWorker] 🔔 JOB RECEBIDO! Processando moment ${momentId}`)
+        console.log(`[VideoCompressionWorker] 📋 Dados do job:`, {
+            momentId,
+            originalVideoUrl,
+            metadata: videoMetadata,
+        })
         console.log(
-            `[VideoCompressionWorker] 🚀 Iniciando compressão ULTRA ALTA QUALIDADE para moment ${momentId}`,
+            `[VideoCompressionWorker] 🚀 Iniciando compressão para moment ${momentId}`,
         )
         console.log("📋 Configuração:", {
             preset: this.videoProcessor.getConfig().compression?.preset,
@@ -201,7 +207,7 @@ export class VideoCompressionWorker {
                     originalCodec: "unknown",
                     compressedCodec: "h264",
                     preset: "veryslow", // Preset mais lento para máxima qualidade
-                    crf: 18, // Very high quality
+                    crf: 34, // Compressao moderada
                 },
             }
         } catch (error) {
