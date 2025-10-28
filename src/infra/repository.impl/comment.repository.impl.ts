@@ -13,7 +13,7 @@ export class CommentRepositoryImpl implements ICommentRepository {
     // ===== OPERAÇÕES BÁSICAS CRUD =====
 
     async create(comment: Comment): Promise<Comment> {
-        const transaction = await this.database.getConnection().models.sequelize.transaction()
+        const transaction = await this.database.getConnection().transaction()
 
         try {
             const commentData = comment.toEntity()
