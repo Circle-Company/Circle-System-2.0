@@ -1313,6 +1313,11 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
                 as: "statistics",
                 required: false,
             },
+            {
+                model: this.models.UserMetrics,
+                as: "metrics",
+                required: false,
+            },
             // Removendo UserTermModel temporariamente para debug
             // {
             //     model: this.models.UserTermModel,

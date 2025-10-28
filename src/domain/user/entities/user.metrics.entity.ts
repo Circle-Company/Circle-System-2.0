@@ -27,7 +27,6 @@ export class UserMetrics {
     private _totalViewsReceived: number
     private _totalSharesReceived: number
     private _totalCommentsReceived: number
-    private _totalMemoriesCreated: number
     private _totalMomentsCreated: number
     private _totalLikesGiven: number
     private _totalCommentsGiven: number
@@ -40,11 +39,9 @@ export class UserMetrics {
     private _engagementRate: number
     private _reachRate: number
     private _momentsPublishedGrowthRate30d: number
-    private _memoriesPublishedGrowthRate30d: number
     private _followerGrowthRate30d: number
     private _engagementGrowthRate30d: number
     private _interactionsGrowthRate30d: number
-    private _memoriesPerDayAverage: number
     private _momentsPerDayAverage: number
     private _reportsReceived: number
     private _violationsCount: number
@@ -59,7 +56,6 @@ export class UserMetrics {
         this._totalViewsReceived = props.totalViewsReceived || 0
         this._totalSharesReceived = props.totalSharesReceived || 0
         this._totalCommentsReceived = props.totalCommentsReceived || 0
-        this._totalMemoriesCreated = props.totalMemoriesCreated || 0
         this._totalMomentsCreated = props.totalMomentsCreated || 0
         this._totalLikesGiven = props.totalLikesGiven || 0
         this._totalCommentsGiven = props.totalCommentsGiven || 0
@@ -72,11 +68,9 @@ export class UserMetrics {
         this._engagementRate = props.engagementRate || 0
         this._reachRate = props.reachRate || 0
         this._momentsPublishedGrowthRate30d = props.momentsPublishedGrowthRate30d || 0
-        this._memoriesPublishedGrowthRate30d = props.memoriesPublishedGrowthRate30d || 0
         this._followerGrowthRate30d = props.followerGrowthRate30d || 0
         this._engagementGrowthRate30d = props.engagementGrowthRate30d || 0
         this._interactionsGrowthRate30d = props.interactionsGrowthRate30d || 0
-        this._memoriesPerDayAverage = props.memoriesPerDayAverage || 0
         this._momentsPerDayAverage = props.momentsPerDayAverage || 0
         this._reportsReceived = props.reportsReceived || 0
         this._violationsCount = props.violationsCount || 0
@@ -105,9 +99,6 @@ export class UserMetrics {
     }
     get totalCommentsReceived(): number {
         return this._totalCommentsReceived
-    }
-    get totalMemoriesCreated(): number {
-        return this._totalMemoriesCreated
     }
     get totalMomentsCreated(): number {
         return this._totalMomentsCreated
@@ -145,9 +136,6 @@ export class UserMetrics {
     get momentsPublishedGrowthRate30d(): number {
         return this._momentsPublishedGrowthRate30d
     }
-    get memoriesPublishedGrowthRate30d(): number {
-        return this._memoriesPublishedGrowthRate30d
-    }
     get followerGrowthRate30d(): number {
         return this._followerGrowthRate30d
     }
@@ -156,9 +144,6 @@ export class UserMetrics {
     }
     get interactionsGrowthRate30d(): number {
         return this._interactionsGrowthRate30d
-    }
-    get memoriesPerDayAverage(): number {
-        return this._memoriesPerDayAverage
     }
     get momentsPerDayAverage(): number {
         return this._momentsPerDayAverage
@@ -206,9 +191,6 @@ export class UserMetrics {
      * Incrementa métricas de criação (memories, moments)
      */
     public incrementCreationMetrics(metrics: Partial<MetricsUpdateInput>): void {
-        if (metrics.memoriesCreated) {
-            this._totalMemoriesCreated += metrics.memoriesCreated
-        }
         if (metrics.momentsCreated) {
             this._totalMomentsCreated += metrics.momentsCreated
         }
@@ -292,7 +274,6 @@ export class UserMetrics {
         )
 
         if (daysSinceCreation > 0) {
-            this._memoriesPerDayAverage = this._totalMemoriesCreated / daysSinceCreation
             this._momentsPerDayAverage = this._totalMomentsCreated / daysSinceCreation
         }
     }
@@ -313,7 +294,6 @@ export class UserMetrics {
      */
     public updateGrowthMetrics(growth: GrowthMetrics): void {
         this._momentsPublishedGrowthRate30d = growth.momentsPublishedGrowthRate30d
-        this._memoriesPublishedGrowthRate30d = growth.memoriesPublishedGrowthRate30d
         this._followerGrowthRate30d = growth.followerGrowthRate30d
         this._engagementGrowthRate30d = growth.engagementGrowthRate30d
         this._interactionsGrowthRate30d = growth.interactionsGrowthRate30d
@@ -332,7 +312,7 @@ export class UserMetrics {
         averageActivityRate: number
     } {
         return {
-            totalContent: this._totalMemoriesCreated + this._totalMomentsCreated,
+            totalContent: this._totalMomentsCreated,
             totalEngagement:
                 this._totalLikesReceived +
                 this._totalViewsReceived +
@@ -340,7 +320,7 @@ export class UserMetrics {
                 this._totalCommentsReceived,
             totalRelations: this._totalRelations,
             averageEngagementRate: this._engagementRate,
-            averageActivityRate: (this._memoriesPerDayAverage + this._momentsPerDayAverage) / 2,
+            averageActivityRate: this._momentsPerDayAverage,
         }
     }
 
@@ -381,7 +361,6 @@ export class UserMetrics {
             this._totalViewsReceived,
             this._totalSharesReceived,
             this._totalCommentsReceived,
-            this._totalMemoriesCreated,
             this._totalMomentsCreated,
             this._totalLikesGiven,
             this._totalCommentsGiven,
@@ -405,11 +384,9 @@ export class UserMetrics {
             this._engagementRate,
             this._reachRate,
             this._momentsPublishedGrowthRate30d,
-            this._memoriesPublishedGrowthRate30d,
             this._followerGrowthRate30d,
             this._engagementGrowthRate30d,
             this._interactionsGrowthRate30d,
-            this._memoriesPerDayAverage,
             this._momentsPerDayAverage,
         ]
 
@@ -432,7 +409,6 @@ export class UserMetrics {
             totalViewsReceived: 0,
             totalSharesReceived: 0,
             totalCommentsReceived: 0,
-            totalMemoriesCreated: 0,
             totalMomentsCreated: 0,
             totalLikesGiven: 0,
             totalCommentsGiven: 0,
@@ -445,11 +421,9 @@ export class UserMetrics {
             engagementRate: 0,
             reachRate: 0,
             momentsPublishedGrowthRate30d: 0,
-            memoriesPublishedGrowthRate30d: 0,
             followerGrowthRate30d: 0,
             engagementGrowthRate30d: 0,
             interactionsGrowthRate30d: 0,
-            memoriesPerDayAverage: 0,
             momentsPerDayAverage: 0,
             reportsReceived: 0,
             violationsCount: 0,
@@ -470,7 +444,6 @@ export class UserMetrics {
             totalViewsReceived: this._totalViewsReceived,
             totalSharesReceived: this._totalSharesReceived,
             totalCommentsReceived: this._totalCommentsReceived,
-            totalMemoriesCreated: this._totalMemoriesCreated,
             totalMomentsCreated: this._totalMomentsCreated,
             totalLikesGiven: this._totalLikesGiven,
             totalCommentsGiven: this._totalCommentsGiven,
@@ -483,11 +456,9 @@ export class UserMetrics {
             engagementRate: this._engagementRate,
             reachRate: this._reachRate,
             momentsPublishedGrowthRate30d: this._momentsPublishedGrowthRate30d,
-            memoriesPublishedGrowthRate30d: this._memoriesPublishedGrowthRate30d,
             followerGrowthRate30d: this._followerGrowthRate30d,
             engagementGrowthRate30d: this._engagementGrowthRate30d,
             interactionsGrowthRate30d: this._interactionsGrowthRate30d,
-            memoriesPerDayAverage: this._memoriesPerDayAverage,
             momentsPerDayAverage: this._momentsPerDayAverage,
             reportsReceived: this._reportsReceived,
             violationsCount: this._violationsCount,

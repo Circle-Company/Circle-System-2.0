@@ -3,7 +3,7 @@
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
     async up(queryInterface, Sequelize) {
-        await queryInterface.createTable("user_statistics", {
+        await queryInterface.createTable("user_metrics", {
             id: {
                 type: Sequelize.BIGINT,
                 primaryKey: true,
@@ -36,12 +36,6 @@ module.exports = {
                 defaultValue: 0,
             },
             total_comments_received: {
-                type: Sequelize.INTEGER,
-                allowNull: true,
-                defaultValue: 0,
-            },
-            // Métricas de Conteúdo
-            total_memories_created: {
                 type: Sequelize.INTEGER,
                 allowNull: true,
                 defaultValue: 0,
@@ -156,11 +150,6 @@ module.exports = {
                 allowNull: true,
                 defaultValue: 0,
             },
-            memories_published_growth_rate_30d: {
-                type: Sequelize.FLOAT,
-                allowNull: true,
-                defaultValue: 0,
-            },
             follower_growth_rate_30d: {
                 type: Sequelize.FLOAT,
                 allowNull: true,
@@ -177,11 +166,6 @@ module.exports = {
                 defaultValue: 0,
             },
             // Métricas de Comportamento
-            memories_per_day_average: {
-                type: Sequelize.FLOAT,
-                allowNull: true,
-                defaultValue: 0,
-            },
             moments_per_day_average: {
                 type: Sequelize.FLOAT,
                 allowNull: true,
@@ -246,13 +230,13 @@ module.exports = {
         })
 
         // Índices
-        await queryInterface.addIndex("user_statistics", ["user_id"])
-        await queryInterface.addIndex("user_statistics", ["total_followers"])
-        await queryInterface.addIndex("user_statistics", ["total_likes_received"])
-        await queryInterface.addIndex("user_statistics", ["last_active_date"])
+        await queryInterface.addIndex("user_metrics", ["user_id"])
+        await queryInterface.addIndex("user_metrics", ["total_followers"])
+        await queryInterface.addIndex("user_metrics", ["total_likes_received"])
+        await queryInterface.addIndex("user_metrics", ["last_active_date"])
     },
 
     async down(queryInterface, Sequelize) {
-        await queryInterface.dropTable("user_statistics")
+        await queryInterface.dropTable("user_metrics")
     },
 }

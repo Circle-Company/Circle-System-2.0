@@ -78,69 +78,69 @@ export default class UserStatistics
 {
     declare readonly id: bigint
     declare user_id: bigint
-    public access_level?: Level
-    public verified?: boolean
-    public deleted?: boolean
-    public blocked?: boolean
-    public muted?: boolean
+    declare access_level?: Level
+    declare verified?: boolean
+    declare deleted?: boolean
+    declare blocked?: boolean
+    declare muted?: boolean
 
     // Métricas de Engajamento
-    public total_likes_received?: number
-    public total_views_received?: number
-    public total_shares_received?: number
-    public total_comments_received?: number
+    declare total_likes_received?: number
+    declare total_views_received?: number
+    declare total_shares_received?: number
+    declare total_comments_received?: number
 
     // Métricas de Conteúdo
-    public total_memories_created?: number
-    public total_moments_created?: number
+    declare total_memories_created?: number
+    declare total_moments_created?: number
 
     // Métricas de Interação
-    public total_likes_given?: number
-    public total_comments_given?: number
-    public total_shares_given?: number
-    public total_follows_given?: number
-    public total_reports_given?: number
+    declare total_likes_given?: number
+    declare total_comments_given?: number
+    declare total_shares_given?: number
+    declare total_follows_given?: number
+    declare total_reports_given?: number
 
     // Métricas de Rede Social
-    public total_followers?: number
-    public total_following?: number
-    public total_relations?: number
+    declare total_followers?: number
+    declare total_following?: number
+    declare total_relations?: number
 
     // Métricas de Retenção
-    public days_active_last_30?: number
-    public days_active_last_7?: number
-    public last_active_date?: Date
-    public current_streak_days?: number
-    public longest_streak_days?: number
+    declare days_active_last_30?: number
+    declare days_active_last_7?: number
+    declare last_active_date?: Date
+    declare current_streak_days?: number
+    declare longest_streak_days?: number
 
     // Métricas de Tempo
-    public total_session_time_minutes?: number
-    public average_session_duration_minutes?: number
-    public total_time_spent_minutes?: number
+    declare total_session_time_minutes?: number
+    declare average_session_duration_minutes?: number
+    declare total_time_spent_minutes?: number
 
     // Métricas de Qualidade
-    public engagement_rate?: number
-    public reach_rate?: number
-    public moments_quality_score?: number
+    declare engagement_rate?: number
+    declare reach_rate?: number
+    declare moments_quality_score?: number
 
     // Métricas de Crescimento
-    public moments_published_growth_rate_30d?: number
-    public memories_published_growth_rate_30d?: number
-    public follower_growth_rate_30d?: number
-    public engagement_growth_rate_30d?: number
-    public interactions_growth_rate_30d?: number
+    declare moments_published_growth_rate_30d?: number
+    declare memories_published_growth_rate_30d?: number
+    declare follower_growth_rate_30d?: number
+    declare engagement_growth_rate_30d?: number
+    declare interactions_growth_rate_30d?: number
 
     // Métricas de Comportamento
-    public memories_per_day_average?: number
-    public moments_per_day_average?: number
-    public interactions_per_day_average?: number
-    public peak_activity_hour?: number
-    public preferred_content_type?: string
+    declare memories_per_day_average?: number
+    declare moments_per_day_average?: number
+    declare interactions_per_day_average?: number
+    declare peak_activity_hour?: number
+    declare preferred_content_type?: string
 
     // Timestamps de Atualização
-    public last_metrics_update?: Date
-    public last_engagement_calculation?: Date
-    public last_retention_calculation?: Date
+    declare last_metrics_update?: Date
+    declare last_engagement_calculation?: Date
+    declare last_retention_calculation?: Date
     static initialize(sequelize: Sequelize) {
         UserStatistics.init(
             {
