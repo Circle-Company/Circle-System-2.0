@@ -697,7 +697,18 @@ export class UserRepository implements UserRepositoryInterface, IUserRepository 
                 order: [["createdAt", "DESC"]],
             })
 
-            return follows.map((follow: any) => UserMapper.toDomain(follow.follower))
+            // Deduplica usuários por ID (caso a query retorne duplicados)
+            const uniqueFollowers = new Map<string, any>()
+            for (const follow of follows) {
+                if (follow.follower) {
+                    const userId = follow.follower.id.toString()
+                    if (!uniqueFollowers.has(userId)) {
+                        uniqueFollowers.set(userId, follow.follower)
+                    }
+                }
+            }
+
+            return Array.from(uniqueFollowers.values()).map((user: any) => UserMapper.toDomain(user))
         } catch (error) {
             console.error("Erro ao buscar seguidores:", error)
             return []
@@ -722,7 +733,18 @@ export class UserRepository implements UserRepositoryInterface, IUserRepository 
                 order: [["createdAt", "DESC"]],
             })
 
-            return follows.map((follow: any) => UserMapper.toDomain(follow.following))
+            // Deduplica usuários por ID (caso a query retorne duplicados)
+            const uniqueFollowing = new Map<string, any>()
+            for (const follow of follows) {
+                if (follow.following) {
+                    const userId = follow.following.id.toString()
+                    if (!uniqueFollowing.has(userId)) {
+                        uniqueFollowing.set(userId, follow.following)
+                    }
+                }
+            }
+
+            return Array.from(uniqueFollowing.values()).map((user: any) => UserMapper.toDomain(user))
         } catch (error) {
             console.error("Erro ao buscar seguindo:", error)
             return []
@@ -747,7 +769,18 @@ export class UserRepository implements UserRepositoryInterface, IUserRepository 
                 order: [["createdAt", "DESC"]],
             })
 
-            return blocks.map((block: any) => UserMapper.toDomain(block.blocked))
+            // Deduplica usuários por ID (caso a query retorne duplicados)
+            const uniqueBlocked = new Map<string, any>()
+            for (const block of blocks) {
+                if (block.blocked) {
+                    const userId = block.blocked.id.toString()
+                    if (!uniqueBlocked.has(userId)) {
+                        uniqueBlocked.set(userId, block.blocked)
+                    }
+                }
+            }
+
+            return Array.from(uniqueBlocked.values()).map((user: any) => UserMapper.toDomain(user))
         } catch (error) {
             console.error("Erro ao buscar usuários bloqueados:", error)
             return []
