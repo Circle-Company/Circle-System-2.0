@@ -1,13 +1,23 @@
 "use strict"
 
 /** @type {import('sequelize-cli').Migration} */
-module.exports = {
+export default {
     async up(queryInterface, Sequelize) {
-        await queryInterface.createTable("swipe_user_embeddings", {
+        await queryInterface.createTable("moment_shares", {
             id: {
                 type: Sequelize.BIGINT,
                 primaryKey: true,
                 allowNull: false,
+            },
+            moment_id: {
+                type: Sequelize.BIGINT,
+                allowNull: false,
+                references: {
+                    model: "moments",
+                    key: "id",
+                },
+                onUpdate: "CASCADE",
+                onDelete: "CASCADE",
             },
             user_id: {
                 type: Sequelize.BIGINT,
@@ -19,15 +29,9 @@ module.exports = {
                 onUpdate: "CASCADE",
                 onDelete: "CASCADE",
             },
-            vector: {
-                type: Sequelize.TEXT,
-                allowNull: false,
-                comment: "Vetor de embedding do usuário serializado em JSON",
-            },
-            dimension: {
-                type: Sequelize.INTEGER,
-                allowNull: false,
-                defaultValue: 128,
+            platform: {
+                type: Sequelize.STRING(50),
+                allowNull: true,
             },
             metadata: {
                 type: Sequelize.JSON,
@@ -46,11 +50,19 @@ module.exports = {
         })
 
         // Índices
-        await queryInterface.addIndex("swipe_user_embeddings", ["user_id"])
-        await queryInterface.addIndex("swipe_user_embeddings", ["dimension"])
+        await queryInterface.addIndex("moment_shares", ["moment_id"], {
+            name: "moment_shares_moment_id",
+        })
+        await queryInterface.addIndex("moment_shares", ["user_id"], {
+            name: "moment_shares_user_id",
+        })
+        await queryInterface.addIndex("moment_shares", ["created_at"], {
+            name: "moment_shares_created_at",
+        })
     },
 
     async down(queryInterface, Sequelize) {
-        await queryInterface.dropTable("swipe_user_embeddings")
+        await queryInterface.dropTable("moment_shares")
     },
 }
+

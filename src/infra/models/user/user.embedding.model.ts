@@ -10,12 +10,12 @@ interface UserEmbeddingAttributes {
     vector: string // JSON stringificado do EmbeddingVector
     dimension: number
     metadata: Record<string, any>
-    created_at: Date
-    updated_at: Date
+    createdAt: Date
+    updatedAt: Date
 }
 
 interface UserEmbeddingCreationAttributes
-    extends Omit<UserEmbeddingAttributes, "id" | "created_at" | "updated_at"> {
+    extends Omit<UserEmbeddingAttributes, "id" | "createdAt" | "updatedAt"> {
     id?: bigint
 }
 
@@ -89,20 +89,22 @@ class UserEmbedding
                     type: DataTypes.JSON,
                     defaultValue: "{}",
                 },
-                created_at: {
+                createdAt: {
                     type: DataTypes.DATE,
                     allowNull: false,
                     defaultValue: DataTypes.NOW,
+                    field: "created_at",
                 },
-                updated_at: {
+                updatedAt: {
                     type: DataTypes.DATE,
                     allowNull: false,
                     defaultValue: DataTypes.NOW,
+                    field: "updated_at",
                 },
             },
             {
                 sequelize,
-                tableName: "swipe_user_embeddings",
+                tableName: "user_embeddings",
                 timestamps: false,
                 underscored: true,
             },
@@ -123,3 +125,4 @@ class UserEmbedding
 }
 
 export default UserEmbedding
+

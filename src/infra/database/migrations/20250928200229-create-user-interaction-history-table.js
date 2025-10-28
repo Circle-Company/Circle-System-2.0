@@ -1,12 +1,13 @@
 "use strict"
 
 /** @type {import('sequelize-cli').Migration} */
-module.exports = {
+export default {
     async up(queryInterface, Sequelize) {
-        await queryInterface.createTable("swipe_interaction_events", {
+        await queryInterface.createTable("user_interaction_history", {
             id: {
                 type: Sequelize.BIGINT,
                 primaryKey: true,
+                autoIncrement: true,
                 allowNull: false,
             },
             user_id: {
@@ -19,25 +20,26 @@ module.exports = {
                 onUpdate: "CASCADE",
                 onDelete: "CASCADE",
             },
-            entity_id: {
+            moment_id: {
                 type: Sequelize.BIGINT,
                 allowNull: false,
-            },
-            entity_type: {
-                type: Sequelize.ENUM("user", "post"),
-                allowNull: false,
+                references: {
+                    model: "moments",
+                    key: "id",
+                },
+                onUpdate: "CASCADE",
+                onDelete: "CASCADE",
             },
             type: {
                 type: Sequelize.ENUM(
-                    "short_view",
-                    "long_view",
+                    "view",
                     "like",
-                    "dislike",
-                    "share",
                     "comment",
-                    "like_comment",
-                    "show_less_often",
                     "report",
+                    "completion",
+                    "share",
+                    "save",
+                    "skip",
                 ),
                 allowNull: false,
             },
@@ -48,7 +50,8 @@ module.exports = {
             },
             metadata: {
                 type: Sequelize.JSON,
-                defaultValue: {},
+                allowNull: true,
+                defaultValue: null,
             },
             created_at: {
                 type: Sequelize.DATE,
@@ -63,12 +66,13 @@ module.exports = {
         })
 
         // Índices
-        await queryInterface.addIndex("swipe_interaction_events", ["user_id"])
-        await queryInterface.addIndex("swipe_interaction_events", ["entity_id", "entity_type"])
-        await queryInterface.addIndex("swipe_interaction_events", ["timestamp"])
+        await queryInterface.addIndex("user_interaction_history", ["user_id"])
+        await queryInterface.addIndex("user_interaction_history", ["moment_id"])
+        await queryInterface.addIndex("user_interaction_history", ["type"])
+        await queryInterface.addIndex("user_interaction_history", ["timestamp"])
     },
 
     async down(queryInterface, Sequelize) {
-        await queryInterface.dropTable("swipe_interaction_events")
+        await queryInterface.dropTable("user_interaction_history")
     },
 }

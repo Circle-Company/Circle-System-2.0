@@ -1,14 +1,19 @@
 import { DataTypes, Model, Sequelize } from "sequelize"
 
-import { InteractionType } from "@/core/swipe.engine/types"
 
 interface UserInteractionHistoryAttributes {
     id: bigint
     userId: bigint
-    entityId: bigint
-    interactionType: InteractionType
-    interactionDate: Date
-    metadata: Record<string, any>
+    momentId: bigint
+    type: "view" | "like" | "comment" | "report" | "completion" | "share" | "save" | "skip"
+    timestamp: Date
+    metadata?: {
+        duration?: number
+        percentWatched?: number
+        engagementTime?: number
+        topics?: string[]
+        [key: string]: any
+    } | null
     createdAt: Date
     updatedAt: Date
 }
@@ -24,10 +29,16 @@ class UserInteractionHistory
 {
     declare id: bigint
     declare userId: bigint
-    declare entityId: bigint
-    declare interactionType: InteractionType
-    declare interactionDate: Date
-    declare metadata: Record<string, any>
+    declare momentId: bigint
+    declare type: "view" | "like" | "comment" | "report" | "completion" | "share" | "save" | "skip"
+    declare timestamp: Date
+    declare metadata: {
+        duration?: number
+        percentWatched?: number
+        engagementTime?: number
+        topics?: string[]
+        [key: string]: any
+    } | null
     declare readonly createdAt: Date
     declare readonly updatedAt: Date
 
@@ -45,39 +56,42 @@ class UserInteractionHistory
                     type: DataTypes.BIGINT,
                     allowNull: false,
                     field: "user_id",
+                    references: {
+                        model: "users",
+                        key: "id",
+                    },
                 },
-                entityId: {
+                momentId: {
                     type: DataTypes.BIGINT,
                     allowNull: false,
-                    field: "entity_id",
+                    field: "moment_id",
+                    references: {
+                        model: "moments",
+                        key: "id",
+                    },
                 },
-                interactionType: {
+                type: {
                     type: DataTypes.ENUM(
-                        "short_view",
-                        "long_view",
+                        "view",
                         "like",
-                        "dislike",
-                        "share",
                         "comment",
-                        "like_comment",
-                        "show_less_often",
                         "report",
+                        "completion",
+                        "share",
                         "save",
-                        "click",
+                        "skip",
                     ),
                     allowNull: false,
-                    field: "interaction_type",
                 },
-                interactionDate: {
+                timestamp: {
                     type: DataTypes.DATE,
                     allowNull: false,
                     defaultValue: DataTypes.NOW,
-                    field: "interaction_date",
                 },
                 metadata: {
                     type: DataTypes.JSON,
-                    allowNull: false,
-                    defaultValue: "{}",
+                    allowNull: true,
+                    defaultValue: null,
                 },
                 createdAt: {
                     type: DataTypes.DATE,
@@ -92,7 +106,7 @@ class UserInteractionHistory
             },
             {
                 sequelize,
-                tableName: "swipe_user_interaction_history",
+                tableName: "user_interaction_history",
                 timestamps: true,
                 underscored: true,
             },
@@ -105,24 +119,29 @@ class UserInteractionHistory
         if (models.User) {
             UserInteractionHistory.belongsTo(models.User, {
                 foreignKey: "user_id",
-                as: "interaction_history_user",
+                as: "user",
                 targetKey: "id",
             })
+
+            // Adicionar hasMany no User
+            if (models.User.hasMany) {
+                models.User.hasMany(UserInteractionHistory, {
+                    foreignKey: "user_id",
+                    as: "interaction_history",
+                })
+            }
         }
 
-        // Associação com Moment (quando entityType é 'post')
+        // Associação com Moment
         if (models.Moment) {
             UserInteractionHistory.belongsTo(models.Moment, {
-                foreignKey: "entity_id",
-                as: "interaction_history_post",
+                foreignKey: "moment_id",
+                as: "moment",
                 targetKey: "id",
-                constraints: false,
-                scope: {
-                    entityType: "post",
-                },
             })
         }
     }
 }
 
 export default UserInteractionHistory
+

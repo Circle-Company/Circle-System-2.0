@@ -3,11 +3,21 @@
 /** @type {import('sequelize-cli').Migration} */
 export default {
     async up(queryInterface, Sequelize) {
-        await queryInterface.createTable("profile_pictures", {
+        await queryInterface.createTable("moment_likes", {
             id: {
                 type: Sequelize.BIGINT,
                 primaryKey: true,
                 allowNull: false,
+            },
+            moment_id: {
+                type: Sequelize.BIGINT,
+                allowNull: false,
+                references: {
+                    model: "moments",
+                    key: "id",
+                },
+                onUpdate: "CASCADE",
+                onDelete: "CASCADE",
             },
             user_id: {
                 type: Sequelize.BIGINT,
@@ -18,14 +28,6 @@ export default {
                 },
                 onUpdate: "CASCADE",
                 onDelete: "CASCADE",
-            },
-            fullhd_resolution: {
-                type: Sequelize.STRING,
-                allowNull: true,
-            },
-            tiny_resolution: {
-                type: Sequelize.STRING,
-                allowNull: true,
             },
             created_at: {
                 type: Sequelize.DATE,
@@ -40,10 +42,23 @@ export default {
         })
 
         // Índices
-        await queryInterface.addIndex("profile_pictures", ["user_id"])
+        await queryInterface.addIndex("moment_likes", ["moment_id", "user_id"], {
+            unique: true,
+            name: "moment_likes_unique",
+        })
+        await queryInterface.addIndex("moment_likes", ["moment_id"], {
+            name: "moment_likes_moment_id",
+        })
+        await queryInterface.addIndex("moment_likes", ["user_id"], {
+            name: "moment_likes_user_id",
+        })
+        await queryInterface.addIndex("moment_likes", ["created_at"], {
+            name: "moment_likes_created_at",
+        })
     },
 
     async down(queryInterface, Sequelize) {
-        await queryInterface.dropTable("profile_pictures")
+        await queryInterface.dropTable("moment_likes")
     },
 }
+

@@ -2,13 +2,13 @@
  * Serviço de embedding para posts/conteúdos
  */
 
-import { ContentEngagement, EmbeddingVector, PostEmbedding as PostEmbeddingType } from "../../types"
 import { LogLevel, Logger } from "@/shared/logger"
+import { ContentEngagement, EmbeddingVector, PostEmbedding as PostEmbeddingType } from "../../types"
 import { combineVectors, resizeVector } from "../../utils/vector.operations"
 
+import PostEmbedding from "@/infra/models/moment/moment.embedding.model"
 import { Op } from "sequelize"
 import { EmbeddingParams as Params } from "../../params"
-import PostEmbedding from "@/infra/models/swipe.engine/post.embedding.model"
 import { normalizeL2 } from "../../utils/normalization"
 
 // Definir interface local para PostEmbeddingProps

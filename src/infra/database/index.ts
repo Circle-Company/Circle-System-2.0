@@ -1,17 +1,21 @@
 import { ErrorCode, SystemError } from "../../shared/errors"
 
 import AuthLog from "../models/auth/sign.logs.model"
+import MomentComment from "../models/moment/moment.comment.model"
 import MomentContent from "../models/moment/moment.content.model"
 import MomentContext from "../models/moment/moment.context.model"
 import MomentDevice from "../models/moment/moment.device.model"
 import MomentEmbedding from "../models/moment/moment.embedding.model"
+import MomentLike from "../models/moment/moment.like.model"
 import MomentLocation from "../models/moment/moment.location.model"
 import MomentMedia from "../models/moment/moment.media.model"
 import MomentMetrics from "../models/moment/moment.metrics.model"
 import Moment from "../models/moment/moment.model"
 import MomentProcessing from "../models/moment/moment.processing.model"
 import MomentProcessingStep from "../models/moment/moment.processing.step.model"
+import MomentReport from "../models/moment/moment.report.model"
 import MomentResolution from "../models/moment/moment.resolution.model"
+import MomentShare from "../models/moment/moment.share.model"
 import MomentStatus from "../models/moment/moment.status.model"
 import MomentThumbnail from "../models/moment/moment.thumbnail.model"
 import MomentView from "../models/moment/moment.view.model"
@@ -19,14 +23,13 @@ import MomentVisibility from "../models/moment/moment.visibility.model"
 import InteractionEvent from "../models/swipe.engine/interaction.event.model"
 import PostCluster from "../models/swipe.engine/post.cluster.model"
 import PostClusterRank from "../models/swipe.engine/post.cluster.rank.model"
-import PostEmbedding from "../models/swipe.engine/post.embedding.model"
 import { ENVIRONMENT } from "./environment"
 // Importar todos os modelos
 import { Sequelize } from "sequelize"
 import UserClusterRank from "../models/swipe.engine/user.cluster.rank.model"
-import UserEmbedding from "../models/swipe.engine/user.embedding.model"
-import UserInteractionHistory from "../models/swipe.engine/user.interaction.history.model"
 import UserInteractionSummary from "../models/swipe.engine/user.interaction.summary.model"
+import UserEmbedding from "../models/user/user.embedding.model"
+import UserInteractionHistory from "../models/user/user.interaction.history.model"
 import UserMetadata from "../models/user/user.metadata.model"
 import UserMetrics from "../models/user/user.metrics.model"
 import User from "../models/user/user.model"
@@ -72,6 +75,10 @@ export class DatabaseManager {
         // Moment models
         Moment,
         MomentContent,
+        MomentComment,
+        MomentLike,
+        MomentShare,
+        MomentReport,
         MomentStatus,
         MomentVisibility,
         MomentMetrics,
@@ -90,7 +97,6 @@ export class DatabaseManager {
         InteractionEvent,
         PostCluster,
         PostClusterRank,
-        PostEmbedding,
         UserClusterRank,
         UserEmbedding,
         UserInteractionHistory,
