@@ -114,6 +114,15 @@ interface UserInteractionSummaryModelAttributes {
     updated_at: Date
 }
 
+interface ProfilePictureModelAttributes {
+    id: bigint
+    user_id: bigint
+    fullhd_resolution: string | null
+    tiny_resolution: string | null
+    created_at: Date
+    updated_at: Date
+}
+
 // Interface para o modelo completo com relacionamentos
 interface CompleteUserModel {
     id: bigint
@@ -132,6 +141,7 @@ interface CompleteUserModel {
     user_terms?: UserTermModelAttributes
     user_embedding?: UserEmbeddingModelAttributes
     user_interaction_summary?: UserInteractionSummaryModelAttributes
+    profile_pictures?: ProfilePictureModelAttributes
 }
 
 export class UserMapper {
@@ -205,35 +215,33 @@ export class UserMapper {
         }
 
         if (sequelizeUser.statistics) {
+            // Helper function para garantir valores não negativos
+            const ensureNonNegative = (value: number): number => (value < 0 ? 0 : value)
+            
             userData.metrics = new UserMetrics({
                 userId: sequelizeUser.statistics.user_id.toString(),
-                totalLikesReceived: sequelizeUser.statistics.total_likes_received,
-                totalViewsReceived: sequelizeUser.statistics.total_views_received,
-                totalSharesReceived: sequelizeUser.statistics.total_shares_received,
-                totalCommentsReceived: sequelizeUser.statistics.total_comments_received,
-                totalMemoriesCreated: sequelizeUser.statistics.total_memories_created,
-                totalMomentsCreated: sequelizeUser.statistics.total_moments_created,
-                totalLikesGiven: sequelizeUser.statistics.total_likes_given,
-                totalCommentsGiven: sequelizeUser.statistics.total_comments_given,
-                totalSharesGiven: sequelizeUser.statistics.total_shares_given,
-                totalFollowsGiven: sequelizeUser.statistics.total_follows_given,
-                totalReportsGiven: sequelizeUser.statistics.total_reports_given,
-                totalFollowers: sequelizeUser.statistics.total_followers,
-                totalFollowing: sequelizeUser.statistics.total_following,
-                totalRelations: sequelizeUser.statistics.total_relations,
-                engagementRate: sequelizeUser.statistics.engagement_rate,
-                reachRate: sequelizeUser.statistics.reach_rate,
-                momentsPublishedGrowthRate30d:
-                    sequelizeUser.statistics.moments_published_growth_rate_30d,
-                memoriesPublishedGrowthRate30d:
-                    sequelizeUser.statistics.memories_published_growth_rate_30d,
-                followerGrowthRate30d: sequelizeUser.statistics.follower_growth_rate_30d,
-                engagementGrowthRate30d: sequelizeUser.statistics.engagement_growth_rate_30d,
-                interactionsGrowthRate30d: sequelizeUser.statistics.interactions_growth_rate_30d,
-                memoriesPerDayAverage: sequelizeUser.statistics.memories_per_day_average,
-                momentsPerDayAverage: sequelizeUser.statistics.moments_per_day_average,
-                reportsReceived: sequelizeUser.statistics.reports_received,
-                violationsCount: sequelizeUser.statistics.violations_count,
+                totalLikesReceived: ensureNonNegative(sequelizeUser.statistics.total_likes_received || 0),
+                totalViewsReceived: ensureNonNegative(sequelizeUser.statistics.total_views_received || 0),
+                totalSharesReceived: ensureNonNegative(sequelizeUser.statistics.total_shares_received || 0),
+                totalCommentsReceived: ensureNonNegative(sequelizeUser.statistics.total_comments_received || 0),
+                totalMomentsCreated: ensureNonNegative(sequelizeUser.statistics.total_moments_created || 0),
+                totalLikesGiven: ensureNonNegative(sequelizeUser.statistics.total_likes_given || 0),
+                totalCommentsGiven: ensureNonNegative(sequelizeUser.statistics.total_comments_given || 0),
+                totalSharesGiven: ensureNonNegative(sequelizeUser.statistics.total_shares_given || 0),
+                totalFollowsGiven: ensureNonNegative(sequelizeUser.statistics.total_follows_given || 0),
+                totalReportsGiven: ensureNonNegative(sequelizeUser.statistics.total_reports_given || 0),
+                totalFollowers: ensureNonNegative(sequelizeUser.statistics.total_followers || 0),
+                totalFollowing: ensureNonNegative(sequelizeUser.statistics.total_following || 0),
+                totalRelations: ensureNonNegative(sequelizeUser.statistics.total_relations || 0),
+                engagementRate: ensureNonNegative(sequelizeUser.statistics.engagement_rate || 0),
+                reachRate: ensureNonNegative(sequelizeUser.statistics.reach_rate || 0),
+                momentsPublishedGrowthRate30d: ensureNonNegative(sequelizeUser.statistics.moments_published_growth_rate_30d || 0),
+                followerGrowthRate30d: ensureNonNegative(sequelizeUser.statistics.follower_growth_rate_30d || 0),
+                engagementGrowthRate30d: ensureNonNegative(sequelizeUser.statistics.engagement_growth_rate_30d || 0),
+                interactionsGrowthRate30d: ensureNonNegative(sequelizeUser.statistics.interactions_growth_rate_30d || 0),
+                momentsPerDayAverage: ensureNonNegative(sequelizeUser.statistics.moments_per_day_average || 0),
+                reportsReceived: ensureNonNegative(sequelizeUser.statistics.reports_received || 0),
+                violationsCount: ensureNonNegative(sequelizeUser.statistics.violations_count || 0),
                 lastMetricsUpdate: sequelizeUser.statistics.last_metrics_update,
                 createdAt: sequelizeUser.statistics.created_at,
                 updatedAt: sequelizeUser.statistics.updated_at,
@@ -268,6 +276,15 @@ export class UserMapper {
                 interactionCounts: sequelizeUser.user_interaction_summary.interactionCounts,
                 createdAt: sequelizeUser.user_interaction_summary.created_at,
                 updatedAt: sequelizeUser.user_interaction_summary.updated_at,
+            }
+        }
+
+        if (sequelizeUser.profile_pictures) {
+            userData.profilePicture = {
+                tinyResolution: sequelizeUser.profile_pictures.tiny_resolution,
+                fullhdResolution: sequelizeUser.profile_pictures.fullhd_resolution,
+                createdAt: sequelizeUser.profile_pictures.created_at,
+                updatedAt: sequelizeUser.profile_pictures.updated_at,
             }
         }
 
@@ -369,7 +386,7 @@ export class UserMapper {
             total_views_received: userData.metrics.totalViewsReceived,
             total_shares_received: userData.metrics.totalSharesReceived,
             total_comments_received: userData.metrics.totalCommentsReceived,
-            total_memories_created: userData.metrics.totalMemoriesCreated,
+            total_memories_created: 0, // Valor padrão
             total_moments_created: userData.metrics.totalMomentsCreated,
             total_likes_given: userData.metrics.totalLikesGiven,
             total_comments_given: userData.metrics.totalCommentsGiven,
@@ -387,11 +404,11 @@ export class UserMapper {
             engagement_rate: userData.metrics.engagementRate,
             reach_rate: userData.metrics.reachRate,
             moments_published_growth_rate_30d: userData.metrics.momentsPublishedGrowthRate30d,
-            memories_published_growth_rate_30d: userData.metrics.memoriesPublishedGrowthRate30d,
+            memories_published_growth_rate_30d: 0, // Valor padrão
             follower_growth_rate_30d: userData.metrics.followerGrowthRate30d,
             engagement_growth_rate_30d: userData.metrics.engagementGrowthRate30d,
             interactions_growth_rate_30d: userData.metrics.interactionsGrowthRate30d,
-            memories_per_day_average: userData.metrics.memoriesPerDayAverage,
+            memories_per_day_average: 0, // Valor padrão
             moments_per_day_average: userData.metrics.momentsPerDayAverage,
             reports_received: userData.metrics.reportsReceived,
             violations_count: userData.metrics.violationsCount,

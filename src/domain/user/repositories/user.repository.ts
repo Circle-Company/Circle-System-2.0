@@ -10,6 +10,7 @@ import UserFollowModel from "@/infra/models/user/user.follow.model"
 import UserMetricsModel from "@/infra/models/user/user.metrics.model"
 import UserModel from "@/infra/models/user/user.model"
 import UserPreferencesModel from "@/infra/models/user/user.preferences.model"
+import UserProfilePictureModel from "@/infra/models/user/user.profile.picture.model"
 import UserStatusModel from "@/infra/models/user/user.status.model"
 import UserTermModel from "@/infra/models/user/user.terms.model"
 import { generateId } from "@/shared"
@@ -564,6 +565,10 @@ export class UserRepository implements UserRepositoryInterface, IUserRepository 
                     await userMetrics.decrement("total_following", { by: 1 })
                 }
 
+                if (userMetrics.total_follows_given > 0) {
+                    await userMetrics.decrement("total_follows_given", { by: 1 })
+                }
+
                 return true
             }
 
@@ -684,38 +689,15 @@ export class UserRepository implements UserRepositoryInterface, IUserRepository 
                     {
                         model: UserModel,
                         as: "follower",
-                        include: [
-                            {
-                                model: UserStatusModel,
-                                as: "status",
-                                required: false,
-                                separate: true,
-                            },
-                            {
-                                model: UserMetricsModel,
-                                as: "statistics",
-                                required: false,
-                                separate: true,
-                            },
-                        ],
+                        include: this.getIncludeOptions(),
                     },
                 ],
                 limit: limit || 50,
                 offset: offset || 0,
                 order: [["createdAt", "DESC"]],
-                subQuery: false,
             })
 
-            // Filtragem adicional para evitar duplicados
-            const uniqueUsers = new Map<bigint, any>()
-            for (const follow of follows) {
-                const user = follow.follower
-                if (user && !uniqueUsers.has(user.id)) {
-                    uniqueUsers.set(user.id, user)
-                }
-            }
-
-            return Array.from(uniqueUsers.values()).map((user: any) => UserMapper.toDomain(user))
+            return follows.map((follow: any) => UserMapper.toDomain(follow.follower))
         } catch (error) {
             console.error("Erro ao buscar seguidores:", error)
             return []
@@ -732,38 +714,15 @@ export class UserRepository implements UserRepositoryInterface, IUserRepository 
                     {
                         model: UserModel,
                         as: "following",
-                        include: [
-                            {
-                                model: UserStatusModel,
-                                as: "status",
-                                required: false,
-                                separate: true,
-                            },
-                            {
-                                model: UserMetricsModel,
-                                as: "statistics",
-                                required: false,
-                                separate: true,
-                            },
-                        ],
+                        include: this.getIncludeOptions(),
                     },
                 ],
                 limit: limit || 50,
                 offset: offset || 0,
                 order: [["createdAt", "DESC"]],
-                subQuery: false,
             })
 
-            // Filtragem adicional para evitar duplicados
-            const uniqueUsers = new Map<bigint, any>()
-            for (const follow of follows) {
-                const user = follow.following
-                if (user && !uniqueUsers.has(user.id)) {
-                    uniqueUsers.set(user.id, user)
-                }
-            }
-
-            return Array.from(uniqueUsers.values()).map((user: any) => UserMapper.toDomain(user))
+            return follows.map((follow: any) => UserMapper.toDomain(follow.following))
         } catch (error) {
             console.error("Erro ao buscar seguindo:", error)
             return []
@@ -780,38 +739,15 @@ export class UserRepository implements UserRepositoryInterface, IUserRepository 
                     {
                         model: UserModel,
                         as: "blocked",
-                        include: [
-                            {
-                                model: UserStatusModel,
-                                as: "status",
-                                required: false,
-                                separate: true,
-                            },
-                            {
-                                model: UserMetricsModel,
-                                as: "statistics",
-                                required: false,
-                                separate: true,
-                            },
-                        ],
+                        include: this.getIncludeOptions(),
                     },
                 ],
                 limit: limit || 50,
                 offset: offset || 0,
                 order: [["createdAt", "DESC"]],
-                subQuery: false,
             })
 
-            // Filtragem adicional para evitar duplicados
-            const uniqueUsers = new Map<bigint, any>()
-            for (const block of blocks) {
-                const user = block.blocked
-                if (user && !uniqueUsers.has(user.id)) {
-                    uniqueUsers.set(user.id, user)
-                }
-            }
-
-            return Array.from(uniqueUsers.values()).map((user: any) => UserMapper.toDomain(user))
+            return blocks.map((block: any) => UserMapper.toDomain(block.blocked))
         } catch (error) {
             console.error("Erro ao buscar usuários bloqueados:", error)
             return []
@@ -1273,6 +1209,11 @@ export class UserRepository implements UserRepositoryInterface, IUserRepository 
 
     private getIncludeOptions() {
         return [
+            {
+                model: UserProfilePictureModel,
+                as: "profile_pictures",
+                required: false,
+            },
             {
                 model: UserStatusModel,
                 as: "status",
