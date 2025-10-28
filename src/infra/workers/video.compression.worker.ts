@@ -36,7 +36,7 @@ export class VideoCompressionWorker {
         this.videoProcessor = new VideoProcessor({
             compression: {
                 preset: "veryslow", // Preset mais lento possível para máxima qualidade
-                crf: 34, // Alta qualidade (lossless prático)
+                crf: 18, // Alta qualidade (very high quality)
                 targetBitrate: 800, // Bitrate alto para manter qualidade
                 maxBitrate: 1000, // Bitrate máximo alto para qualidade preservada
                 bufferSize: 1000, // Buffer grande para evitar variações
@@ -201,7 +201,7 @@ export class VideoCompressionWorker {
                     originalCodec: "unknown",
                     compressedCodec: "h264",
                     preset: "veryslow", // Preset mais lento para máxima qualidade
-                    crf: 18, // Lossless prático - máxima qualidade possível
+                    crf: 18, // Very high quality
                 },
             }
         } catch (error) {
