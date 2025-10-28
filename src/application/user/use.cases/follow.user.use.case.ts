@@ -39,12 +39,12 @@ export class FollowUserUseCase {
             )
             if (isAlreadyFollowing) {
                 return {
-                    success: false,
-                    error: "Você já está seguindo este usuário",
+                    success: true,
+                    followed: true,
                 }
             }
 
-            // Verificar se o usuário alvo bloqueou o usuário
+            // Verificar se o usuário alvo bloqueou o usuário ou vice-versa
             const isBlocked = await this.userRepository.isBlocked(
                 request.userId,
                 request.targetUserId,
@@ -70,7 +70,7 @@ export class FollowUserUseCase {
 
             return {
                 success: true,
-                followed,
+                followed: true,
             }
         } catch (error: any) {
             console.error("Erro ao seguir usuário:", error)
@@ -110,19 +110,35 @@ export class FollowUserUseCase {
             }
         }
 
-        // Verificar se o usuário está ativo
-        if (user.status?.blocked || user.status?.deleted) {
+        // Verificar se o usuário está bloqueado
+        if (user.status?.blocked) {
             return {
                 isValid: false,
-                error: "Usuário inativo não pode seguir outros usuários",
+                error: "Usuário bloqueado não pode seguir outros usuários",
             }
         }
 
-        // Verificar se o usuário alvo está ativo
-        if (targetUser.status?.blocked || targetUser.status?.deleted) {
+        // Verificar se o usuário foi deletado
+        if (user.status?.deleted) {
             return {
                 isValid: false,
-                error: "Não é possível seguir um usuário inativo",
+                error: "Usuário deletado não pode seguir outros usuários",
+            }
+        }
+
+        // Verificar se o usuário alvo está bloqueado
+        if (targetUser.status?.blocked) {
+            return {
+                isValid: false,
+                error: "Não é possível seguir um usuário bloqueado",
+            }
+        }
+
+        // Verificar se o usuário alvo foi deletado
+        if (targetUser.status?.deleted) {
+            return {
+                isValid: false,
+                error: "Não é possível seguir um usuário deletado",
             }
         }
 

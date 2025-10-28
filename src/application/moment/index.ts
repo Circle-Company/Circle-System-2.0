@@ -3,7 +3,7 @@ export * from "./services/moment.metrics.service"
 export * from "./services/moment.service"
 
 // Use Cases
-export * from "./use.cases/create.comment.moment.use.case"
+export * from "./use.cases/create.moment.comment.use.case"
 export * from "./use.cases/create.moment.use.case"
 export * from "./use.cases/delete.moment.use.case"
 export * from "./use.cases/get.commented.moments.use.case"
@@ -15,3 +15,4 @@ export * from "./use.cases/get.moments.analytics.use.case"
 export * from "./use.cases/get.user.moments.use.case"
 export * from "./use.cases/like.moment.use.case"
 export * from "./use.cases/unlike.moment.use.case"
+

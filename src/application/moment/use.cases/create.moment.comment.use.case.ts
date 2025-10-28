@@ -52,7 +52,7 @@ export class CommentMomentUseCase {
             }
 
             // Verificar se o momento é interagível
-            const isInteractable = await moment.isInteractable(request.userId, this.userRepository)
+            const isInteractable = await moment.isInteractable(this.userRepository, user)
             if (!isInteractable) {
                 return {
                     success: false,

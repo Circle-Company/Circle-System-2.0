@@ -1,16 +1,20 @@
-import { IUserMetricsRepository, UserRepository } from "../../domain/user"
-
-import { MomentMetricsService } from "../../application/moment/services/moment.metrics.service"
-import { MomentService } from "../../application/moment/services/moment.service"
-import { GetUserMomentsUseCase } from "../../application/moment/use.cases/get.user.moments.use.case"
-import { GetUserAccountUseCase } from "../../application/user/use.cases/get.user.account.use.case"
-import { GetUserProfileUseCase } from "../../application/user/use.cases/get.user.profile.use.case"
-import { IMomentRepository } from "../../domain/moment"
-import { IMomentMetricsRepository } from "../../domain/moment/repositories/moment.metrics.repository"
-import { UserController } from "../controllers/user.controller"
-import { DatabaseAdapter } from "../database/adapter"
-import { MomentMetricsRepositoryImpl } from "../repository.impl/moment.metrics.repository.impl"
-import { MomentRepositoryImpl } from "../repository.impl/moment.repository.impl"
+import { MomentMetricsService } from "@/application/moment/services/moment.metrics.service"
+import { MomentService } from "@/application/moment/services/moment.service"
+import { GetUserMomentsUseCase } from "@/application/moment/use.cases/get.user.moments.use.case"
+import { BlockUserUseCase } from "@/application/user/use.cases/block.user.use.case"
+import { FollowUserUseCase } from "@/application/user/use.cases/follow.user.use.case"
+import { GetUserAccountUseCase } from "@/application/user/use.cases/get.user.account.use.case"
+import { GetUserBlocksUseCase } from "@/application/user/use.cases/get.user.blocks.use.case"
+import { GetUserProfileUseCase } from "@/application/user/use.cases/get.user.profile.use.case"
+import { UnblockUserUseCase } from "@/application/user/use.cases/unblock.user.use.case"
+import { UnfollowUserUseCase } from "@/application/user/use.cases/unfollow.user.use.case"
+import { IMomentRepository } from "@/domain/moment"
+import { IMomentMetricsRepository } from "@/domain/moment/repositories/moment.metrics.repository"
+import { IUserMetricsRepository, UserRepository } from "@/domain/user"
+import { UserController } from "@/infra/controllers/user.controller"
+import { DatabaseAdapter } from "@/infra/database/adapter"
+import { MomentMetricsRepositoryImpl } from "@/infra/repository.impl/moment.metrics.repository.impl"
+import { MomentRepositoryImpl } from "@/infra/repository.impl/moment.repository.impl"
 
 /**
  * Factory para criar componentes relacionados ao usuário
@@ -150,8 +154,32 @@ export class UserFactory {
     static createUserController(
         getUserProfileUseCase: GetUserProfileUseCase,
         getUserAccountUseCase: GetUserAccountUseCase,
+        followUserUseCase?: FollowUserUseCase,
+        unfollowUserUseCase?: UnfollowUserUseCase,
+        blockUserUseCase?: BlockUserUseCase,
+        unblockUserUseCase?: UnblockUserUseCase,
     ): UserController {
-        return new UserController(getUserProfileUseCase, getUserAccountUseCase)
+        const userRepository = this.createUserRepository(
+            // @ts-ignore
+            followUserUseCase?.userRepository?.database,
+        )
+        
+        // Se não passados, criar com valores padrão
+        const follow = followUserUseCase || new FollowUserUseCase(userRepository)
+        const unfollow = unfollowUserUseCase || new UnfollowUserUseCase(userRepository)
+        const block = blockUserUseCase || new BlockUserUseCase(userRepository)
+        const unblock = unblockUserUseCase || new UnblockUserUseCase(userRepository)
+        const getUserBlocks = new GetUserBlocksUseCase(userRepository)
+        
+        return new UserController(
+            getUserProfileUseCase,
+            getUserAccountUseCase,
+            follow,
+            unfollow,
+            block,
+            unblock,
+            getUserBlocks,
+        )
     }
 
     /**
@@ -165,7 +193,23 @@ export class UserFactory {
             userMetricsRepository,
         )
         const getUserAccountUseCase = this.createGetUserAccountUseCase(database)
-        return this.createUserController(getUserProfileUseCase, getUserAccountUseCase)
+        
+        // Criar use cases de follow/block
+        const followUserUseCase = new FollowUserUseCase(userRepository)
+        const unfollowUserUseCase = new UnfollowUserUseCase(userRepository)
+        const blockUserUseCase = new BlockUserUseCase(userRepository)
+        const unblockUserUseCase = new UnblockUserUseCase(userRepository)
+        const getUserBlocksUseCase = new GetUserBlocksUseCase(userRepository)
+        
+        return new UserController(
+            getUserProfileUseCase,
+            getUserAccountUseCase,
+            followUserUseCase,
+            unfollowUserUseCase,
+            blockUserUseCase,
+            unblockUserUseCase,
+            getUserBlocksUseCase,
+        )
     }
 
     /**

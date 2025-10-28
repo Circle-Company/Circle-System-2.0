@@ -63,7 +63,7 @@ class UserInteractionSummary
             },
             {
                 sequelize,
-                tableName: "swipe_user_interaction_summary",
+                tableName: "user_interaction_summary",
                 timestamps: true,
                 createdAt: "created_at",
                 updatedAt: "updated_at",

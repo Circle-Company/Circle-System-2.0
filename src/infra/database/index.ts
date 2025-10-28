@@ -28,14 +28,15 @@ import { ENVIRONMENT } from "./environment"
 import { Sequelize } from "sequelize"
 import UserClusterRank from "../models/swipe.engine/user.cluster.rank.model"
 import UserInteractionSummary from "../models/swipe.engine/user.interaction.summary.model"
+import UserBlock from "../models/user/user.block.model"
 import UserEmbedding from "../models/user/user.embedding.model"
+import UserFollow from "../models/user/user.follow.model"
 import UserInteractionHistory from "../models/user/user.interaction.history.model"
 import UserMetadata from "../models/user/user.metadata.model"
 import UserMetrics from "../models/user/user.metrics.model"
 import User from "../models/user/user.model"
 import UserPreferences from "../models/user/user.preferences.model"
 import UserProfilePicture from "../models/user/user.profile.picture.model"
-import UserStatistics from "../models/user/user.statistics.model"
 import UserStatus from "../models/user/user.status.model"
 import UserTerm from "../models/user/user.terms.model"
 // Moment models
@@ -69,8 +70,9 @@ export class DatabaseManager {
         UserMetadata,
         UserPreferences,
         UserProfilePicture,
-        UserStatistics,
         UserMetrics,
+        UserFollow,
+        UserBlock,
 
         // Moment models
         Moment,
