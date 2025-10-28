@@ -50,7 +50,16 @@ export default class MomentProcessing
                     field: "moment_id",
                 },
                 status: {
-                    type: DataTypes.ENUM("pending", "processing", "completed", "failed"),
+                    type: DataTypes.ENUM(
+                        "pending",
+                        "processing",
+                        "uploaded",
+                        "media_processed",
+                        "embeddings_queued",
+                        "embeddings_processed",
+                        "completed",
+                        "failed",
+                    ),
                     allowNull: false,
                     comment: "Status do processamento",
                 },
