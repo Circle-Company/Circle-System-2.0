@@ -43,15 +43,30 @@ export class VideoCompressionQueue {
         priority: number = EmbeddingJobPriority.NORMAL,
     ): Promise<Job<VideoCompressionJobData>> {
         console.log(`[VideoCompressionQueue] 📥 Enfileirando compressão: ${data.momentId}`)
-
-        const job = await this.queue.add(data, {
+        console.log(`[VideoCompressionQueue] 📊 Dados:`, {
+            momentId: data.momentId,
+            videoUrl: data.originalVideoUrl,
+            metadata: data.videoMetadata,
             priority,
-            jobId: `compression-${data.momentId}`,
         })
 
-        console.log(`[VideoCompressionQueue] ✅ Job de compressão enfileirado: ${job.id}`)
+        try {
+            const job = await this.queue.add(data, {
+                priority,
+                jobId: `compression-${data.momentId}`,
+            })
 
-        return job
+            console.log(`[VideoCompressionQueue] ✅ Job de compressão enfileirado:`, {
+                jobId: job.id,
+                momentId: data.momentId,
+                queueName: job.queue.name,
+            })
+
+            return job
+        } catch (error) {
+            console.error(`[VideoCompressionQueue] ❌ ERRO ao enfileirar:`, error)
+            throw error
+        }
     }
 
     /**
