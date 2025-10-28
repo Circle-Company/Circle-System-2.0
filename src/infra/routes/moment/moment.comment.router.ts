@@ -42,10 +42,6 @@ export class MomentCommentRouter {
                         })
                     }
 
-                    // TODO: Criar instância do controller quando disponível
-                    // const commentController = MomentFactory.getCommentController()
-                    // const result = await commentController.createComment(momentId, userId, body)
-
                     const commentController = MomentFactory.getMomentCommentController()
 
                     const result = await commentController.createComment(momentId, authorId, body)
@@ -74,39 +70,6 @@ export class MomentCommentRouter {
                         error: error instanceof Error ? error.message : "Erro interno do servidor",
                     })
                 }
-            },
-            {
-                schema: {
-                    tags: ["Comments"],
-                    summary: "Criar comentário",
-                    description: "Cria um novo comentário em um momento",
-                    params: {
-                        type: "object",
-                        properties: {
-                            momentId: {
-                                type: "string",
-                                description: "ID do momento",
-                            },
-                        },
-                        required: ["momentId"],
-                    },
-                    body: {
-                        type: "object",
-                        properties: {
-                            content: {
-                                type: "string",
-                                description: "Conteúdo do comentário",
-                                minLength: 1,
-                                maxLength: 500,
-                            },
-                            parentCommentId: {
-                                type: "string",
-                                description: "ID do comentário pai (para respostas)",
-                            },
-                        },
-                        required: ["content"],
-                    },
-                },
             },
         )
 
@@ -146,53 +109,6 @@ export class MomentCommentRouter {
                         error: error instanceof Error ? error.message : "Erro interno do servidor",
                     })
                 }
-            },
-            {
-                schema: {
-                    tags: ["Comments"],
-                    summary: "Listar comentários",
-                    description: "Lista comentários de um momento",
-                    params: {
-                        type: "object",
-                        properties: {
-                            momentId: {
-                                type: "string",
-                                description: "ID do momento",
-                            },
-                        },
-                        required: ["momentId"],
-                    },
-                    querystring: {
-                        type: "object",
-                        properties: {
-                            page: {
-                                type: "integer",
-                                minimum: 1,
-                                default: 1,
-                            },
-                            limit: {
-                                type: "integer",
-                                minimum: 1,
-                                maximum: 100,
-                                default: 20,
-                            },
-                            includeReplies: {
-                                type: "boolean",
-                                default: false,
-                            },
-                            sortBy: {
-                                type: "string",
-                                enum: ["createdAt", "likesCount", "repliesCount"],
-                                default: "createdAt",
-                            },
-                            sortOrder: {
-                                type: "string",
-                                enum: ["asc", "desc"],
-                                default: "desc",
-                            },
-                        },
-                    },
-                },
             },
         )
     }
