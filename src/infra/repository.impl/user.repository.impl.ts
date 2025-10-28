@@ -1360,6 +1360,22 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
         return queryOptions
     }
 
+    async isBlocked(userId: string, targetUserId: string): Promise<boolean> {
+        try {
+            const UserBlockModel = this.models.UserBlock
+            const block = await UserBlockModel.findOne({
+                where: {
+                    blockerId: BigInt(userId),
+                    blockedId: BigInt(targetUserId),
+                },
+            })
+            return !!block
+        } catch (error) {
+            console.error("Erro ao verificar se usuário está bloqueado:", error)
+            return false
+        }
+    }
+
     private buildWhereClause(filters?: UserFilters): WhereOptions {
         const whereClause: WhereOptions = {}
 

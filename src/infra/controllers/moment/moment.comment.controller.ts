@@ -74,6 +74,8 @@ export class MomentCommentController {
         request: CreateCommentRequest,
     ): Promise<CommentResponse | null> {
         try {
+            console.log(`[MomentCommentController] 🔔 Criando comentário em momento ${momentId} para usuário ${userId}`)
+            console.log(`[MomentCommentController] 📋 Dados do request:`, request)
             const result = await this.commentMomentUseCase.execute({
                 momentId,
                 userId,

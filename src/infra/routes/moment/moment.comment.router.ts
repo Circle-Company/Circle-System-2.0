@@ -2,10 +2,15 @@ import { HttpAdapter, HttpRequest, HttpResponse } from "../../http/http.type"
 
 import { DatabaseAdapter } from "@/infra/database/adapter"
 import { MomentFactory } from "@/infra/factories/moment.factory"
+import { AuthMiddleware, createAuthMiddleware } from "@/infra/middlewares"
 import { ErrorCode, SystemError } from "@/shared/errors"
 
 export class MomentCommentRouter {
-    constructor(private api: HttpAdapter, private databaseAdapter: DatabaseAdapter) {}
+    private authMiddleware: AuthMiddleware
+
+    constructor(private api: HttpAdapter, private databaseAdapter: DatabaseAdapter) {
+        this.authMiddleware = createAuthMiddleware(databaseAdapter)
+    }
 
     /**
      * Registra todas as rotas de comentários de momentos
@@ -70,6 +75,9 @@ export class MomentCommentRouter {
                         error: error instanceof Error ? error.message : "Erro interno do servidor",
                     })
                 }
+            },
+            {
+                preHandler: [this.authMiddleware.execute.bind(this.authMiddleware)],
             },
         )
 
