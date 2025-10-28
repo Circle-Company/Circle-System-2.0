@@ -44,7 +44,7 @@ export default class ProfilePicture
             {
                 sequelize,
                 tableName: "profile_pictures",
-                modelName: "ProfilePicture",
+                modelName: "UserProfilePicture",
                 timestamps: true,
             },
         )
