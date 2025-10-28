@@ -143,8 +143,8 @@ export default class User extends Model<UserAttributes> implements UserAttribute
             })
         }
 
-        if (models.UserStatistics) {
-            this.hasOne(models.UserStatistics, {
+        if (models.UserMetrics) {
+            this.hasOne(models.UserMetrics, {
                 foreignKey: "user_id",
                 as: "statistics",
             })
@@ -196,14 +196,14 @@ export default class User extends Model<UserAttributes> implements UserAttribute
         if (models.UserEmbedding) {
             this.hasOne(models.UserEmbedding, {
                 foreignKey: "user_id",
-                as: "user_embedding",
+                as: "embedding",
             })
         }
 
         if (models.UserInteractionHistory) {
             this.hasMany(models.UserInteractionHistory, {
                 foreignKey: "user_id",
-                as: "user_interaction_history",
+                as: "interactionHistory",
             })
         }
 
@@ -228,6 +228,31 @@ export default class User extends Model<UserAttributes> implements UserAttribute
             })
         }
 
-        // Associações removidas para modelos que não existem ainda
+        // Associações de relacionamentos sociais
+        if (models.UserFollow) {
+            // Usuários que este usuário está seguindo
+            this.hasMany(models.UserFollow, {
+                foreignKey: "follower_id",
+                as: "following",
+            })
+            // Usuários que seguem este usuário (seguidores)
+            this.hasMany(models.UserFollow, {
+                foreignKey: "following_id",
+                as: "followers",
+            })
+        }
+
+        if (models.UserBlock) {
+            // Usuários que este usuário bloqueou
+            this.hasMany(models.UserBlock, {
+                foreignKey: "blocker_id",
+                as: "blocking",
+            })
+            // Usuários que bloquearam este usuário
+            this.hasMany(models.UserBlock, {
+                foreignKey: "blocked_id",
+                as: "blockedBy",
+            })
+        }
     }
 }
