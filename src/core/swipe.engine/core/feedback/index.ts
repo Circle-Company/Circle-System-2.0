@@ -5,15 +5,15 @@
  * atualizando os embeddings de usuários e posts com base no comportamento real.
  */
 
-import { InteractionType, UserInteraction } from "../../types"
 import { LogLevel, Logger } from "@/shared/logger"
+import { InteractionType, UserInteraction } from "../../types"
 
+import UserInteractionSummary from "@/infra/models/swipe.engine/user.interaction.summary.model"
+import UserInteractionHistory from "@/infra/models/user/user.interaction.history.model"
 import { EmbeddingParams as Params } from "../../params"
+import { normalizeVector } from "../../utils/vector.operations"
 import { PostEmbeddingService } from "../embeddings/post"
 import { UserEmbeddingService } from "../embeddings/user"
-import UserInteractionHistory from "@/infra/models/swipe.engine/user.interaction.history.model"
-import UserInteractionSummary from "@/infra/models/swipe.engine/user.interaction.summary.model"
-import { normalizeVector } from "../../utils/vector.operations"
 
 export class FeedbackProcessor {
     private readonly userEmbeddingService: UserEmbeddingService

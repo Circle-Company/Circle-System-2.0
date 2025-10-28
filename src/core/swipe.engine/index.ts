@@ -7,15 +7,15 @@
 
 import { Recommendation, RecommendationOptions } from "@/core/swipe.engine/core/recommendation"
 
+import { RecommendationEngine } from "@/core/swipe.engine/core/recommendation/rec.engine"
+import { connection } from "@/infra/database"
+import PostEmbedding from "@/infra/models/moment/moment.embedding.model"
 import InteractionEvent from "@/infra/models/swipe.engine/interaction.event.model"
 import PostCluster from "@/infra/models/swipe.engine/post.cluster.model"
 import PostClusterRank from "@/infra/models/swipe.engine/post.cluster.rank.model"
-import PostEmbedding from "@/infra/models/swipe.engine/post.embedding.model"
-import { RecommendationEngine } from "@/core/swipe.engine/core/recommendation/rec.engine"
-import UserEmbedding from "@/infra/models/swipe.engine/user.embedding.model"
-import UserInteractionHistory from "@/infra/models/swipe.engine/user.interaction.history.model"
 import UserInteractionSummary from "@/infra/models/swipe.engine/user.interaction.summary.model"
-import { connection } from "@/infra/database"
+import UserEmbedding from "@/infra/models/user/user.embedding.model"
+import UserInteractionHistory from "@/infra/models/user/user.interaction.history.model"
 
 export class SwipeEngine {
     public recommender: RecommendationEngine

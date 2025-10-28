@@ -1,19 +1,19 @@
 "use strict"
 
 /** @type {import('sequelize-cli').Migration} */
-module.exports = {
+export default {
     async up(queryInterface, Sequelize) {
-        await queryInterface.createTable("swipe_post_embeddings", {
+        await queryInterface.createTable("user_embeddings", {
             id: {
                 type: Sequelize.BIGINT,
                 primaryKey: true,
                 allowNull: false,
             },
-            post_id: {
+            user_id: {
                 type: Sequelize.BIGINT,
                 allowNull: false,
                 references: {
-                    model: "moments",
+                    model: "users",
                     key: "id",
                 },
                 onUpdate: "CASCADE",
@@ -22,7 +22,7 @@ module.exports = {
             vector: {
                 type: Sequelize.TEXT,
                 allowNull: false,
-                comment: "Vetor de embedding serializado em JSON",
+                comment: "Vetor de embedding do usuário serializado em JSON",
             },
             dimension: {
                 type: Sequelize.INTEGER,
@@ -46,11 +46,11 @@ module.exports = {
         })
 
         // Índices
-        await queryInterface.addIndex("swipe_post_embeddings", ["post_id"])
-        await queryInterface.addIndex("swipe_post_embeddings", ["dimension"])
+        await queryInterface.addIndex("user_embeddings", ["user_id"])
+        await queryInterface.addIndex("user_embeddings", ["dimension"])
     },
 
     async down(queryInterface, Sequelize) {
-        await queryInterface.dropTable("swipe_post_embeddings")
+        await queryInterface.dropTable("user_embeddings")
     },
 }
