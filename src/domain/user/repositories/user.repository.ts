@@ -1,15 +1,18 @@
 import { Op, WhereOptions } from "sequelize"
 
 import { Level } from "@/domain/authorization"
+import { User } from "@/domain/user/entities/user.entity"
 import { DatabaseAdapter } from "@/infra/database/adapter"
 import UserInteractionSummaryModel from "@/infra/models/swipe.engine/user.interaction.summary.model"
+import UserBlockModel from "@/infra/models/user/user.block.model"
 import UserEmbeddingModel from "@/infra/models/user/user.embedding.model"
+import UserFollowModel from "@/infra/models/user/user.follow.model"
+import UserMetricsModel from "@/infra/models/user/user.metrics.model"
 import UserModel from "@/infra/models/user/user.model"
 import UserPreferencesModel from "@/infra/models/user/user.preferences.model"
-import UserStatisticsModel from "@/infra/models/user/user.statistics.model"
 import UserStatusModel from "@/infra/models/user/user.status.model"
 import UserTermModel from "@/infra/models/user/user.terms.model"
-import { User } from "../entities/user.entity"
+import { generateId } from "@/shared"
 import { UserMapper } from "../user.mapper"
 
 /**
@@ -40,19 +43,10 @@ export interface IUserRepository {
     getFollowers(userId: string, limit?: number, offset?: number): Promise<User[]>
     getFollowing(userId: string, limit?: number, offset?: number): Promise<User[]>
     getBlockedUsers(userId: string, limit?: number, offset?: number): Promise<User[]>
-    search(criteria: {
-        query: string
-        filters?: any
-        sortBy?: any
-        limit?: number
-        offset?: number
-    }): Promise<{ users: User[]; total: number }>
 
     // ===== OPERAÇÕES DE STATUS =====
     findByStatus(status: any, limit?: number, offset?: number): Promise<User[]>
     findByRole(role: any, limit?: number, offset?: number): Promise<User[]>
-    countByStatus(status: any): Promise<number>
-    countByRole(role: any): Promise<number>
 
     // ===== OPERAÇÕES AVANÇADAS =====
     findMostActive(limit?: number): Promise<User[]>
@@ -71,32 +65,6 @@ export interface IUserRepository {
     ): Promise<User[]>
     findUsersByReputationLevel(
         level: "novice" | "rising" | "established" | "influencer" | "celebrity",
-        options?: UserSearchOptions,
-    ): Promise<User[]>
-
-    // ===== OPERAÇÕES DE MÉTRICAS AVANÇADAS =====
-    findUsersByEngagementMetrics(
-        criteria: {
-            minLikesReceived?: number
-            minViewsReceived?: number
-            minCommentsReceived?: number
-            minSharesReceived?: number
-            minEngagementRate?: number
-            minReachRate?: number
-        },
-        options?: UserSearchOptions,
-    ): Promise<User[]>
-    findUsersByReputationScore(
-        minScore: number,
-        maxScore?: number,
-        options?: UserSearchOptions,
-    ): Promise<User[]>
-    findInfluencersByCriteria(
-        criteria: {
-            minFollowers?: number
-            minEngagementRate?: number
-            minReputationScore?: number
-        },
         options?: UserSearchOptions,
     ): Promise<User[]>
 }
@@ -120,12 +88,9 @@ export interface UserRepositoryInterface {
 
     // ===== OPERAÇÕES DE BUSCA AVANÇADA =====
     findAll(options?: UserSearchOptions): Promise<User[]>
-    findActiveUsers(options?: UserSearchOptions): Promise<User[]>
     findUsersByStatus(status: Level, options?: UserSearchOptions): Promise<User[]>
     findVerifiedUsers(options?: UserSearchOptions): Promise<User[]>
-    findUnverifiedUsers(options?: UserSearchOptions): Promise<User[]>
     findBlockedUsers(options?: UserSearchOptions): Promise<User[]>
-    findDeletedUsers(options?: UserSearchOptions): Promise<User[]>
 
     // ===== OPERAÇÕES DE ANÁLISE DE COMPORTAMENTO =====
     findUsersByActivityLevel(
@@ -137,7 +102,7 @@ export interface UserRepositoryInterface {
         maxScore?: number,
         options?: UserSearchOptions,
     ): Promise<User[]>
-    findUsersByCreationDate(
+    findUsersByCreationDate(    
         startDate: Date,
         endDate?: Date,
         options?: UserSearchOptions,
@@ -145,64 +110,9 @@ export interface UserRepositoryInterface {
     findNewUsers(daysThreshold?: number, options?: UserSearchOptions): Promise<User[]>
     findInactiveUsers(daysThreshold?: number, options?: UserSearchOptions): Promise<User[]>
 
-    // ===== OPERAÇÕES DE MÉTRICAS =====
-    findUsersByEngagementRate(
-        minRate: number,
-        maxRate?: number,
-        options?: UserSearchOptions,
-    ): Promise<User[]>
-    findUsersByFollowersCount(
-        minFollowers: number,
-        maxFollowers?: number,
-        options?: UserSearchOptions,
-    ): Promise<User[]>
-    findUsersByContentCount(
-        minContent: number,
-        maxContent?: number,
-        options?: UserSearchOptions,
-    ): Promise<User[]>
-    findTopPerformers(limit?: number, options?: UserSearchOptions): Promise<User[]>
-    findInfluencers(
-        minFollowers?: number,
-        minEngagementRate?: number,
-        options?: UserSearchOptions,
-    ): Promise<User[]>
-
-    // ===== OPERAÇÕES DE EMBEDDINGS =====
-    findUsersWithEmbeddings(options?: UserSearchOptions): Promise<User[]>
-    findUsersWithoutEmbeddings(options?: UserSearchOptions): Promise<User[]>
-    findUsersByPreferredHashtags(hashtags: string[], options?: UserSearchOptions): Promise<User[]>
-
-    // ===== OPERAÇÕES DE MODERAÇÃO =====
-    findUsersWithModerationIssues(options?: UserSearchOptions): Promise<User[]>
-    findUsersByViolationsCount(
-        minViolations: number,
-        maxViolations?: number,
-        options?: UserSearchOptions,
-    ): Promise<User[]>
-    findUsersByReportsCount(
-        minReports: number,
-        maxReports?: number,
-        options?: UserSearchOptions,
-    ): Promise<User[]>
-
-    // ===== OPERAÇÕES DE PAGINAÇÃO E CONTAGEM =====
-    countUsers(filters?: UserFilters): Promise<number>
-    countActiveUsers(): Promise<number>
-    countVerifiedUsers(): Promise<number>
-    countUsersByStatus(status: Level): Promise<number>
-    countUsersByActivityLevel(level: "low" | "medium" | "high"): Promise<number>
-
-    // ===== OPERAÇÕES DE ESTATÍSTICAS =====
-    getUsersStatistics(): Promise<UserStatistics>
-    getActivityDistribution(): Promise<ActivityDistribution>
-    getReputationDistribution(): Promise<ReputationDistribution>
-    getEngagementDistribution(): Promise<EngagementDistribution>
-
     // ===== OPERAÇÕES DE PERMISSÃO E STATUS =====
     findUsersWhoCanCreateMoments(options?: UserSearchOptions): Promise<User[]>
     findUsersWhoCanInteractWithMoments(options?: UserSearchOptions): Promise<User[]>
-    findUsersWhoCanViewMoments(options?: UserSearchOptions): Promise<User[]>
     findUsersWithAdminAccess(options?: UserSearchOptions): Promise<User[]>
     findUsersWhoCanMentionUsers(options?: UserSearchOptions): Promise<User[]>
     findUsersWhoCanBeMentioned(options?: UserSearchOptions): Promise<User[]>
@@ -210,33 +120,7 @@ export interface UserRepositoryInterface {
         level: "novice" | "rising" | "established" | "influencer" | "celebrity",
         options?: UserSearchOptions,
     ): Promise<User[]>
-
-    // ===== OPERAÇÕES DE MÉTRICAS AVANÇADAS =====
-    findUsersByEngagementMetrics(
-        criteria: {
-            minLikesReceived?: number
-            minViewsReceived?: number
-            minCommentsReceived?: number
-            minSharesReceived?: number
-            minEngagementRate?: number
-            minReachRate?: number
-        },
-        options?: UserSearchOptions,
-    ): Promise<User[]>
-    findInfluencersByCriteria(
-        criteria: {
-            minFollowers?: number
-            minEngagementRate?: number
-            minReputationScore?: number
-        },
-        options?: UserSearchOptions,
-    ): Promise<User[]>
-
-    // ===== OPERAÇÕES EM LOTE =====
-    createMany(users: User[]): Promise<User[]>
-    updateMany(users: User[]): Promise<User[]>
-    deleteMany(ids: string[]): Promise<void>
-    bulkUpdateStatus(ids: string[], status: Partial<UserStatusData>): Promise<void>
+    findUsersWhoCanViewMoments(options?: UserSearchOptions): Promise<User[]>
 }
 
 // ===== TIPOS DE SUPORTE =====
@@ -323,7 +207,6 @@ export interface UserStatusData {
 
 export interface UserStatistics {
     totalUsers: number
-    activeUsers: number
     verifiedUsers: number
     blockedUsers: number
     deletedUsers: number
@@ -405,7 +288,7 @@ export class UserRepository implements UserRepositoryInterface, IUserRepository 
 
             const statisticsAttributes = UserMapper.toUserStatisticsAttributes(user)
             if (statisticsAttributes) {
-                await UserStatisticsModel.create(statisticsAttributes, { transaction })
+                await UserMetricsModel.create(statisticsAttributes, { transaction })
             }
 
             const termsAttributes = UserMapper.toUserTermAttributes(user)
@@ -586,170 +469,352 @@ export class UserRepository implements UserRepositoryInterface, IUserRepository 
         return count > 0
     }
 
-    async existsByEmail(email: string): Promise<boolean> {
-        // Campo email não está disponível no modelo atual
-        // Implementação básica - retorna false
-        // Em um sistema real, você implementaria a verificação por email
-        return false
-    }
-
-    // ===== IMPLEMENTAÇÃO DOS MÉTODOS DA INTERFACE IUserRepository =====
-
-    async findByEmail(email: string): Promise<User | null> {
-        // Campo email não está disponível no modelo atual
-        // Implementação básica - retorna null
-        // Em um sistema real, você implementaria a busca por email
-        return null
-    }
-
-    async findByPhone(phone: string): Promise<User | null> {
-        // Campo phone não está disponível no modelo atual
-        // Implementação básica - retorna null
-        // Em um sistema real, você implementaria a busca por telefone
-        return null
-    }
-
-    async findBySocialId(socialId: string): Promise<User | null> {
-        // Campo social_id não está disponível no modelo atual
-        // Implementação básica - retorna null
-        // Em um sistema real, você implementaria a busca por social ID
-        return null
-    }
-
-    async findMany(criteria: {
-        query?: string
-        filters?: any
-        sortBy?: any
-        limit?: number
-        offset?: number
-    }): Promise<User[]> {
-        const options: UserSearchOptions = {
-            limit: criteria.limit || 20,
-            offset: criteria.offset || 0,
-            orderBy: criteria.sortBy,
-            filters: criteria.filters,
-        }
-
-        if (criteria.query) {
-            return this.findBySearchTerm(criteria.query)
-        }
-
-        return this.findAll(options)
-    }
-
     // ===== OPERAÇÕES SOCIAIS =====
 
     async followUser(userId: string, targetUserId: string): Promise<boolean> {
-        // Implementação básica - em um sistema real, isso seria feito através de uma tabela de relacionamentos
-        // Por enquanto, retornamos true para indicar sucesso
         try {
-            // Aqui você implementaria a lógica de seguir usuário
-            // Por exemplo, inserir na tabela user_follows
+            // Verificar se já está seguindo
+            const existingFollow = await UserFollowModel.findOne({
+                where: {
+                    followerId: BigInt(userId),
+                    followingId: BigInt(targetUserId),
+                },
+            })
+
+            if (existingFollow) {
+                return true // Já está seguindo
+            }
+
+            // Criar relacionamento e atualizar métricas
+            await Promise.all([
+                UserFollowModel.create({
+                    id: generateId(),
+                    followerId: BigInt(userId),
+                    followingId: BigInt(targetUserId),
+                } as any),
+                UserMetricsModel.increment("total_followers", {
+                    where: { user_id: BigInt(targetUserId) },
+                    by: 1,
+                }),
+                UserMetricsModel.increment("total_following", {
+                    where: { user_id: BigInt(userId) },
+                    by: 1,
+                }),
+                UserMetricsModel.increment("total_follows_given", {
+                    where: { user_id: BigInt(userId) },
+                    by: 1,
+                }),
+            ])
+
             return true
         } catch (error) {
+            console.error("Erro ao seguir usuário:", error)
             return false
         }
     }
 
     async unfollowUser(userId: string, targetUserId: string): Promise<boolean> {
-        // Implementação básica - em um sistema real, isso seria feito através de uma tabela de relacionamentos
         try {
-            // Aqui você implementaria a lógica de deixar de seguir usuário
-            // Por exemplo, remover da tabela user_follows
-            return true
+            // Verificar se existe o follow
+            const existingFollow = await UserFollowModel.findOne({
+                where: {
+                    followerId: BigInt(userId),
+                    followingId: BigInt(targetUserId),
+                },
+            })
+
+            if (!existingFollow) {
+                return false // Não está seguindo
+            }
+
+            // Destruir o relacionamento
+            const deleted = await UserFollowModel.destroy({
+                where: {
+                    followerId: BigInt(userId),
+                    followingId: BigInt(targetUserId),
+                },
+            })
+
+            if (deleted > 0) {
+                // Atualizar métricas usando models com validação
+                const [targetUserMetrics] = await UserMetricsModel.findOrCreate({
+                    where: { user_id: BigInt(targetUserId) },
+                    defaults: {
+                        user_id: BigInt(targetUserId),
+                        total_followers: 0,
+                        total_following: 0,
+                    },
+                })
+
+                const [userMetrics] = await UserMetricsModel.findOrCreate({
+                    where: { user_id: BigInt(userId) },
+                    defaults: {
+                        user_id: BigInt(userId),
+                        total_followers: 0,
+                        total_following: 0,
+                    },
+                })
+
+                // Decrementar métricas com validação para evitar valores negativos
+                if (targetUserMetrics.total_followers > 0) {
+                    await targetUserMetrics.decrement("total_followers", { by: 1 })
+                }
+
+                if (userMetrics.total_following > 0) {
+                    await userMetrics.decrement("total_following", { by: 1 })
+                }
+
+                return true
+            }
+
+            return false
         } catch (error) {
+            console.error("Erro ao deixar de seguir usuário:", error)
             return false
         }
     }
 
     async blockUser(userId: string, blockedUserId: string): Promise<boolean> {
-        // Implementação básica - em um sistema real, isso seria feito através de uma tabela de bloqueios
         try {
-            // Aqui você implementaria a lógica de bloquear usuário
-            // Por exemplo, inserir na tabela user_blocks
+            // Verificar se já está bloqueado
+            const existingBlock = await UserBlockModel.findOne({
+                where: {
+                    blockerId: BigInt(userId),
+                    blockedId: BigInt(blockedUserId),
+                },
+            })
+
+            if (existingBlock) {
+                return true // Já está bloqueado
+            }
+
+            // Remover follow se existir (ao bloquear, automaticamente deixa de seguir)
+            await UserFollowModel.destroy({
+                where: {
+                    [Op.or]: [
+                        {
+                            followerId: BigInt(userId),
+                            followingId: BigInt(blockedUserId),
+                        },
+                        {
+                            followerId: BigInt(blockedUserId),
+                            followingId: BigInt(userId),
+                        },
+                    ],
+                },
+            })
+
+            // Criar o bloqueio
+            await UserBlockModel.create({
+                id: generateId(),
+                blockerId: BigInt(userId),
+                blockedId: BigInt(blockedUserId),
+            } as any)
+
             return true
         } catch (error) {
+            console.error("Erro ao bloquear usuário:", error)
             return false
         }
     }
 
     async unblockUser(userId: string, unblockedUserId: string): Promise<boolean> {
-        // Implementação básica - em um sistema real, isso seria feito através de uma tabela de bloqueios
         try {
-            // Aqui você implementaria a lógica de desbloquear usuário
-            // Por exemplo, remover da tabela user_blocks
-            return true
+            const deleted = await UserBlockModel.destroy({
+                where: {
+                    blockerId: BigInt(userId),
+                    blockedId: BigInt(unblockedUserId),
+                },
+            })
+
+            return deleted > 0
         } catch (error) {
+            console.error("Erro ao desbloquear usuário:", error)
             return false
         }
     }
 
     async isFollowing(userId: string, targetUserId: string): Promise<boolean> {
-        // Implementação básica - em um sistema real, isso verificaria na tabela de relacionamentos
         try {
-            // Aqui você implementaria a verificação se o usuário está seguindo outro
-            // Por exemplo, consultar na tabela user_follows
-            return false
+            const follow = await UserFollowModel.findOne({
+                where: {
+                    followerId: BigInt(userId),
+                    followingId: BigInt(targetUserId),
+                },
+            })
+
+            return !!follow
         } catch (error) {
+            console.error("Erro ao verificar se está seguindo:", error)
             return false
         }
     }
 
     async isBlocked(userId: string, targetUserId: string): Promise<boolean> {
-        // Implementação básica - em um sistema real, isso verificaria na tabela de bloqueios
         try {
-            // Aqui você implementaria a verificação se o usuário está bloqueado
-            // Por exemplo, consultar na tabela user_blocks
-            return false
+            const block = await UserBlockModel.findOne({
+                where: {
+                    [Op.or]: [
+                        {
+                            blockerId: BigInt(userId),
+                            blockedId: BigInt(targetUserId),
+                        },
+                        {
+                            blockerId: BigInt(targetUserId),
+                            blockedId: BigInt(userId),
+                        },
+                    ],
+                },
+            })
+
+            return !!block
         } catch (error) {
+            console.error("Erro ao verificar bloqueio:", error)
             return false
         }
     }
 
     async getFollowers(userId: string, limit?: number, offset?: number): Promise<User[]> {
-        // Implementação básica - em um sistema real, isso consultaria a tabela de relacionamentos
         try {
-            // Aqui você implementaria a busca de seguidores
-            // Por exemplo, consultar na tabela user_follows onde target_user_id = userId
-            return []
+            const follows = await UserFollowModel.findAll({
+                where: {
+                    followingId: BigInt(userId),
+                },
+                include: [
+                    {
+                        model: UserModel,
+                        as: "follower",
+                        include: [
+                            {
+                                model: UserStatusModel,
+                                as: "status",
+                                required: false,
+                                separate: true,
+                            },
+                            {
+                                model: UserMetricsModel,
+                                as: "statistics",
+                                required: false,
+                                separate: true,
+                            },
+                        ],
+                    },
+                ],
+                limit: limit || 50,
+                offset: offset || 0,
+                order: [["createdAt", "DESC"]],
+                subQuery: false,
+            })
+
+            // Filtragem adicional para evitar duplicados
+            const uniqueUsers = new Map<bigint, any>()
+            for (const follow of follows) {
+                const user = follow.follower
+                if (user && !uniqueUsers.has(user.id)) {
+                    uniqueUsers.set(user.id, user)
+                }
+            }
+
+            return Array.from(uniqueUsers.values()).map((user: any) => UserMapper.toDomain(user))
         } catch (error) {
+            console.error("Erro ao buscar seguidores:", error)
             return []
         }
     }
 
     async getFollowing(userId: string, limit?: number, offset?: number): Promise<User[]> {
-        // Implementação básica - em um sistema real, isso consultaria a tabela de relacionamentos
         try {
-            // Aqui você implementaria a busca de usuários que está seguindo
-            // Por exemplo, consultar na tabela user_follows onde user_id = userId
-            return []
+            const follows = await UserFollowModel.findAll({
+                where: {
+                    followerId: BigInt(userId),
+                },
+                include: [
+                    {
+                        model: UserModel,
+                        as: "following",
+                        include: [
+                            {
+                                model: UserStatusModel,
+                                as: "status",
+                                required: false,
+                                separate: true,
+                            },
+                            {
+                                model: UserMetricsModel,
+                                as: "statistics",
+                                required: false,
+                                separate: true,
+                            },
+                        ],
+                    },
+                ],
+                limit: limit || 50,
+                offset: offset || 0,
+                order: [["createdAt", "DESC"]],
+                subQuery: false,
+            })
+
+            // Filtragem adicional para evitar duplicados
+            const uniqueUsers = new Map<bigint, any>()
+            for (const follow of follows) {
+                const user = follow.following
+                if (user && !uniqueUsers.has(user.id)) {
+                    uniqueUsers.set(user.id, user)
+                }
+            }
+
+            return Array.from(uniqueUsers.values()).map((user: any) => UserMapper.toDomain(user))
         } catch (error) {
+            console.error("Erro ao buscar seguindo:", error)
             return []
         }
     }
 
     async getBlockedUsers(userId: string, limit?: number, offset?: number): Promise<User[]> {
-        // Implementação básica - em um sistema real, isso consultaria a tabela de bloqueios
         try {
-            // Aqui você implementaria a busca de usuários bloqueados
-            // Por exemplo, consultar na tabela user_blocks onde user_id = userId
-            return []
-        } catch (error) {
-            return []
-        }
-    }
+            const blocks = await UserBlockModel.findAll({
+                where: {
+                    blockerId: BigInt(userId),
+                },
+                include: [
+                    {
+                        model: UserModel,
+                        as: "blocked",
+                        include: [
+                            {
+                                model: UserStatusModel,
+                                as: "status",
+                                required: false,
+                                separate: true,
+                            },
+                            {
+                                model: UserMetricsModel,
+                                as: "statistics",
+                                required: false,
+                                separate: true,
+                            },
+                        ],
+                    },
+                ],
+                limit: limit || 50,
+                offset: offset || 0,
+                order: [["createdAt", "DESC"]],
+                subQuery: false,
+            })
 
-    async search(criteria: {
-        query: string
-        filters?: any
-        sortBy?: any
-        limit?: number
-        offset?: number
-    }): Promise<{ users: User[]; total: number }> {
-        const users = await this.findMany(criteria)
-        return {
-            users,
-            total: users.length,
+            // Filtragem adicional para evitar duplicados
+            const uniqueUsers = new Map<bigint, any>()
+            for (const block of blocks) {
+                const user = block.blocked
+                if (user && !uniqueUsers.has(user.id)) {
+                    uniqueUsers.set(user.id, user)
+                }
+            }
+
+            return Array.from(uniqueUsers.values()).map((user: any) => UserMapper.toDomain(user))
+        } catch (error) {
+            console.error("Erro ao buscar usuários bloqueados:", error)
+            return []
         }
     }
 
@@ -774,18 +839,17 @@ export class UserRepository implements UserRepositoryInterface, IUserRepository 
         return this.findUsersByStatus(role, options)
     }
 
-    async countByStatus(status: any): Promise<number> {
-        return this.countUsersByStatus(status)
-    }
-
-    async countByRole(role: any): Promise<number> {
-        return this.countUsersByStatus(role)
-    }
-
     // ===== OPERAÇÕES AVANÇADAS =====
 
     async findMostActive(limit?: number): Promise<User[]> {
-        return this.findTopPerformers(limit || 10)
+        const options: UserSearchOptions = {
+            limit: limit || 10,
+            orderBy: {
+                field: "engagementRate",
+                direction: "DESC",
+            },
+        }
+        return this.findAll(options)
     }
 
     async findTopByFollowers(limit?: number): Promise<User[]> {
@@ -981,28 +1045,33 @@ export class UserRepository implements UserRepositoryInterface, IUserRepository 
     ): Promise<User[]> {
         const queryOptions = this.buildQueryOptions(options)
 
+        const whereClause: WhereOptions = {}
+
+        if (criteria.minFollowers) {
+            whereClause.total_followers = { [Op.gte]: criteria.minFollowers }
+        }
+        if (criteria.minEngagementRate) {
+            whereClause.engagement_rate = { [Op.gte]: criteria.minEngagementRate }
+        }
+        if (criteria.minReputationScore) {
+            whereClause.reputation_score = { [Op.gte]: criteria.minReputationScore }
+        }
+
         const users = await UserModel.findAll({
             ...queryOptions,
-            include: this.getIncludeOptions(),
+            include: [
+                ...this.getIncludeOptions(),
+                {
+                    model: UserMetricsModel,
+                    as: "statistics",
+                    where: whereClause,
+                    required: true,
+                },
+            ],
+            order: [[{ model: UserMetricsModel, as: "statistics" }, "total_followers", "DESC"]],
         })
 
-        // Filtrar influenciadores usando a lógica da entidade
-        const domainUsers = UserMapper.toDomainArray(users as any)
-        return domainUsers.filter((user) => {
-            const isInfluencer = user.isInfluencer(
-                criteria.minFollowers || 1000,
-                criteria.minEngagementRate || 0.05,
-            )
-
-            if (!isInfluencer) return false
-
-            if (criteria.minReputationScore) {
-                const reputationScore = user.getReputationScore()
-                return reputationScore >= criteria.minReputationScore
-            }
-
-            return true
-        })
+        return UserMapper.toDomainArray(users as any)
     }
 
     // ===== OPERAÇÕES DE BUSCA AVANÇADA =====
@@ -1013,28 +1082,6 @@ export class UserRepository implements UserRepositoryInterface, IUserRepository 
         const users = await UserModel.findAll({
             ...queryOptions,
             include: this.getIncludeOptions(),
-        })
-
-        return UserMapper.toDomainArray(users as any)
-    }
-
-    async findActiveUsers(options?: UserSearchOptions): Promise<User[]> {
-        const queryOptions = this.buildQueryOptions(options)
-
-        const users = await UserModel.findAll({
-            ...queryOptions,
-            include: [
-                ...this.getIncludeOptions(),
-                {
-                    model: UserStatusModel,
-                    as: "status",
-                    where: {
-                        deleted: false,
-                        blocked: false,
-                    },
-                    required: true,
-                },
-            ],
         })
 
         return UserMapper.toDomainArray(users as any)
@@ -1082,27 +1129,6 @@ export class UserRepository implements UserRepositoryInterface, IUserRepository 
         return UserMapper.toDomainArray(users as any)
     }
 
-    async findUnverifiedUsers(options?: UserSearchOptions): Promise<User[]> {
-        const queryOptions = this.buildQueryOptions(options)
-
-        const users = await UserModel.findAll({
-            ...queryOptions,
-            include: [
-                ...this.getIncludeOptions(),
-                {
-                    model: UserStatusModel,
-                    as: "status",
-                    where: {
-                        verified: false,
-                    },
-                    required: true,
-                },
-            ],
-        })
-
-        return UserMapper.toDomainArray(users as any)
-    }
-
     async findBlockedUsers(options?: UserSearchOptions): Promise<User[]> {
         const queryOptions = this.buildQueryOptions(options)
 
@@ -1115,27 +1141,6 @@ export class UserRepository implements UserRepositoryInterface, IUserRepository 
                     as: "status",
                     where: {
                         blocked: true,
-                    },
-                    required: true,
-                },
-            ],
-        })
-
-        return UserMapper.toDomainArray(users as any)
-    }
-
-    async findDeletedUsers(options?: UserSearchOptions): Promise<User[]> {
-        const queryOptions = this.buildQueryOptions(options)
-
-        const users = await UserModel.findAll({
-            ...queryOptions,
-            include: [
-                ...this.getIncludeOptions(),
-                {
-                    model: UserStatusModel,
-                    as: "status",
-                    where: {
-                        deleted: true,
                     },
                     required: true,
                 },
@@ -1247,610 +1252,8 @@ export class UserRepository implements UserRepositoryInterface, IUserRepository 
         })
     }
 
-    // ===== OPERAÇÕES DE MÉTRICAS =====
-
-    async findUsersByEngagementRate(
-        minRate: number,
-        maxRate?: number,
-        options?: UserSearchOptions,
-    ): Promise<User[]> {
-        const queryOptions = this.buildQueryOptions(options)
-
-        const users = await UserModel.findAll({
-            ...queryOptions,
-            include: [
-                ...this.getIncludeOptions(),
-                {
-                    model: UserStatisticsModel,
-                    as: "statistics",
-                    where: {
-                        engagement_rate: maxRate
-                            ? { [Op.between]: [minRate, maxRate] }
-                            : { [Op.gte]: minRate },
-                    },
-                    required: true,
-                },
-            ],
-        })
-
-        return UserMapper.toDomainArray(users as any)
-    }
-
-    async findUsersByFollowersCount(
-        minFollowers: number,
-        maxFollowers?: number,
-        options?: UserSearchOptions,
-    ): Promise<User[]> {
-        const queryOptions = this.buildQueryOptions(options)
-
-        const users = await UserModel.findAll({
-            ...queryOptions,
-            include: [
-                ...this.getIncludeOptions(),
-                {
-                    model: UserStatisticsModel,
-                    as: "statistics",
-                    where: {
-                        total_followers: maxFollowers
-                            ? { [Op.between]: [minFollowers, maxFollowers] }
-                            : { [Op.gte]: minFollowers },
-                    },
-                    required: true,
-                },
-            ],
-        })
-
-        return UserMapper.toDomainArray(users as any)
-    }
-
-    async findUsersByContentCount(
-        minContent: number,
-        maxContent?: number,
-        options?: UserSearchOptions,
-    ): Promise<User[]> {
-        const queryOptions = this.buildQueryOptions(options)
-
-        const users = await UserModel.findAll({
-            ...queryOptions,
-            include: [
-                ...this.getIncludeOptions(),
-                {
-                    model: UserStatisticsModel,
-                    as: "statistics",
-                    where: {
-                        total_moments_created: maxContent
-                            ? { [Op.between]: [minContent, maxContent] }
-                            : { [Op.gte]: minContent },
-                    },
-                    required: true,
-                },
-            ],
-        })
-
-        return UserMapper.toDomainArray(users as any)
-    }
-
-    async findTopPerformers(limit: number = 10, options?: UserSearchOptions): Promise<User[]> {
-        const queryOptions = this.buildQueryOptions({ ...options, limit })
-
-        const users = await UserModel.findAll({
-            ...queryOptions,
-            include: this.getIncludeOptions(),
-            order: [
-                [{ model: UserStatisticsModel, as: "statistics" }, "engagement_rate", "DESC"],
-                [{ model: UserStatisticsModel, as: "statistics" }, "total_followers", "DESC"],
-            ],
-        })
-
-        return UserMapper.toDomainArray(users as any)
-    }
-
-    async findInfluencers(
-        minFollowers: number = 1000,
-        minEngagementRate: number = 0.05,
-        options?: UserSearchOptions,
-    ): Promise<User[]> {
-        const queryOptions = this.buildQueryOptions(options)
-
-        const users = await UserModel.findAll({
-            ...queryOptions,
-            include: [
-                ...this.getIncludeOptions(),
-                {
-                    model: UserStatisticsModel,
-                    as: "statistics",
-                    where: {
-                        total_followers: { [Op.gte]: minFollowers },
-                        engagement_rate: { [Op.gte]: minEngagementRate },
-                    },
-                    required: true,
-                },
-            ],
-            order: [[{ model: UserStatisticsModel, as: "statistics" }, "total_followers", "DESC"]],
-        })
-
-        return UserMapper.toDomainArray(users as any)
-    }
-
-    // ===== OPERAÇÕES DE EMBEDDINGS =====
-
-    async findUsersWithEmbeddings(options?: UserSearchOptions): Promise<User[]> {
-        const queryOptions = this.buildQueryOptions(options)
-
-        const users = await UserModel.findAll({
-            ...queryOptions,
-            include: [
-                ...this.getIncludeOptions(),
-                {
-                    model: UserEmbeddingModel,
-                    as: "user_embedding",
-                    where: {
-                        embedding_vector: { [Op.ne]: null },
-                    },
-                    required: true,
-                },
-            ],
-        })
-
-        return UserMapper.toDomainArray(users as any)
-    }
-
-    async findUsersWithoutEmbeddings(options?: UserSearchOptions): Promise<User[]> {
-        const queryOptions = this.buildQueryOptions(options)
-
-        const users = await UserModel.findAll({
-            ...queryOptions,
-            include: [
-                ...this.getIncludeOptions(),
-                {
-                    model: UserEmbeddingModel,
-                    as: "user_embedding",
-                    where: {
-                        embedding_vector: { [Op.is]: null },
-                    },
-                    required: false,
-                },
-            ],
-        })
-
-        return UserMapper.toDomainArray(users as any)
-    }
-
-    async findUsersByPreferredHashtags(
-        hashtags: string[],
-        options?: UserSearchOptions,
-    ): Promise<User[]> {
-        const queryOptions = this.buildQueryOptions(options)
-
-        const users = await UserModel.findAll({
-            ...queryOptions,
-            include: [
-                ...this.getIncludeOptions(),
-                {
-                    model: UserEmbeddingModel,
-                    as: "user_embedding",
-                    where: {
-                        preferred_hashtags: {
-                            [Op.overlap]: hashtags,
-                        },
-                    },
-                    required: true,
-                },
-            ],
-        })
-
-        return UserMapper.toDomainArray(users as any)
-    }
-
-    // ===== OPERAÇÕES DE MODERAÇÃO =====
-
-    async findUsersWithModerationIssues(options?: UserSearchOptions): Promise<User[]> {
-        const queryOptions = this.buildQueryOptions(options)
-
-        const users = await UserModel.findAll({
-            ...queryOptions,
-            include: [
-                ...this.getIncludeOptions(),
-                {
-                    model: UserStatisticsModel,
-                    as: "statistics",
-                    where: {
-                        [Op.or]: [
-                            { violations_count: { [Op.gt]: 0 } },
-                            { reports_received: { [Op.gt]: 0 } },
-                        ],
-                    },
-                    required: true,
-                },
-            ],
-        })
-
-        return UserMapper.toDomainArray(users as any)
-    }
-
-    async findUsersByViolationsCount(
-        minViolations: number,
-        maxViolations?: number,
-        options?: UserSearchOptions,
-    ): Promise<User[]> {
-        const queryOptions = this.buildQueryOptions(options)
-
-        const users = await UserModel.findAll({
-            ...queryOptions,
-            include: [
-                ...this.getIncludeOptions(),
-                {
-                    model: UserStatisticsModel,
-                    as: "statistics",
-                    where: {
-                        violations_count: maxViolations
-                            ? { [Op.between]: [minViolations, maxViolations] }
-                            : { [Op.gte]: minViolations },
-                    },
-                    required: true,
-                },
-            ],
-        })
-
-        return UserMapper.toDomainArray(users as any)
-    }
-
-    async findUsersByReportsCount(
-        minReports: number,
-        maxReports?: number,
-        options?: UserSearchOptions,
-    ): Promise<User[]> {
-        const queryOptions = this.buildQueryOptions(options)
-
-        const users = await UserModel.findAll({
-            ...queryOptions,
-            include: [
-                ...this.getIncludeOptions(),
-                {
-                    model: UserStatisticsModel,
-                    as: "statistics",
-                    where: {
-                        reports_received: maxReports
-                            ? { [Op.between]: [minReports, maxReports] }
-                            : { [Op.gte]: minReports },
-                    },
-                    required: true,
-                },
-            ],
-        })
-
-        return UserMapper.toDomainArray(users as any)
-    }
-
-    // ===== OPERAÇÕES DE PAGINAÇÃO E CONTAGEM =====
-
-    async countUsers(filters?: UserFilters): Promise<number> {
-        const whereClause = this.buildWhereClause(filters)
-
-        return await UserModel.count({
-            where: whereClause,
-            include: this.getIncludeOptions(),
-            distinct: true,
-        })
-    }
-
-    async countActiveUsers(): Promise<number> {
-        return await UserModel.count({
-            include: [
-                {
-                    model: UserStatusModel,
-                    as: "status",
-                    where: {
-                        deleted: false,
-                        blocked: false,
-                    },
-                    required: true,
-                },
-            ],
-            distinct: true,
-        })
-    }
-
-    async countVerifiedUsers(): Promise<number> {
-        return await UserModel.count({
-            include: [
-                {
-                    model: UserStatusModel,
-                    as: "status",
-                    where: {
-                        verified: true,
-                    },
-                    required: true,
-                },
-            ],
-            distinct: true,
-        })
-    }
-
-    async countUsersByStatus(status: Level): Promise<number> {
-        return await UserModel.count({
-            include: [
-                {
-                    model: UserStatusModel,
-                    as: "status",
-                    where: {
-                        access_level: status,
-                    },
-                    required: true,
-                },
-            ],
-            distinct: true,
-        })
-    }
-
-    async countUsersByActivityLevel(level: "low" | "medium" | "high"): Promise<number> {
-        // Esta implementação seria mais complexa, envolvendo cálculos de métricas
-        // Por agora, retornamos um valor padrão
-        return await UserModel.count({
-            include: this.getIncludeOptions(),
-            distinct: true,
-        })
-    }
-
-    // ===== OPERAÇÕES DE ESTATÍSTICAS =====
-
-    async getUsersStatistics(): Promise<UserStatistics> {
-        const [totalUsers, activeUsers, verifiedUsers, blockedUsers, deletedUsers, mutedUsers] =
-            await Promise.all([
-                this.countUsers(),
-                this.countActiveUsers(),
-                this.countVerifiedUsers(),
-                this.countUsers({ blocked: true }),
-                this.countUsers({ deleted: true }),
-                this.countUsers({ muted: true }),
-            ])
-
-        const now = new Date()
-        const last7Days = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-        const last30Days = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-
-        const [newUsersLast7Days, newUsersLast30Days] = await Promise.all([
-            this.countUsers({ createdAfter: last7Days }),
-            this.countUsers({ createdAfter: last30Days }),
-        ])
-
-        // Implementar outras estatísticas conforme necessário
-        return {
-            totalUsers,
-            activeUsers,
-            verifiedUsers,
-            blockedUsers,
-            deletedUsers,
-            mutedUsers,
-            newUsersLast7Days,
-            newUsersLast30Days,
-            inactiveUsersLast30Days: 0, // Implementar conforme necessário
-            usersWithEmbeddings: 0, // Implementar conforme necessário
-            usersWithModerationIssues: 0, // Implementar conforme necessário
-            averageReputationScore: 0, // Implementar conforme necessário
-            averageEngagementRate: 0, // Implementar conforme necessário
-            averageFollowers: 0, // Implementar conforme necessário
-            topPerformers: 0, // Implementar conforme necessário
-            influencers: 0, // Implementar conforme necessário
-        }
-    }
-
-    async getActivityDistribution(): Promise<ActivityDistribution> {
-        // Implementar distribuição de atividade
-        return {
-            low: 0,
-            medium: 0,
-            high: 0,
-        }
-    }
-
-    async getReputationDistribution(): Promise<ReputationDistribution> {
-        // Implementar distribuição de reputação
-        return {
-            excellent: 0,
-            good: 0,
-            average: 0,
-            poor: 0,
-            veryPoor: 0,
-        }
-    }
-
-    async getEngagementDistribution(): Promise<EngagementDistribution> {
-        // Implementar distribuição de engajamento
-        return {
-            veryHigh: 0,
-            high: 0,
-            medium: 0,
-            low: 0,
-            veryLow: 0,
-        }
-    }
-
-    // ===== OPERAÇÕES EM LOTE =====
-
-    async createMany(users: User[]): Promise<User[]> {
-        const sequelize = this.database.getConnection()
-        const transaction = await sequelize.transaction()
-
-        try {
-            const createdUsers: User[] = []
-
-            for (const user of users) {
-                const userData = user.toJSON()
-
-                if (!userData.id) {
-                    throw new Error("ID do usuário é obrigatório")
-                }
-
-                // Criar usuário principal
-                const userAttributes = UserMapper.toUserModelAttributes(user)
-                await UserModel.create(userAttributes, { transaction })
-
-                // Criar registros relacionados
-                const statusAttributes = UserMapper.toUserStatusAttributes(user)
-                if (statusAttributes) {
-                    await UserStatusModel.create(statusAttributes, { transaction })
-                }
-
-                const preferencesAttributes = UserMapper.toUserPreferencesAttributes(user)
-                if (preferencesAttributes) {
-                    await UserPreferencesModel.create(preferencesAttributes, { transaction })
-                }
-
-                const statisticsAttributes = UserMapper.toUserStatisticsAttributes(user)
-                if (statisticsAttributes) {
-                    await UserStatisticsModel.create(statisticsAttributes, { transaction })
-                }
-
-                const termsAttributes = UserMapper.toUserTermAttributes(user)
-                if (termsAttributes) {
-                    await UserTermModel.create(termsAttributes, { transaction })
-                }
-
-                const embeddingAttributes = UserMapper.toUserEmbeddingAttributes(user)
-                if (embeddingAttributes) {
-                    await UserEmbeddingModel.create(embeddingAttributes, { transaction })
-                }
-
-                const interactionSummaryAttributes =
-                    UserMapper.toUserInteractionSummaryAttributes(user)
-                if (interactionSummaryAttributes) {
-                    await UserInteractionSummaryModel.create(interactionSummaryAttributes, {
-                        transaction,
-                    })
-                }
-
-                createdUsers.push(user)
-            }
-
-            await transaction.commit()
-            return createdUsers
-        } catch (error) {
-            await transaction.rollback()
-            throw error
-        }
-    }
-
-    async updateMany(users: User[]): Promise<User[]> {
-        const sequelize = this.database.getConnection()
-        const transaction = await sequelize.transaction()
-
-        try {
-            const updatedUsers: User[] = []
-
-            for (const user of users) {
-                const userData = user.toJSON()
-
-                if (!userData.id) {
-                    throw new Error("ID do usuário é obrigatório")
-                }
-
-                // Atualizar usuário principal
-                const userAttributes = UserMapper.toUserModelAttributes(user)
-                await UserModel.update(userAttributes, {
-                    where: { id: BigInt(userData.id) },
-                    transaction,
-                })
-
-                // Atualizar registros relacionados
-                const statusAttributes = UserMapper.toUserStatusAttributes(user)
-                if (statusAttributes) {
-                    await UserStatusModel.upsert(statusAttributes, { transaction })
-                }
-
-                const preferencesAttributes = UserMapper.toUserPreferencesAttributes(user)
-                if (preferencesAttributes) {
-                    await UserPreferencesModel.upsert(preferencesAttributes, { transaction })
-                }
-
-                const statisticsAttributes = UserMapper.toUserStatisticsAttributes(user)
-                if (statisticsAttributes) {
-                    await UserStatisticsModel.upsert(statisticsAttributes, { transaction })
-                }
-
-                const termsAttributes = UserMapper.toUserTermAttributes(user)
-                if (termsAttributes) {
-                    await UserTermModel.upsert(termsAttributes, { transaction })
-                }
-
-                const embeddingAttributes = UserMapper.toUserEmbeddingAttributes(user)
-                if (embeddingAttributes) {
-                    await UserEmbeddingModel.upsert(embeddingAttributes, { transaction })
-                }
-
-                const interactionSummaryAttributes =
-                    UserMapper.toUserInteractionSummaryAttributes(user)
-                if (interactionSummaryAttributes) {
-                    await UserInteractionSummaryModel.upsert(interactionSummaryAttributes, {
-                        transaction,
-                    })
-                }
-
-                updatedUsers.push(user)
-            }
-
-            await transaction.commit()
-            return updatedUsers
-        } catch (error) {
-            await transaction.rollback()
-            throw error
-        }
-    }
-
-    async deleteMany(ids: string[]): Promise<void> {
-        const sequelize = this.database.getConnection()
-        const transaction = await sequelize.transaction()
-
-        try {
-            await UserStatusModel.update(
-                {
-                    deleted: true,
-                },
-                {
-                    where: {
-                        user_id: {
-                            [Op.in]: ids.map((id) => BigInt(id)),
-                        },
-                    },
-                    transaction,
-                },
-            )
-
-            await transaction.commit()
-        } catch (error) {
-            await transaction.rollback()
-            throw error
-        }
-    }
-
-    async bulkUpdateStatus(ids: string[], status: Partial<UserStatusData>): Promise<void> {
-        const sequelize = this.database.getConnection()
-        const transaction = await sequelize.transaction()
-
-        try {
-            await UserStatusModel.update(status, {
-                where: {
-                    user_id: {
-                        [Op.in]: ids.map((id) => BigInt(id)),
-                    },
-                },
-                transaction,
-            })
-
-            await transaction.commit()
-        } catch (error) {
-            await transaction.rollback()
-            throw error
-        }
-    }
-
     // ===== MÉTODOS AUXILIARES PRIVADOS =====
 
-    /**
-     * ✅ Include options otimizado para autenticação
-     * Carrega apenas relacionamentos essenciais
-     * Reduz consumo de memória em ~80%
-     */
     private getAuthIncludeOptions() {
         return [
             {
@@ -1868,10 +1271,6 @@ export class UserRepository implements UserRepositoryInterface, IUserRepository 
         ]
     }
 
-    /**
-     * Include options completo para operações que precisam de todos os dados
-     * Use apenas quando realmente necessário
-     */
     private getIncludeOptions() {
         return [
             {
@@ -1885,7 +1284,7 @@ export class UserRepository implements UserRepositoryInterface, IUserRepository 
                 required: false,
             },
             {
-                model: UserStatisticsModel,
+                model: UserMetricsModel,
                 as: "statistics",
                 required: false,
             },
@@ -1896,7 +1295,7 @@ export class UserRepository implements UserRepositoryInterface, IUserRepository 
             },
             {
                 model: UserEmbeddingModel,
-                as: "user_embedding",
+                as: "embedding",
                 required: false,
             },
             {
@@ -1916,11 +1315,11 @@ export class UserRepository implements UserRepositoryInterface, IUserRepository 
         if (options?.orderBy) {
             const orderField =
                 options.orderBy.field === "reputationScore"
-                    ? [{ model: UserStatisticsModel, as: "statistics" }, "engagement_rate"]
+                    ? [{ model: UserMetricsModel, as: "statistics" }, "engagement_rate"]
                     : options.orderBy.field === "engagementRate"
-                    ? [{ model: UserStatisticsModel, as: "statistics" }, "engagement_rate"]
+                    ? [{ model: UserMetricsModel, as: "statistics" }, "engagement_rate"]
                     : options.orderBy.field === "totalFollowers"
-                    ? [{ model: UserStatisticsModel, as: "statistics" }, "total_followers"]
+                    ? [{ model: UserMetricsModel, as: "statistics" }, "total_followers"]
                     : [options.orderBy.field]
 
             queryOptions.order = [[...orderField, options.orderBy.direction]]
