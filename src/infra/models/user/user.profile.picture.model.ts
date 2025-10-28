@@ -46,6 +46,9 @@ export default class ProfilePicture
                 tableName: "profile_pictures",
                 modelName: "UserProfilePicture",
                 timestamps: true,
+                createdAt: "created_at",
+                updatedAt: "updated_at",
+                underscored: true,
             },
         )
     }
