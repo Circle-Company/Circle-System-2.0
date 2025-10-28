@@ -102,14 +102,6 @@ export default class MomentShare
                 foreignKey: "moment_id",
                 as: "moment",
             })
-
-            // hasMany no Moment
-            if (models.Moment.hasMany) {
-                models.Moment.hasMany(MomentShare, {
-                    foreignKey: "moment_id",
-                    as: "shares",
-                })
-            }
         }
 
         // Associação com User

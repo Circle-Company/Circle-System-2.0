@@ -192,6 +192,35 @@ export default class Moment
             })
         }
 
+        // Associações com interações de moment
+        if (models.MomentLike) {
+            Moment.hasMany(models.MomentLike, {
+                foreignKey: "moment_id",
+                as: "likes",
+            })
+        }
+
+        if (models.MomentComment) {
+            Moment.hasMany(models.MomentComment, {
+                foreignKey: "moment_id",
+                as: "comments",
+            })
+        }
+
+        if (models.MomentShare) {
+            Moment.hasMany(models.MomentShare, {
+                foreignKey: "moment_id",
+                as: "shares",
+            })
+        }
+
+        if (models.MomentReport) {
+            Moment.hasMany(models.MomentReport, {
+                foreignKey: "moment_id",
+                as: "reports",
+            })
+        }
+
         // Associações com swipe engine
         if (models.PostEmbedding) {
             Moment.hasOne(models.PostEmbedding, {

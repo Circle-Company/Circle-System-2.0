@@ -154,14 +154,6 @@ export default class MomentComment
                 foreignKey: "moment_id",
                 as: "moment",
             })
-
-            // hasMany no Moment
-            if (models.Moment.hasMany) {
-                models.Moment.hasMany(MomentComment, {
-                    foreignKey: "moment_id",
-                    as: "comments",
-                })
-            }
         }
 
         // Associação com User
