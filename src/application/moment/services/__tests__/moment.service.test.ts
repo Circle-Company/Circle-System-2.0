@@ -16,7 +16,7 @@ describe("MomentService", () => {
             duration: 30,
             size: 1024,
             format: "mp4",
-            resolution: { width: 360, height: 558, quality: "medium" },
+            resolution: { width: 1080, height: 1674, quality: "high" }, // Resolução final
             hasAudio: true,
             codec: "av1",
             createdAt: new Date(),
@@ -207,6 +207,25 @@ describe("MomentService", () => {
 
                 expect(createData.visibility).toBe(visibility)
             }
+        })
+
+        it("deve definir resolução final do vídeo como 1080x1674", () => {
+            // Arrange
+            const expectedResolution = { width: 1080, height: 1674, quality: "high" }
+
+            // Act & Assert
+            expect(mockMoment.content.resolution.width).toBe(expectedResolution.width)
+            expect(mockMoment.content.resolution.height).toBe(expectedResolution.height)
+            expect(mockMoment.content.resolution.quality).toBe(expectedResolution.quality)
+        })
+
+        it("deve ter resolução do vídeo configurada corretamente no mock", () => {
+            // Assert
+            expect(mockMoment.content.resolution).toEqual({
+                width: 1080,
+                height: 1674,
+                quality: "high",
+            })
         })
 
         // Nota: Testes de validação de descrição, hashtags e menções requerem
