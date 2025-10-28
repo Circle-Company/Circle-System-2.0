@@ -695,20 +695,11 @@ export class UserRepository implements UserRepositoryInterface, IUserRepository 
                 limit: limit || 50,
                 offset: offset || 0,
                 order: [["createdAt", "DESC"]],
+                subQuery: false,
+                group: ["UserFollow.id", "follower.id"],
             })
 
-            // Deduplica usuários por ID (caso a query retorne duplicados)
-            const uniqueFollowers = new Map<string, any>()
-            for (const follow of follows) {
-                if (follow.follower) {
-                    const userId = follow.follower.id.toString()
-                    if (!uniqueFollowers.has(userId)) {
-                        uniqueFollowers.set(userId, follow.follower)
-                    }
-                }
-            }
-
-            return Array.from(uniqueFollowers.values()).map((user: any) => UserMapper.toDomain(user))
+            return follows.map((follow: any) => UserMapper.toDomain(follow.follower))
         } catch (error) {
             console.error("Erro ao buscar seguidores:", error)
             return []
@@ -731,20 +722,11 @@ export class UserRepository implements UserRepositoryInterface, IUserRepository 
                 limit: limit || 50,
                 offset: offset || 0,
                 order: [["createdAt", "DESC"]],
+                subQuery: false,
+                group: ["UserFollow.id", "following.id"],
             })
 
-            // Deduplica usuários por ID (caso a query retorne duplicados)
-            const uniqueFollowing = new Map<string, any>()
-            for (const follow of follows) {
-                if (follow.following) {
-                    const userId = follow.following.id.toString()
-                    if (!uniqueFollowing.has(userId)) {
-                        uniqueFollowing.set(userId, follow.following)
-                    }
-                }
-            }
-
-            return Array.from(uniqueFollowing.values()).map((user: any) => UserMapper.toDomain(user))
+            return follows.map((follow: any) => UserMapper.toDomain(follow.following))
         } catch (error) {
             console.error("Erro ao buscar seguindo:", error)
             return []
@@ -767,20 +749,11 @@ export class UserRepository implements UserRepositoryInterface, IUserRepository 
                 limit: limit || 50,
                 offset: offset || 0,
                 order: [["createdAt", "DESC"]],
+                subQuery: false,
+                group: ["UserBlock.id", "blocked.id"],
             })
 
-            // Deduplica usuários por ID (caso a query retorne duplicados)
-            const uniqueBlocked = new Map<string, any>()
-            for (const block of blocks) {
-                if (block.blocked) {
-                    const userId = block.blocked.id.toString()
-                    if (!uniqueBlocked.has(userId)) {
-                        uniqueBlocked.set(userId, block.blocked)
-                    }
-                }
-            }
-
-            return Array.from(uniqueBlocked.values()).map((user: any) => UserMapper.toDomain(user))
+            return blocks.map((block: any) => UserMapper.toDomain(block.blocked))
         } catch (error) {
             console.error("Erro ao buscar usuários bloqueados:", error)
             return []
