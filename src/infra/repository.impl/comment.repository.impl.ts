@@ -1,6 +1,8 @@
 import {
+    CommentAnalytics,
     CommentFilters,
-    CommentSortOptions
+    CommentSearchOptions,
+    CommentSortOptions,
 } from "@/domain/moment/types/comment.type"
 import { Op, WhereOptions } from "sequelize"
 
@@ -13,16 +15,16 @@ export class CommentRepositoryImpl implements ICommentRepository {
     // ===== OPERAÇÕES BÁSICAS CRUD =====
 
     async create(comment: Comment): Promise<Comment> {
-        const transaction = await this.database.getConnection().models.sequelize.transaction()
+        const transaction = await this.database.getConnection().transaction()
 
         try {
             const commentData = comment.toEntity()
 
-            const createdComment = await this.database.getConnection().models.Comment.create(
+            const createdComment = await this.database.getConnection().models.MomentComment.create(
                 {
                     id: commentData.id,
                     momentId: commentData.momentId,
-                    authorId: commentData.authorId,
+                    userId: commentData.userId,
                     parentCommentId: commentData.parentCommentId,
                     content: commentData.content,
                     status: commentData.status,
@@ -50,7 +52,7 @@ export class CommentRepositoryImpl implements ICommentRepository {
             )
 
             await transaction.commit()
-            return comment
+            return createdComment.toEntity()
         } catch (error) {
             await transaction.rollback()
             throw error
@@ -58,7 +60,7 @@ export class CommentRepositoryImpl implements ICommentRepository {
     }
 
     async findById(id: string): Promise<Comment | null> {
-        const comment = await this.database.getConnection().models.Comment.findByPk(id)
+        const comment = await this.database.getConnection().models.MomentComment.findByPk(id)
 
         if (!comment) return null
 
@@ -68,7 +70,7 @@ export class CommentRepositoryImpl implements ICommentRepository {
     async update(comment: Comment): Promise<Comment> {
         const commentData = comment.toEntity()
 
-        await this.database.getConnection().models.Comment.update(
+        await this.database.getConnection().models.MomentComment.update(
             {
                 content: commentData.content,
                 status: commentData.status,
@@ -98,13 +100,13 @@ export class CommentRepositoryImpl implements ICommentRepository {
     }
 
     async delete(id: string): Promise<void> {
-        await this.database.getConnection().models.Comment.destroy({ where: { id } })
+        await this.database.getConnection().models.MomentComment.destroy({ where: { id } })
     }
 
     // ===== OPERAÇÕES DE BUSCA =====
 
     async findByMomentId(momentId: string, limit = 20, offset = 0): Promise<Comment[]> {
-        const comments = await this.database.getConnection().models.Comment.findAll({
+        const comments = await this.database.getConnection().models.MomentComment.findAll({
             where: { momentId },
             limit,
             offset,
@@ -114,9 +116,9 @@ export class CommentRepositoryImpl implements ICommentRepository {
         return comments.map((comment: any) => this.mapToDomainEntity(comment))
     }
 
-    async findByAuthorId(authorId: string, limit = 20, offset = 0): Promise<Comment[]> {
-        const comments = await this.database.getConnection().models.Comment.findAll({
-            where: { authorId },
+    async findByUserId(userId: string, limit = 20, offset = 0): Promise<Comment[]> {
+        const comments = await this.database.getConnection().models.MomentComment.findAll({
+            where: { userId },
             limit,
             offset,
             order: [["createdAt", "DESC"]],
@@ -130,7 +132,7 @@ export class CommentRepositoryImpl implements ICommentRepository {
         limit = 20,
         offset = 0,
     ): Promise<Comment[]> {
-        const comments = await this.database.getConnection().models.Comment.findAll({
+        const comments = await this.database.getConnection().models.MomentComment.findAll({
             where: { parentCommentId },
             limit,
             offset,
@@ -143,7 +145,7 @@ export class CommentRepositoryImpl implements ICommentRepository {
     // ===== OPERAÇÕES DE BUSCA AVANÇADA =====
 
     async findTopLevelComments(momentId: string, limit = 20, offset = 0): Promise<Comment[]> {
-        const comments = await this.database.getConnection().models.Comment.findAll({
+        const comments = await this.database.getConnection().models.MomentComment.findAll({
             where: {
                 momentId,
                 parentCommentId: null,
@@ -157,7 +159,7 @@ export class CommentRepositoryImpl implements ICommentRepository {
     }
 
     async findRepliesToComment(commentId: string, limit = 20, offset = 0): Promise<Comment[]> {
-        const comments = await this.database.getConnection().models.Comment.findAll({
+        const comments = await this.database.getConnection().models.MomentComment.findAll({
             where: { parentCommentId: commentId },
             limit,
             offset,
@@ -168,7 +170,7 @@ export class CommentRepositoryImpl implements ICommentRepository {
     }
 
     async findByStatus(status: string, limit = 20, offset = 0): Promise<Comment[]> {
-        const comments = await this.database.getConnection().models.Comment.findAll({
+        const comments = await this.database.getConnection().models.MomentComment.findAll({
             where: { status },
             limit,
             offset,
@@ -179,7 +181,7 @@ export class CommentRepositoryImpl implements ICommentRepository {
     }
 
     async findByCategory(category: string, limit = 20, offset = 0): Promise<Comment[]> {
-        const comments = await this.database.getConnection().models.Comment.findAll({
+        const comments = await this.database.getConnection().models.MomentComment.findAll({
             where: { category },
             limit,
             offset,
@@ -190,7 +192,7 @@ export class CommentRepositoryImpl implements ICommentRepository {
     }
 
     async findBySentiment(sentiment: string, limit = 20, offset = 0): Promise<Comment[]> {
-        const comments = await this.database.getConnection().models.Comment.findAll({
+        const comments = await this.database.getConnection().models.MomentComment.findAll({
             where: { sentiment },
             limit,
             offset,
@@ -201,7 +203,7 @@ export class CommentRepositoryImpl implements ICommentRepository {
     }
 
     async findBySeverity(severity: string, limit = 20, offset = 0): Promise<Comment[]> {
-        const comments = await this.database.getConnection().models.Comment.findAll({
+        const comments = await this.database.getConnection().models.MomentComment.findAll({
             where: { severity },
             limit,
             offset,
@@ -214,7 +216,7 @@ export class CommentRepositoryImpl implements ICommentRepository {
     // ===== OPERAÇÕES DE MODERAÇÃO =====
 
     async findPendingModeration(limit = 20, offset = 0): Promise<Comment[]> {
-        const comments = await this.database.getConnection().models.Comment.findAll({
+        const comments = await this.database.getConnection().models.MomentComment.findAll({
             where: {
                 isModerated: false,
                 moderationScore: {
@@ -230,7 +232,7 @@ export class CommentRepositoryImpl implements ICommentRepository {
     }
 
     async findFlaggedComments(limit = 20, offset = 0): Promise<Comment[]> {
-        const comments = await this.database.getConnection().models.Comment.findAll({
+        const comments = await this.database.getConnection().models.MomentComment.findAll({
             where: {
                 moderationFlags: {
                     [Op.ne]: [], // Não vazio
@@ -245,7 +247,7 @@ export class CommentRepositoryImpl implements ICommentRepository {
     }
 
     async findHiddenComments(limit = 20, offset = 0): Promise<Comment[]> {
-        const comments = await this.database.getConnection().models.Comment.findAll({
+        const comments = await this.database.getConnection().models.MomentComment.findAll({
             where: {
                 status: "hidden",
             },
@@ -258,7 +260,7 @@ export class CommentRepositoryImpl implements ICommentRepository {
     }
 
     async findDeletedComments(limit = 20, offset = 0): Promise<Comment[]> {
-        const comments = await this.database.getConnection().models.Comment.findAll({
+        const comments = await this.database.getConnection().models.MomentComment.findAll({
             where: {
                 deletedAt: {
                     [Op.ne]: null,
@@ -275,7 +277,7 @@ export class CommentRepositoryImpl implements ICommentRepository {
     // ===== OPERAÇÕES DE BUSCA POR CONTEÚDO =====
 
     async findByContent(content: string, limit = 20, offset = 0): Promise<Comment[]> {
-        const comments = await this.database.getConnection().models.Comment.findAll({
+        const comments = await this.database.getConnection().models.MomentComment.findAll({
             where: {
                 content: {
                     [Op.iLike]: `%${content}%`,
@@ -290,7 +292,7 @@ export class CommentRepositoryImpl implements ICommentRepository {
     }
 
     async findByMention(mention: string, limit = 20, offset = 0): Promise<Comment[]> {
-        const comments = await this.database.getConnection().models.Comment.findAll({
+        const comments = await this.database.getConnection().models.MomentComment.findAll({
             where: {
                 mentions: {
                     [Op.contains]: [mention],
@@ -305,7 +307,7 @@ export class CommentRepositoryImpl implements ICommentRepository {
     }
 
     async findByHashtag(hashtag: string, limit = 20, offset = 0): Promise<Comment[]> {
-        const comments = await this.database.getConnection().models.Comment.findAll({
+        const comments = await this.database.getConnection().models.MomentComment.findAll({
             where: {
                 hashtags: {
                     [Op.contains]: [hashtag],
@@ -322,37 +324,37 @@ export class CommentRepositoryImpl implements ICommentRepository {
     // ===== OPERAÇÕES DE CONTAGEM =====
 
     async countByMomentId(momentId: string): Promise<number> {
-        return this.database.getConnection().models.Comment.count({
+        return this.database.getConnection().models.MomentComment.count({
             where: { momentId },
         })
     }
 
-    async countByAuthorId(authorId: string): Promise<number> {
-        return this.database.getConnection().models.Comment.count({
-            where: { authorId },
+    async countByUserId(userId: string): Promise<number> {
+        return this.database.getConnection().models.MomentComment.count({
+            where: { userId },
         })
     }
 
     async countByStatus(status: string): Promise<number> {
-        return this.database.getConnection().models.Comment.count({
+        return this.database.getConnection().models.MomentComment.count({
             where: { status },
         })
     }
 
     async countByCategory(category: string): Promise<number> {
-        return this.database.getConnection().models.Comment.count({
+        return this.database.getConnection().models.MomentComment.count({
             where: { category },
         })
     }
 
     async countBySentiment(sentiment: string): Promise<number> {
-        return this.database.getConnection().models.Comment.count({
+        return this.database.getConnection().models.MomentComment.count({
             where: { sentiment },
         })
     }
 
     async countPendingModeration(): Promise<number> {
-        return this.database.getConnection().models.Comment.count({
+        return this.database.getConnection().models.MomentComment.count({
             where: {
                 isModerated: false,
                 moderationScore: {
@@ -365,7 +367,7 @@ export class CommentRepositoryImpl implements ICommentRepository {
     // ===== OPERAÇÕES DE EXISTÊNCIA =====
 
     async exists(id: string): Promise<boolean> {
-        const count = await this.database.getConnection().models.Comment.count({
+        const count = await this.database.getConnection().models.MomentComment.count({
             where: { id },
         })
         return count > 0
@@ -376,8 +378,8 @@ export class CommentRepositoryImpl implements ICommentRepository {
         return count > 0
     }
 
-    async existsByAuthorId(authorId: string): Promise<boolean> {
-        const count = await this.countByAuthorId(authorId)
+    async existsByUserId(userId: string): Promise<boolean> {
+        const count = await this.countByUserId(userId)
         return count > 0
     }
 
@@ -404,7 +406,7 @@ export class CommentRepositoryImpl implements ICommentRepository {
     async deleteMany(ids: string[]): Promise<void> {
         await this.database
             .getConnection()
-            .models.Comment.destroy({ where: { id: { [Op.in]: ids } } })
+            .models.MomentComment.destroy({ where: { id: { [Op.in]: ids } } })
     }
 
     // ===== OPERAÇÕES DE PAGINAÇÃO =====
@@ -430,8 +432,8 @@ export class CommentRepositoryImpl implements ICommentRepository {
                 where.momentId = filters.momentId
             }
 
-            if (filters.authorId) {
-                where.authorId = filters.authorId
+            if (filters.userId) {
+                where.userId = filters.userId
             }
 
             if (filters.status) {
@@ -533,7 +535,7 @@ export class CommentRepositoryImpl implements ICommentRepository {
 
         const offset = (page - 1) * limit
 
-        const { count, rows } = await this.database.getConnection().models.Comment.findAndCountAll({
+        const { count, rows } = await this.database.getConnection().models.MomentComment.findAndCountAll({
             where,
             order,
             limit,
@@ -558,37 +560,359 @@ export class CommentRepositoryImpl implements ICommentRepository {
     async incrementLikes(commentId: string): Promise<void> {
         await this.database
             .getConnection()
-            .models.Comment.increment({ likesCount: 1 }, { where: { id: commentId } })
+            .models.MomentComment.increment({ likesCount: 1 }, { where: { id: commentId } })
     }
 
     async decrementLikes(commentId: string): Promise<void> {
         await this.database
             .getConnection()
-            .models.Comment.increment({ likesCount: -1 }, { where: { id: commentId } })
+            .models.MomentComment.increment({ likesCount: -1 }, { where: { id: commentId } })
     }
 
     async decrementReplies(commentId: string): Promise<void> {
         await this.database
             .getConnection()
-            .models.Comment.increment({ repliesCount: -1 }, { where: { id: commentId } })
+            .models.MomentComment.increment({ repliesCount: -1 }, { where: { id: commentId } })
     }
 
     async incrementReplies(commentId: string): Promise<void> {
         await this.database
             .getConnection()
-            .models.Comment.increment({ repliesCount: 1 }, { where: { id: commentId } })
+            .models.MomentComment.increment({ repliesCount: 1 }, { where: { id: commentId } })
     }
 
     async incrementReports(commentId: string): Promise<void> {
         await this.database
             .getConnection()
-            .models.Comment.increment({ reportsCount: 1 }, { where: { id: commentId } })
+            .models.MomentComment.increment({ reportsCount: 1 }, { where: { id: commentId } })
     }
 
     async incrementViews(commentId: string): Promise<void> {
         await this.database
             .getConnection()
-            .models.Comment.increment({ viewsCount: 1 }, { where: { id: commentId } })
+            .models.MomentComment.increment({ viewsCount: 1 }, { where: { id: commentId } })
+    }
+
+    // ===== OPERAÇÕES DE BUSCA AVANÇADA =====
+
+    async search(options: CommentSearchOptions): Promise<Comment[]> {
+        const where: WhereOptions = {}
+        const order: any[] = []
+
+        // Aplicar query
+        if (options.query) {
+            const searchFields = options.fields || ["content"]
+            const orConditions: any[] = []
+
+            if (searchFields.includes("content")) {
+                orConditions.push({
+                    content: {
+                        [Op.iLike]: `%${options.query}%`,
+                    },
+                })
+            }
+
+            if (searchFields.includes("userId")) {
+                orConditions.push({
+                    userId: {
+                        [Op.iLike]: `%${options.query}%`,
+                    },
+                })
+            }
+
+            if (searchFields.includes("mentions")) {
+                orConditions.push({
+                    mentions: {
+                        [Op.contains]: [options.query],
+                    },
+                })
+            }
+
+            if (searchFields.includes("hashtags")) {
+                orConditions.push({
+                    hashtags: {
+                        [Op.contains]: [options.query],
+                    },
+                })
+            }
+
+            ;(where as any)[Op.or] = orConditions
+        }
+
+        // Aplicar filtros
+        if (options.filters) {
+            if (options.filters.momentId) {
+                where.momentId = options.filters.momentId
+            }
+
+            if (options.filters.userId) {
+                where.userId = options.filters.userId
+            }
+
+            if (options.filters.status) {
+                if (Array.isArray(options.filters.status)) {
+                    where.status = {
+                        [Op.in]: options.filters.status,
+                    }
+                } else {
+                    where.status = options.filters.status
+                }
+            }
+
+            if (options.filters.category) {
+                if (Array.isArray(options.filters.category)) {
+                    where.category = {
+                        [Op.in]: options.filters.category,
+                    }
+                } else {
+                    where.category = options.filters.category
+                }
+            }
+
+            if (options.filters.sentiment) {
+                if (Array.isArray(options.filters.sentiment)) {
+                    where.sentiment = {
+                        [Op.in]: options.filters.sentiment,
+                    }
+                } else {
+                    where.sentiment = options.filters.sentiment
+                }
+            }
+
+            if (options.filters.contentContains) {
+                where.content = {
+                    [Op.iLike]: `%${options.filters.contentContains}%`,
+                }
+            }
+        }
+
+        // Ordenação padrão
+        order.push(["createdAt", "DESC"])
+
+        const limit = options.limit || 20
+        const offset = options.offset || 0
+
+        const comments = await this.database.getConnection().models.MomentComment.findAll({
+            where,
+            order,
+            limit,
+            offset,
+        })
+
+        return comments.map((comment: any) => this.mapToDomainEntity(comment))
+    }
+
+    async getAnalytics(filters?: CommentFilters): Promise<CommentAnalytics> {
+        const where: WhereOptions = {}
+
+        if (filters) {
+            if (filters.momentId) where.momentId = filters.momentId
+            if (filters.userId) where.userId = filters.userId
+            if (filters.status) {
+                if (Array.isArray(filters.status)) {
+                    where.status = { [Op.in]: filters.status }
+                } else {
+                    where.status = filters.status
+                }
+            }
+            if (filters.category) {
+                if (Array.isArray(filters.category)) {
+                    where.category = { [Op.in]: filters.category }
+                } else {
+                    where.category = filters.category
+                }
+            }
+            if (filters.sentiment) {
+                if (Array.isArray(filters.sentiment)) {
+                    where.sentiment = { [Op.in]: filters.sentiment }
+                } else {
+                    where.sentiment = filters.sentiment
+                }
+            }
+        }
+
+        // Obter todos os comentários para análise
+        const comments = await this.database.getConnection().models.MomentComment.findAll({
+            where,
+            raw: true,
+        })
+
+        // Calcular distribuição de sentimentos
+        const sentimentDistribution: Record<string, number> = {}
+        comments.forEach((comment: any) => {
+            const sentiment = comment.sentiment || "neutral"
+            sentimentDistribution[sentiment] = (sentimentDistribution[sentiment] || 0) + 1
+        })
+
+        // Calcular distribuição de categorias
+        const categoryDistribution: Record<string, number> = {}
+        comments.forEach((comment: any) => {
+            const category = comment.category || "neutral"
+            categoryDistribution[category] = (categoryDistribution[category] || 0) + 1
+        })
+
+        // Calcular estatísticas de moderação
+        const flaggedComments = comments.filter(
+            (comment: any) => comment.moderationFlags && comment.moderationFlags.length > 0,
+        ).length
+        const approvedComments = comments.filter((comment: any) => comment.status === "approved").length
+        const rejectedComments = comments.filter((comment: any) => comment.status === "rejected").length
+
+        // Calcular tempo médio de moderação (simplificado)
+        const moderatedComments = comments.filter((comment: any) => comment.moderatedAt && comment.createdAt)
+        const moderationTimes = moderatedComments.map((comment: any) => {
+            const created = new Date(comment.createdAt)
+            const moderated = new Date(comment.moderatedAt)
+            return (moderated.getTime() - created.getTime()) / 1000 / 60 // em minutos
+        })
+        const averageModerationTime =
+            moderationTimes.length > 0
+                ? moderationTimes.reduce((sum, time) => sum + time, 0) / moderationTimes.length
+                : 0
+
+        // Calcular estatísticas de engajamento
+        const totalLikes = comments.reduce((sum: number, comment: any) => sum + (comment.likesCount || 0), 0)
+        const totalReplies = comments.reduce((sum: number, comment: any) => sum + (comment.repliesCount || 0), 0)
+        const averageLikes = comments.length > 0 ? totalLikes / comments.length : 0
+        const averageReplies = comments.length > 0 ? totalReplies / comments.length : 0
+
+        // Top comentadores
+        const commentersMap: Record<string, number> = {}
+        comments.forEach((comment: any) => {
+            commentersMap[comment.userId] = (commentersMap[comment.userId] || 0) + 1
+        })
+        const topCommenters = Object.entries(commentersMap)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 10)
+            .map(([userId, count]) => ({ userId, count }))
+
+        // Distribuição temporal simplificada
+        const commentsPerHour: Record<number, number> = {}
+        comments.forEach((comment: any) => {
+            const hour = new Date(comment.createdAt).getHours()
+            commentsPerHour[hour] = (commentsPerHour[hour] || 0) + 1
+        })
+
+        const commentsPerDay: Record<number, number> = {}
+        const dayOfWeek = (date: Date) => date.getDay()
+        comments.forEach((comment: any) => {
+            const day = dayOfWeek(new Date(comment.createdAt))
+            commentsPerDay[day] = (commentsPerDay[day] || 0) + 1
+        })
+
+        // Encontrar horário de pico (simplificado - usa o horário com mais comentários)
+        const peakHour = Object.entries(commentsPerHour).sort((a, b) => b[1] - a[1])[0]?.[0]
+        const peakActivityTime = new Date()
+        if (peakHour) peakActivityTime.setHours(Number(peakHour))
+
+        return {
+            sentimentDistribution: sentimentDistribution as any,
+            categoryDistribution: categoryDistribution as any,
+            moderationStats: {
+                totalFlagged: flaggedComments,
+                totalApproved: approvedComments,
+                totalRejected: rejectedComments,
+                averageModerationTime,
+            },
+            engagementStats: {
+                averageLikes,
+                averageReplies,
+                topCommenters,
+            },
+            timeDistribution: {
+                commentsPerHour,
+                commentsPerDay,
+                peakActivityTime,
+            },
+        }
+    }
+
+    async getStats(): Promise<{
+        totalComments: number
+        activeComments: number
+        hiddenComments: number
+        deletedComments: number
+        flaggedComments: number
+        pendingModeration: number
+        averageLikes: number
+        averageReplies: number
+        topCommenters: Array<{ userId: string; count: number }>
+    }> {
+        const [
+            totalComments,
+            activeComments,
+            hiddenComments,
+            deletedComments,
+            flaggedComments,
+            pendingModeration,
+            averageLikesData,
+            averageRepliesData,
+            topCommentersData,
+        ] = await Promise.all([
+            this.database.getConnection().models.MomentComment.count(),
+            this.database.getConnection().models.MomentComment.count({ where: { status: "active" } }),
+            this.database.getConnection().models.MomentComment.count({ where: { status: "hidden" } }),
+            this.database.getConnection().models.MomentComment.count({
+                where: { deletedAt: { [Op.ne]: null } },
+            }),
+            this.database.getConnection().models.MomentComment.count({
+                where: { moderationFlags: { [Op.ne]: [] } },
+            }),
+            this.database.getConnection().models.MomentComment.count({
+                where: {
+                    isModerated: false,
+                    moderationScore: { [Op.gte]: 70 },
+                },
+            }),
+            this.database.getConnection().models.MomentComment.findAll({
+                attributes: [
+                    [
+                        this.database.getConnection().fn("AVG", this.database.getConnection().col("likesCount")),
+                        "avg",
+                    ],
+                ],
+                raw: true,
+            }),
+            this.database.getConnection().models.MomentComment.findAll({
+                attributes: [
+                    [
+                        this.database.getConnection().fn("AVG", this.database.getConnection().col("repliesCount")),
+                        "avg",
+                    ],
+                ],
+                raw: true,
+            }),
+            this.database
+                .getConnection()
+                .models.MomentComment.findAll({
+                    attributes: [
+                        "userId",
+                        [this.database.getConnection().fn("COUNT", this.database.getConnection().col("id")), "count"],
+                    ],
+                    group: ["userId"],
+                    order: [[this.database.getConnection().fn("COUNT", this.database.getConnection().col("id")), "DESC"]],
+                    limit: 10,
+                    raw: true,
+                }),
+        ])
+
+        const averageLikes = averageLikesData?.[0]?.avg || 0
+        const averageReplies = averageRepliesData?.[0]?.avg || 0
+
+        return {
+            totalComments,
+            activeComments,
+            hiddenComments,
+            deletedComments,
+            flaggedComments,
+            pendingModeration,
+            averageLikes: Number(averageLikes),
+            averageReplies: Number(averageReplies),
+            topCommenters: (topCommentersData as any[]).map((item) => ({
+                userId: item.userId,
+                count: Number(item.count),
+            })),
+        }
     }
 
     // ===== MÉTODOS AUXILIARES =====
@@ -597,7 +921,7 @@ export class CommentRepositoryImpl implements ICommentRepository {
         const commentEntity = {
             id: commentData.id,
             momentId: commentData.momentId,
-            authorId: commentData.authorId,
+            userId: commentData.userId,
             parentCommentId: commentData.parentCommentId,
             content: commentData.content,
             status: commentData.status,

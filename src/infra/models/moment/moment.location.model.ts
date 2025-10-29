@@ -31,13 +31,13 @@ export default class MomentLocation
     declare momentId: string
     declare latitude: number
     declare longitude: number
-    public accuracy?: number | null
-    public altitude?: number | null
-    public heading?: number | null
-    public speed?: number | null
-    public address?: string | null
-    public city?: string | null
-    public country?: string | null
+    declare accuracy?: number | null
+    declare altitude?: number | null
+    declare heading?: number | null
+    declare speed?: number | null
+    declare address?: string | null
+    declare city?: string | null
+    declare country?: string | null
     declare readonly createdAt: Date
     declare readonly updatedAt: Date
 

@@ -225,17 +225,21 @@ export class MomentController {
     /**
      * Busca momento por ID
      */
-    async getMoment(momentId: string, userId?: string): Promise<MomentResponse | null> {
+    async getMoment(momentId: string, userId?: string): Promise<MomentResponse> {
         try {
             const result = await this.getMomentUseCase.execute({
                 momentId: momentId,
                 userId: userId,
             })
 
-            return result ? this.mapToResponse(result) : null
+            if (!result.success || !result.moment) {
+                throw new Error(result.error || "Moment not found")
+            }
+
+            return this.mapToResponse(result.moment)
         } catch (error) {
-            if (error instanceof Error && error.message === "Moment not found") {
-                return null
+            if (error instanceof Error && error.message.includes("not found")) {
+                throw new Error("Moment not found")
             }
             throw new Error(
                 `Error to get moment: ${error instanceof Error ? error.message : "Unknown error"}`,

@@ -16,9 +16,9 @@ import { UserMapper } from "@/domain/user/user.mapper"
 import { DatabaseAdapter } from "@/infra/database/adapter"
 import UserInteractionSummaryModel from "@/infra/models/swipe.engine/user.interaction.summary.model"
 import UserEmbeddingModel from "@/infra/models/user/user.embedding.model"
+import UserMetricsModel from "@/infra/models/user/user.metrics.model"
 import UserModel from "@/infra/models/user/user.model"
 import UserPreferencesModel from "@/infra/models/user/user.preferences.model"
-import UserStatisticsModel from "@/infra/models/user/user.statistics.model"
 import UserStatusModel from "@/infra/models/user/user.status.model"
 import UserTermModel from "@/infra/models/user/user.terms.model"
 
@@ -77,7 +77,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
 
             const statisticsAttributes = UserMapper.toUserStatisticsAttributes(user)
             if (statisticsAttributes) {
-                await this.models.UserStatistics.create(statisticsAttributes as any, {
+                await this.models.UserMetrics.create(statisticsAttributes as any, {
                     transaction,
                 })
             }
@@ -711,7 +711,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
             include: [
                 ...this.getIncludeOptions(),
                 {
-                    model: UserStatisticsModel,
+                    model: UserMetricsModel,
                     as: "statistics",
                     where: {
                         engagement_rate: maxRate
@@ -738,7 +738,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
             include: [
                 ...this.getIncludeOptions(),
                 {
-                    model: UserStatisticsModel,
+                    model: UserMetricsModel,
                     as: "statistics",
                     where: {
                         total_followers: maxFollowers
@@ -765,7 +765,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
             include: [
                 ...this.getIncludeOptions(),
                 {
-                    model: UserStatisticsModel,
+                    model: UserMetricsModel,
                     as: "statistics",
                     where: {
                         total_moments_created: maxContent
@@ -787,8 +787,8 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
             ...queryOptions,
             include: this.getIncludeOptions(),
             order: [
-                [{ model: UserStatisticsModel, as: "statistics" }, "engagement_rate", "DESC"],
-                [{ model: UserStatisticsModel, as: "statistics" }, "total_followers", "DESC"],
+                [{ model: UserMetricsModel, as: "statistics" }, "engagement_rate", "DESC"],
+                [{ model: UserMetricsModel, as: "statistics" }, "total_followers", "DESC"],
             ],
         })
 
@@ -807,7 +807,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
             include: [
                 ...this.getIncludeOptions(),
                 {
-                    model: UserStatisticsModel,
+                    model: UserMetricsModel,
                     as: "statistics",
                     where: {
                         total_followers: { [Op.gte]: minFollowers },
@@ -816,7 +816,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
                     required: true,
                 },
             ],
-            order: [[{ model: UserStatisticsModel, as: "statistics" }, "total_followers", "DESC"]],
+            order: [[{ model: UserMetricsModel, as: "statistics" }, "total_followers", "DESC"]],
         })
 
         return UserMapper.toDomainArray(users as any)
@@ -833,7 +833,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
                 ...this.getIncludeOptions(),
                 {
                     model: UserEmbeddingModel,
-                    as: "user_embedding",
+                    as: "embedding",
                     where: {
                         embedding_vector: { [Op.ne]: null },
                     },
@@ -854,7 +854,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
                 ...this.getIncludeOptions(),
                 {
                     model: UserEmbeddingModel,
-                    as: "user_embedding",
+                    as: "embedding",
                     where: {
                         embedding_vector: { [Op.is]: null },
                     },
@@ -878,7 +878,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
                 ...this.getIncludeOptions(),
                 {
                     model: UserEmbeddingModel,
-                    as: "user_embedding",
+                    as: "embedding",
                     where: {
                         preferred_hashtags: {
                             [Op.overlap]: hashtags,
@@ -902,7 +902,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
             include: [
                 ...this.getIncludeOptions(),
                 {
-                    model: UserStatisticsModel,
+                    model: UserMetricsModel,
                     as: "statistics",
                     where: {
                         [Op.or]: [
@@ -930,7 +930,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
             include: [
                 ...this.getIncludeOptions(),
                 {
-                    model: UserStatisticsModel,
+                    model: UserMetricsModel,
                     as: "statistics",
                     where: {
                         violations_count: maxViolations
@@ -957,7 +957,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
             include: [
                 ...this.getIncludeOptions(),
                 {
-                    model: UserStatisticsModel,
+                    model: UserMetricsModel,
                     as: "statistics",
                     where: {
                         reports_received: maxReports
@@ -1149,7 +1149,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
 
                 const statisticsAttributes = UserMapper.toUserStatisticsAttributes(user)
                 if (statisticsAttributes) {
-                    await UserStatisticsModel.create(statisticsAttributes, { transaction })
+                    await UserMetricsModel.create(statisticsAttributes, { transaction })
                 }
 
                 const termsAttributes = UserMapper.toUserTermAttributes(user)
@@ -1215,7 +1215,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
 
                 const statisticsAttributes = UserMapper.toUserStatisticsAttributes(user)
                 if (statisticsAttributes) {
-                    await UserStatisticsModel.upsert(statisticsAttributes, { transaction })
+                    await UserMetricsModel.upsert(statisticsAttributes, { transaction })
                 }
 
                 const termsAttributes = UserMapper.toUserTermAttributes(user)
@@ -1309,13 +1309,8 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
                 required: false,
             },
             {
-                model: this.models.UserStatistics,
-                as: "statistics",
-                required: false,
-            },
-            {
                 model: this.models.UserMetrics,
-                as: "metrics",
+                as: "statistics",
                 required: false,
             },
             // Removendo UserTermModel temporariamente para debug
@@ -1326,7 +1321,7 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
             // },
             {
                 model: this.models.UserEmbedding,
-                as: "user_embedding",
+                as: "embedding",
                 required: false,
             },
             {
@@ -1363,6 +1358,22 @@ export class UserRepositoryImpl implements UserRepositoryInterface {
         }
 
         return queryOptions
+    }
+
+    async isBlocked(userId: string, targetUserId: string): Promise<boolean> {
+        try {
+            const UserBlockModel = this.models.UserBlock
+            const block = await UserBlockModel.findOne({
+                where: {
+                    blockerId: BigInt(userId),
+                    blockedId: BigInt(targetUserId),
+                },
+            })
+            return !!block
+        } catch (error) {
+            console.error("Erro ao verificar se usuário está bloqueado:", error)
+            return false
+        }
     }
 
     private buildWhereClause(filters?: UserFilters): WhereOptions {

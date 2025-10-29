@@ -195,7 +195,11 @@ export class MomentService {
             processingResult as ContentProcessingSuccessResult,
         )
         const moment = new Moment(momentData)
+        
+        logger.info(`[MomentService] 💾 Salvando moment ${moment.id} no banco de dados...`)
         const createdMoment = await this.repository.create(moment)
+        logger.info(`[MomentService] ✅ Moment ${createdMoment.id} salvo com sucesso no banco!`)
+        
         const scheduleTime = process.env.EMBEDDINGS_SCHEDULE_TIME || "01:00"
 
         // Enfileirar job de compressão de vídeo imediatamente

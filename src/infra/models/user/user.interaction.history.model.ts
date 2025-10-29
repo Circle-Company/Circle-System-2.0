@@ -122,14 +122,6 @@ class UserInteractionHistory
                 as: "user",
                 targetKey: "id",
             })
-
-            // Adicionar hasMany no User
-            if (models.User.hasMany) {
-                models.User.hasMany(UserInteractionHistory, {
-                    foreignKey: "user_id",
-                    as: "interaction_history",
-                })
-            }
         }
 
         // Associação com Moment

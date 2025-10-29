@@ -1,8 +1,6 @@
 import { IUserRepository } from "@/domain/user"
 import { IMomentRepository, MomentEntity } from "../../../domain/moment"
 
-import { MomentService } from "../services/moment.service"
-
 export interface GetMomentRequest {
     momentId: string
     userId?: string // Para verificar permissões
@@ -19,7 +17,6 @@ export class GetMomentUseCase {
     constructor(
         private readonly userRepository: IUserRepository,
         private readonly momentRepository: IMomentRepository,
-        private readonly momentService: MomentService,
     ) {}
 
     async execute(request: GetMomentRequest): Promise<GetMomentResponse> {
@@ -33,8 +30,7 @@ export class GetMomentUseCase {
             }
 
             // Buscar o momento
-            const moment = await this.momentService.getMomentById(request.momentId)
-            moment?.isViewable(request.userId!, this.userRepository, moment.ownerId, request.userId)
+            const moment = await this.momentRepository.findById(request.momentId)
 
             if (!moment) {
                 return {

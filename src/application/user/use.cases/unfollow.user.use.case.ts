@@ -6,7 +6,6 @@
  */
 
 import { IUserRepository } from "@/domain/user"
-import { UserService } from "../services/user.service"
 
 export interface UnfollowUserRequest {
     userId: string
@@ -22,7 +21,6 @@ export interface UnfollowUserResponse {
 export class UnfollowUserUseCase {
     constructor(
         private readonly userRepository: IUserRepository,
-        private readonly userService: UserService,
     ) {}
 
     async execute(request: UnfollowUserRequest): Promise<UnfollowUserResponse> {
@@ -37,7 +35,7 @@ export class UnfollowUserUseCase {
             }
 
             // Verificar se está seguindo
-            const isFollowing = await this.userService.isFollowing(
+            const isFollowing = await this.userRepository.isFollowing(
                 request.userId,
                 request.targetUserId,
             )
@@ -49,7 +47,7 @@ export class UnfollowUserUseCase {
             }
 
             // Parar de seguir usuário
-            const unfollowed = await this.userService.unfollowUser(
+            const unfollowed = await this.userRepository.unfollowUser(
                 request.userId,
                 request.targetUserId,
             )
@@ -85,7 +83,7 @@ export class UnfollowUserUseCase {
         }
 
         // Verificar se o usuário existe
-        const user = await this.userService.getUserById(request.userId)
+        const user = await this.userRepository.findById(request.userId)
         if (!user) {
             return {
                 isValid: false,
@@ -94,7 +92,7 @@ export class UnfollowUserUseCase {
         }
 
         // Verificar se o usuário alvo existe
-        const targetUser = await this.userService.getUserById(request.targetUserId)
+        const targetUser = await this.userRepository.findById(request.targetUserId)
         if (!targetUser) {
             return {
                 isValid: false,

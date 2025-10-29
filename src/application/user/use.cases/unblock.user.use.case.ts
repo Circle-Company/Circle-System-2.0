@@ -6,7 +6,6 @@
  */
 
 import { IUserRepository } from "@/domain/user"
-import { UserService } from "../services/user.service"
 
 export interface UnblockUserRequest {
     userId: string
@@ -22,7 +21,6 @@ export interface UnblockUserResponse {
 export class UnblockUserUseCase {
     constructor(
         private readonly userRepository: IUserRepository,
-        private readonly userService: UserService,
     ) {}
 
     async execute(request: UnblockUserRequest): Promise<UnblockUserResponse> {
@@ -37,7 +35,7 @@ export class UnblockUserUseCase {
             }
 
             // Verificar se está bloqueado
-            const isBlocked = await this.userService.isBlocked(request.userId, request.targetUserId)
+            const isBlocked = await this.userRepository.isBlocked(request.userId, request.targetUserId)
             if (!isBlocked) {
                 return {
                     success: false,
@@ -46,7 +44,7 @@ export class UnblockUserUseCase {
             }
 
             // Desbloquear usuário
-            const unblocked = await this.userService.unblockUser(
+            const unblocked = await this.userRepository.unblockUser(
                 request.userId,
                 request.targetUserId,
             )
@@ -82,7 +80,7 @@ export class UnblockUserUseCase {
         }
 
         // Verificar se o usuário existe
-        const user = await this.userService.getUserById(request.userId)
+        const user = await this.userRepository.findById(request.userId)
         if (!user) {
             return {
                 isValid: false,
@@ -91,7 +89,7 @@ export class UnblockUserUseCase {
         }
 
         // Verificar se o usuário alvo existe
-        const targetUser = await this.userService.getUserById(request.targetUserId)
+        const targetUser = await this.userRepository.findById(request.targetUserId)
         if (!targetUser) {
             return {
                 isValid: false,

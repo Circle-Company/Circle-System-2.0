@@ -93,8 +93,14 @@ export class VideoCompressionWorker {
         const startTime = Date.now()
         const { momentId, originalVideoUrl, videoMetadata } = job.data
 
+        console.log(`[VideoCompressionWorker] 🔔 JOB RECEBIDO! Processando moment ${momentId}`)
+        console.log(`[VideoCompressionWorker] 📋 Dados do job:`, {
+            momentId,
+            originalVideoUrl,
+            metadata: videoMetadata,
+        })
         console.log(
-            `[VideoCompressionWorker] 🚀 Iniciando compressão ULTRA ALTA QUALIDADE para moment ${momentId}`,
+            `[VideoCompressionWorker] 🚀 Iniciando compressão para moment ${momentId}`,
         )
         console.log("📋 Configuração:", {
             preset: this.videoProcessor.getConfig().compression?.preset,
@@ -201,7 +207,7 @@ export class VideoCompressionWorker {
                     originalCodec: "unknown",
                     compressedCodec: "h264",
                     preset: "veryslow", // Preset mais lento para máxima qualidade
-                    crf: 18, // Lossless prático - máxima qualidade possível
+                    crf: 34, // Compressao moderada
                 },
             }
         } catch (error) {

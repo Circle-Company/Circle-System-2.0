@@ -1,9 +1,9 @@
 // ===== MOMENT USE CASES INDEX =====
 
 // User actions
-export { CommentMomentUseCase } from "./create.comment.moment.use.case"
+export { CommentMomentUseCase } from "./comments/create.moment.comment.use.case"
+export { GetCommentedMomentsUseCase } from "./comments/get.commented.moments.use.case"
 export { CreateMomentUseCase } from "./create.moment.use.case"
-export { GetCommentedMomentsUseCase } from "./get.commented.moments.use.case"
 export { GetLikedMomentsUseCase } from "./get.liked.moments.use.case"
 export { GetMomentUseCase } from "./get.moment.use.case"
 export { LikeMomentUseCase } from "./like.moment.use.case"
@@ -20,8 +20,8 @@ export { GetMomentReportsUseCase } from "./get.moment.reports.use.case"
 export { GetMomentsAnalyticsUseCase } from "./get.moments.analytics.use.case"
 
 // Comment management
-export { DeleteMomentCommentUseCase } from "./delete.moment.comment.use.case"
-export { GetMomentCommentsUseCase } from "./get.moment.comments.use.case"
+export { DeleteMomentCommentUseCase } from "./comments/delete.moment.comment.use.case"
+export { GetMomentCommentsUseCase } from "./comments/get.moment.comments.use.case"
 
 // Moment management
 export { DeleteMomentUseCase } from "./delete.moment.use.case"
@@ -30,3 +30,4 @@ export { BlockMomentUseCase as AdminBlockMomentUseCase } from "./admin/block.mom
 export { ChangeMomentStatusUseCase as AdminChangeMomentStatusUseCase } from "./admin/change.moment.status.use.case"
 export { DeleteMomentUseCase as AdminDeleteMomentUseCase } from "./admin/delete.moment.use.case"
 export { UnblockMomentUseCase as AdminUnblockMomentUseCase } from "./admin/unblock.moment.use.case"
+

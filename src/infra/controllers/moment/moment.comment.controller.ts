@@ -19,7 +19,7 @@ export interface EditCommentRequest {
 export interface CommentResponse {
     id: string
     momentId: string
-    authorId: string
+    userId: string
     parentCommentId?: string
     content: string
     status: string
@@ -183,7 +183,7 @@ export class MomentCommentController {
                 comments: result.moments.map((moment) => ({
                     id: moment.id,
                     momentId: moment.id,
-                    authorId: moment.ownerId,
+                    userId: moment.ownerId,
                     content: `Comment on: ${moment.description}`,
                     status: moment.status.current,
                     visibility: moment.visibility.level,
@@ -224,7 +224,7 @@ export class MomentCommentController {
         return {
             id: comment.id,
             momentId: comment.momentId,
-            authorId: comment.authorId,
+            userId: comment.userId,
             parentCommentId: comment.parentCommentId,
             content: comment.content,
             status: comment.status,

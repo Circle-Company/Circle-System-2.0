@@ -176,14 +176,6 @@ export default class MomentReport
                 foreignKey: "moment_id",
                 as: "moment",
             })
-
-            // hasMany no Moment
-            if (models.Moment.hasMany) {
-                models.Moment.hasMany(MomentReport, {
-                    foreignKey: "moment_id",
-                    as: "reports",
-                })
-            }
         }
 
         // Associação com User (autor do report)

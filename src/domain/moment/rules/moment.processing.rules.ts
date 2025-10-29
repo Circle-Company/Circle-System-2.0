@@ -166,9 +166,7 @@ export class MomentProcessingValidator {
      */
     validateResolution(width: number, height: number): boolean {
         // TODO: Reabilitar quando ffmpeg estiver instalado para fazer crop automático
-        console.log(
-            `[ProcessingRules] ⚠️ Validação de resolução desabilitada (sem ffmpeg): ${width}x${height} - ACEITO`,
-        )
+        // Log removido para evitar spam em operações que não criam novos momentos
         return true
     }
 

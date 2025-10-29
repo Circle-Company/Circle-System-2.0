@@ -34,7 +34,7 @@ export class GetCommentedMomentsUseCase {
             const limit = Math.min(request.limit || 20, 100)
 
             // Buscar comentários do usuário
-            const userComments = await this.commentRepository.findByAuthorId(
+            const userComments = await this.commentRepository.findByUserId(
                 request.userId,
                 limit,
                 (page - 1) * limit,
@@ -68,7 +68,7 @@ export class GetCommentedMomentsUseCase {
             })
 
             // Contar total de momentos comentados
-            const totalComments = await this.commentRepository.countByAuthorId(request.userId)
+            const totalComments = await this.commentRepository.countByUserId(request.userId)
             const uniqueMomentCount = momentIds.length
             const totalPages = Math.ceil(uniqueMomentCount / limit)
 

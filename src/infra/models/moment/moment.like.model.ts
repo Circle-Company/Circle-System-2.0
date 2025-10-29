@@ -97,14 +97,6 @@ export default class MomentLike
                 foreignKey: "moment_id",
                 as: "moment",
             })
-
-            // hasMany no Moment
-            if (models.Moment.hasMany) {
-                models.Moment.hasMany(MomentLike, {
-                    foreignKey: "moment_id",
-                    as: "likes",
-                })
-            }
         }
 
         // Associação com User

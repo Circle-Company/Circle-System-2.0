@@ -32,7 +32,7 @@ export class CommentMomentUseCase {
                     success: false,
                     error: "User not found",
                 }
-            }
+            } 
 
             // Verificar se o usuário pode comentar
             if (!user.canInteractWithMoments()) {
@@ -52,7 +52,7 @@ export class CommentMomentUseCase {
             }
 
             // Verificar se o momento é interagível
-            const isInteractable = await moment.isInteractable(request.userId, this.userRepository)
+            const isInteractable = await moment.isInteractable(this.userRepository, user)
             if (!isInteractable) {
                 return {
                     success: false,
@@ -82,10 +82,12 @@ export class CommentMomentUseCase {
             // Criar o comentário
             const comment = Comment.create({
                 momentId: request.momentId,
-                authorId: request.userId,
+                userId: request.userId,
                 content: request.content,
-                parentCommentId: request.parentCommentId,
+                parentCommentId: request.parentCommentId || null,
             })
+
+            console.log("comment", comment)
 
             // Salvar o comentário
             const savedComment = await this.commentRepository.create(comment)

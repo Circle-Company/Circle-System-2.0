@@ -21,7 +21,7 @@ export interface ICommentRepository {
 
     // Operações de busca
     findByMomentId(momentId: string, limit?: number, offset?: number): Promise<Comment[]>
-    findByAuthorId(authorId: string, limit?: number, offset?: number): Promise<Comment[]>
+    findByUserId(userId: string, limit?: number, offset?: number): Promise<Comment[]>
     findByParentCommentId(
         parentCommentId: string,
         limit?: number,
@@ -51,7 +51,7 @@ export interface ICommentRepository {
 
     // Operações de contagem
     countByMomentId(momentId: string): Promise<number>
-    countByAuthorId(authorId: string): Promise<number>
+    countByUserId(userId: string): Promise<number>
     countByStatus(status: string): Promise<number>
     countByCategory(category: string): Promise<number>
     countBySentiment(sentiment: string): Promise<number>
@@ -60,7 +60,7 @@ export interface ICommentRepository {
     // Operações de existência
     exists(id: string): Promise<boolean>
     existsByMomentId(momentId: string): Promise<boolean>
-    existsByAuthorId(authorId: string): Promise<boolean>
+    existsByUserId(userId: string): Promise<boolean>
 
     // Operações em lote
     createMany(comments: Comment[]): Promise<Comment[]>
@@ -95,7 +95,7 @@ export interface ICommentRepository {
         pendingModeration: number
         averageLikes: number
         averageReplies: number
-        topCommenters: Array<{ authorId: string; count: number }>
+        topCommenters: Array<{ userId: string; count: number }>
     }>
 
     // Operações de interação
@@ -114,7 +114,7 @@ export abstract class BaseCommentRepository implements ICommentRepository {
     abstract update(comment: Comment): Promise<Comment>
     abstract delete(id: string): Promise<void>
     abstract findByMomentId(momentId: string, limit?: number, offset?: number): Promise<Comment[]>
-    abstract findByAuthorId(authorId: string, limit?: number, offset?: number): Promise<Comment[]>
+    abstract findByUserId(userId: string, limit?: number, offset?: number): Promise<Comment[]>
     abstract findByParentCommentId(
         parentCommentId: string,
         limit?: number,
@@ -142,14 +142,14 @@ export abstract class BaseCommentRepository implements ICommentRepository {
     abstract findByMention(mention: string, limit?: number, offset?: number): Promise<Comment[]>
     abstract findByHashtag(hashtag: string, limit?: number, offset?: number): Promise<Comment[]>
     abstract countByMomentId(momentId: string): Promise<number>
-    abstract countByAuthorId(authorId: string): Promise<number>
+    abstract countByUserId(userId: string): Promise<number>
     abstract countByStatus(status: string): Promise<number>
     abstract countByCategory(category: string): Promise<number>
     abstract countBySentiment(sentiment: string): Promise<number>
     abstract countPendingModeration(): Promise<number>
     abstract exists(id: string): Promise<boolean>
     abstract existsByMomentId(momentId: string): Promise<boolean>
-    abstract existsByAuthorId(authorId: string): Promise<boolean>
+    abstract existsByUserId(userId: string): Promise<boolean>
     abstract createMany(comments: Comment[]): Promise<Comment[]>
     abstract updateMany(comments: Comment[]): Promise<Comment[]>
     abstract deleteMany(ids: string[]): Promise<void>
@@ -176,7 +176,7 @@ export abstract class BaseCommentRepository implements ICommentRepository {
         pendingModeration: number
         averageLikes: number
         averageReplies: number
-        topCommenters: Array<{ authorId: string; count: number }>
+        topCommenters: Array<{ userId: string; count: number }>
     }>
     abstract incrementLikes(commentId: string): Promise<void>
     abstract decrementLikes(commentId: string): Promise<void>

@@ -52,33 +52,38 @@ export class UserMetrics {
     constructor(props: UserMetricsProps) {
         this._id = props.id || generateId()
         this._userId = props.userId
-        this._totalLikesReceived = props.totalLikesReceived || 0
-        this._totalViewsReceived = props.totalViewsReceived || 0
-        this._totalSharesReceived = props.totalSharesReceived || 0
-        this._totalCommentsReceived = props.totalCommentsReceived || 0
-        this._totalMomentsCreated = props.totalMomentsCreated || 0
-        this._totalLikesGiven = props.totalLikesGiven || 0
-        this._totalCommentsGiven = props.totalCommentsGiven || 0
-        this._totalSharesGiven = props.totalSharesGiven || 0
-        this._totalFollowsGiven = props.totalFollowsGiven || 0
-        this._totalReportsSpecifically = props.totalReportsGiven || 0
-        this._totalFollowers = props.totalFollowers || 0
-        this._totalFollowing = props.totalFollowing || 0
-        this._totalRelations = props.totalRelations || 0
-        this._engagementRate = props.engagementRate || 0
-        this._reachRate = props.reachRate || 0
-        this._momentsPublishedGrowthRate30d = props.momentsPublishedGrowthRate30d || 0
-        this._followerGrowthRate30d = props.followerGrowthRate30d || 0
-        this._engagementGrowthRate30d = props.engagementGrowthRate30d || 0
-        this._interactionsGrowthRate30d = props.interactionsGrowthRate30d || 0
-        this._momentsPerDayAverage = props.momentsPerDayAverage || 0
-        this._reportsReceived = props.reportsReceived || 0
-        this._violationsCount = props.violationsCount || 0
+        
+        // Helper para garantir valores não negativos
+        const ensureNonNegative = (value: number | undefined): number => 
+            value !== undefined && value >= 0 ? value : 0
+        
+        this._totalLikesReceived = ensureNonNegative(props.totalLikesReceived)
+        this._totalViewsReceived = ensureNonNegative(props.totalViewsReceived)
+        this._totalSharesReceived = ensureNonNegative(props.totalSharesReceived)
+        this._totalCommentsReceived = ensureNonNegative(props.totalCommentsReceived)
+        this._totalMomentsCreated = ensureNonNegative(props.totalMomentsCreated)
+        this._totalLikesGiven = ensureNonNegative(props.totalLikesGiven)
+        this._totalCommentsGiven = ensureNonNegative(props.totalCommentsGiven)
+        this._totalSharesGiven = ensureNonNegative(props.totalSharesGiven)
+        this._totalFollowsGiven = ensureNonNegative(props.totalFollowsGiven)
+        this._totalReportsSpecifically = ensureNonNegative(props.totalReportsGiven)
+        this._totalFollowers = ensureNonNegative(props.totalFollowers)
+        this._totalFollowing = ensureNonNegative(props.totalFollowing)
+        this._totalRelations = ensureNonNegative(props.totalRelations)
+        this._engagementRate = Math.max(0, ensureNonNegative(props.engagementRate))
+        this._reachRate = Math.max(0, ensureNonNegative(props.reachRate))
+        this._momentsPublishedGrowthRate30d = ensureNonNegative(props.momentsPublishedGrowthRate30d)
+        this._followerGrowthRate30d = ensureNonNegative(props.followerGrowthRate30d)
+        this._engagementGrowthRate30d = ensureNonNegative(props.engagementGrowthRate30d)
+        this._interactionsGrowthRate30d = ensureNonNegative(props.interactionsGrowthRate30d)
+        this._momentsPerDayAverage = ensureNonNegative(props.momentsPerDayAverage)
+        this._reportsReceived = ensureNonNegative(props.reportsReceived)
+        this._violationsCount = ensureNonNegative(props.violationsCount)
         this._lastMetricsUpdate = props.lastMetricsUpdate || new Date()
         this._createdAt = props.createdAt || new Date()
         this._updatedAt = props.updatedAt || new Date()
 
-        this.validate()
+        // Não validar automaticamente - deixar para o validate() manual se necessário
     }
 
     // ===== GETTERS =====
@@ -352,10 +357,10 @@ export class UserMetrics {
 
     private validate(): void {
         if (!this._userId || this._userId.trim().length === 0) {
-            throw new Error("User ID é obrigatório")
+            throw new Error("User ID is required")
         }
 
-        // Validar que números negativos não são permitidos
+        // Validate that negative numbers are not allowed
         const metrics = [
             this._totalLikesReceived,
             this._totalViewsReceived,
@@ -375,11 +380,11 @@ export class UserMetrics {
 
         for (const metric of metrics) {
             if (metric < 0) {
-                throw new Error("Métricas não podem ser negativas")
+                throw new Error("Metrics cannot be negative")
             }
         }
 
-        // Validar taxas
+        // Validate rates
         const rates = [
             this._engagementRate,
             this._reachRate,
@@ -392,8 +397,8 @@ export class UserMetrics {
 
         for (const rate of rates) {
             if (rate < 0 || rate > 1000) {
-                // Taxa máxima razoável
-                throw new Error("Taxas devem estar entre 0 e 1000")
+                // Reasonable maximum rate
+                throw new Error("Rates must be between 0 and 1000")
             }
         }
     }

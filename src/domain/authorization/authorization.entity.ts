@@ -27,12 +27,6 @@ export const AUTHORIZATION_RULES: AuthorizationRule[] = [
         description: "Visualizar próprio momento",
     },
     {
-        permission: Permission.UPDATE_OWN_MOMENT,
-        allowedLevels: [Level.SUDO, Level.ADMIN, Level.USER],
-        allowedDevices: [Device.WEB, Device.MOBILE],
-        description: "Atualizar próprio momento",
-    },
-    {
         permission: Permission.DELETE_OWN_MOMENT,
         allowedLevels: [Level.SUDO, Level.ADMIN, Level.USER],
         allowedDevices: [Device.WEB, Device.MOBILE],

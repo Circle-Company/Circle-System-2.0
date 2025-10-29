@@ -1,10 +1,9 @@
 /**
- * Entidade Comment - Comentários de momentos
- * Implementa sistema completo de permissões, categorização e moderação
+ * Comment Entity - Moment comments
+ * Implements a complete system for permissions, categorization and moderation
  */
 
 import {
-    CommentCategoryEnum,
     CommentEntity,
     CommentModerationConfig,
     CommentModerationFlag,
@@ -12,8 +11,7 @@ import {
     CommentProps,
     CommentSentimentEnum,
     CommentSeverityEnum,
-    CommentStatusEnum,
-    CommentVisibilityEnum,
+    CommentVisibilityEnum
 } from "../types/comment.type"
 
 import { User } from "@/domain/user/entities/user.entity"
@@ -23,12 +21,10 @@ import { Moment } from "./moment.entity"
 export class Comment {
     private readonly _id: string
     private readonly _momentId: string
-    private readonly _authorId: string
+    private readonly _userId: string
     private readonly _parentCommentId?: string
     private _content: string
-    private _status: CommentStatusEnum
     private _visibility: CommentVisibilityEnum
-    private _category: CommentCategoryEnum
     private _sentiment: CommentSentimentEnum
 
     // Métricas
@@ -61,21 +57,19 @@ export class Comment {
     constructor(props: CommentProps, moderationConfig?: CommentModerationConfig) {
         this._id = props.id || generateId()
         this._momentId = props.momentId
-        this._authorId = props.authorId
+        this._userId = props.userId
         this._parentCommentId = props.parentCommentId
         this._content = props.content
-        this._status = props.status || CommentStatusEnum.ACTIVE
         this._visibility = props.visibility || CommentVisibilityEnum.PUBLIC
-        this._category = props.category || CommentCategoryEnum.NEUTRAL
         this._sentiment = props.sentiment || CommentSentimentEnum.NEUTRAL
 
-        // Métricas
+        // Metrics
         this._likesCount = props.likesCount || 0
         this._repliesCount = props.repliesCount || 0
         this._reportsCount = props.reportsCount || 0
         this._viewsCount = props.viewsCount || 0
 
-        // Moderação
+        // Moderation
         this._moderationFlags = props.moderationFlags || []
         this._severity = props.severity || CommentSeverityEnum.LOW
         this._moderationScore = props.moderationScore || 0
@@ -83,7 +77,7 @@ export class Comment {
         this._moderatedAt = props.moderatedAt || null
         this._moderatedBy = props.moderatedBy || null
 
-        // Metadados
+        // Metadata
         this._mentions = props.mentions || []
         this._hashtags = props.hashtags || []
         this._metadata = props.metadata || {}
@@ -93,12 +87,12 @@ export class Comment {
         this._updatedAt = props.updatedAt || new Date()
         this._deletedAt = props.deletedAt || null
 
-        // Configuração de moderação
+        // Moderation configuration
         this._moderationConfig = moderationConfig || this.getDefaultModerationConfig()
 
         this.validate()
         this.extractMentionsAndHashtags()
-        this.analyzeContent()
+        this.analyzeSentiment()
     }
 
     // ===== GETTERS =====
@@ -111,8 +105,8 @@ export class Comment {
         return this._momentId
     }
 
-    get authorId(): string {
-        return this._authorId
+    get userId(): string {
+        return this._userId
     }
 
     get parentCommentId(): string | undefined {
@@ -123,16 +117,8 @@ export class Comment {
         return this._content
     }
 
-    get status(): CommentStatusEnum {
-        return this._status
-    }
-
     get visibility(): CommentVisibilityEnum {
         return this._visibility
-    }
-
-    get category(): CommentCategoryEnum {
-        return this._category
     }
 
     get sentiment(): CommentSentimentEnum {
@@ -254,37 +240,37 @@ export class Comment {
      * Verifica se um usuário é o dono do comentário
      */
     public isOwner(userId: string): boolean {
-        return this._authorId === userId
+        return this._userId === userId
     }
 
     /**
-     * Verifica se um usuário pode deletar o comentário
+     * Checks if a user can delete the comment
      */
     public canDeleteComment(
         userId: string,
         user: User,
         momentOwner?: User,
     ): { allowed: boolean; reason?: string } {
-        // O autor pode deletar seu próprio comentário
+        // The author can delete their own comment
         if (this.isOwner(userId)) {
             return { allowed: true }
         }
 
-        // O owner do momento pode deletar comentários em seu momento
+        // The moment owner can delete comments on their moment
         if (momentOwner && momentOwner.id === userId) {
             return { allowed: true }
         }
 
-        // Administradores podem deletar qualquer comentário
+        // Administrators can delete any comment
         if (user.canAccessAdminFeatures()) {
             return { allowed: true }
         }
 
-        return { allowed: false, reason: "Usuário não tem permissão para deletar este comentário" }
+        return { allowed: false, reason: "User does not have permission to delete this comment" }
     }
 
     /**
-     * Verifica se um usuário pode visualizar o comentário
+     * Checks if a user can view the comment
      */
     public canViewComment(
         userId: string,
@@ -292,93 +278,70 @@ export class Comment {
         momentOwner?: User,
         moment?: Moment,
     ): { allowed: boolean; reason?: string } {
-        // Se o comentário foi deletado, apenas o autor e admins podem ver
-        if (this._status === CommentStatusEnum.DELETED) {
+        // If the comment was deleted, only the author and admins can see it
+        if (this._deletedAt !== null) {
             if (this.isOwner(userId) || user.canAccessAdminFeatures()) {
                 return { allowed: true }
             }
-            return { allowed: false, reason: "Comentário foi deletado" }
+            return { allowed: false, reason: "Comment was deleted" }
         }
 
-        // Se o comentário está oculto, apenas o autor, owner do momento e admins podem ver
-        if (this._status === CommentStatusEnum.HIDDEN) {
-            if (
-                this.isOwner(userId) ||
-                (momentOwner && momentOwner.id === userId) ||
-                user.canAccessAdminFeatures()
-            ) {
-                return { allowed: true }
-            }
-            return { allowed: false, reason: "Comentário está oculto" }
-        }
-
-        // Verificar visibilidade do comentário
+        // Check comment visibility
         switch (this._visibility) {
             case CommentVisibilityEnum.PUBLIC:
                 return { allowed: true }
 
             case CommentVisibilityEnum.FOLLOWERS_ONLY:
-                // Implementar lógica para verificar se o usuário segue o autor
-                // Por enquanto, assumimos que é permitido
+                // Implement logic to check if user follows the author
+                // For now, we assume it's allowed
                 return { allowed: true }
 
-            case CommentVisibilityEnum.PRIVATE:
-                // Apenas o autor pode ver comentários privados
-                if (this.isOwner(userId)) {
-                    return { allowed: true }
-                }
-                return { allowed: false, reason: "Comentário é privado" }
-
-            case CommentVisibilityEnum.HIDDEN:
-                return { allowed: false, reason: "Comentário está oculto" }
-
             default:
-                return { allowed: false, reason: "Visibilidade do comentário não reconhecida" }
+                return { allowed: false, reason: "Comment visibility not recognized" }
         }
     }
 
     /**
-     * Verifica se um usuário pode editar o comentário
-     */
-    public canEditComment(userId: string, user: User): { allowed: boolean; reason?: string } {
-        // Apenas o autor pode editar seu comentário
+     * Checks if a user can edit the comment
+    了他的 public canEditComment(userId: string, user: User): { allowed: boolean; reason?: string } {
+        // Only the author can edit their comment
         if (!this.isOwner(userId)) {
-            return { allowed: false, reason: "Apenas o autor pode editar o comentário" }
+            return { allowed: false, reason: "Only the author can edit the comment" }
         }
 
-        // Verificar se o usuário está ativo
+        // Check if user is active
         if (!user.isActive()) {
-            return { allowed: false, reason: "Usuário não está ativo" }
+            return { allowed: false, reason: "User is not active" }
         }
 
-        // Verificar se o comentário não foi deletado
-        if (this._status === CommentStatusEnum.DELETED) {
-            return { allowed: false, reason: "Não é possível editar comentário deletado" }
+        // Check if comment was not deleted
+        if (this._deletedAt !== null) {
+            return { allowed: false, reason: "Cannot edit deleted comment" }
         }
 
-        // Verificar se não passou muito tempo desde a criação (ex: 24 horas)
-        const maxEditTime = 24 * 60 * 60 * 1000 // 24 horas em milissegundos
+        // Check if too much time has passed since creation (e.g., 24 hours)
+        const maxEditTime = 24 * 60 * 60 * 1000 // 24 hours in milliseconds
         const timeSinceCreation = Date.now() - this._createdAt.getTime()
 
         if (timeSinceCreation > maxEditTime) {
-            return { allowed: false, reason: "Tempo limite para edição expirado" }
+            return { allowed: false, reason: "Edit time limit expired" }
         }
 
         return { allowed: true }
     }
 
     /**
-     * Verifica se um usuário pode moderar o comentário
+     * Checks if a user can moderate the comment
      */
     public canModerateComment(userId: string, user: User): { allowed: boolean; reason?: string } {
-        // Apenas administradores podem moderar comentários
+        // Only administrators can moderate comments
         if (!user.canAccessAdminFeatures()) {
-            return { allowed: false, reason: "Apenas administradores podem moderar comentários" }
+            return { allowed: false, reason: "Only administrators can moderate comments" }
         }
 
-        // Verificar se o usuário está ativo
+        // Check if user is active
         if (!user.isActive()) {
-            return { allowed: false, reason: "Usuário não está ativo" }
+            return { allowed: false, reason: "User is not active" }
         }
 
         return { allowed: true }
@@ -410,7 +373,7 @@ export class Comment {
         this._content = newContent
         this._updatedAt = new Date()
         this.extractMentionsAndHashtags()
-        this.analyzeContent()
+        this.analyzeSentiment()
 
         return { success: true }
     }
@@ -423,11 +386,10 @@ export class Comment {
             return { success: false, error: "Apenas o autor pode deletar o comentário" }
         }
 
-        if (this._status === CommentStatusEnum.DELETED) {
+        if (this._deletedAt !== null) {
             return { success: false, error: "Comentário já foi deletado" }
         }
 
-        this._status = CommentStatusEnum.DELETED
         this._deletedAt = new Date()
         this._updatedAt = new Date()
 
@@ -535,7 +497,6 @@ export class Comment {
      * Aprova o comentário
      */
     public approve(moderatedBy: string): void {
-        this._status = CommentStatusEnum.APPROVED
         this._isModerated = true
         this._moderatedAt = new Date()
         this._moderatedBy = moderatedBy
@@ -544,44 +505,17 @@ export class Comment {
     }
 
     /**
-     * Rejeita o comentário
+     * Rejeita o comentário (deleta)
      */
     public reject(moderatedBy: string, reason?: string): void {
-        this._status = CommentStatusEnum.REJECTED
         this._isModerated = true
         this._moderatedAt = new Date()
         this._moderatedBy = moderatedBy
+        this._deletedAt = new Date()
         this._updatedAt = new Date()
 
         if (reason) {
             this._metadata.moderatorReason = reason
-        }
-    }
-
-    /**
-     * Oculta o comentário
-     */
-    public hide(moderatedBy: string, reason?: string): void {
-        this._status = CommentStatusEnum.HIDDEN
-        this._isModerated = true
-        this._moderatedAt = new Date()
-        this._moderatedBy = moderatedBy
-        this._updatedAt = new Date()
-
-        if (reason) {
-            this._metadata.moderatorReason = reason
-        }
-    }
-
-    /**
-     * Marca como em revisão
-     */
-    public markForReview(reason?: string): void {
-        this._status = CommentStatusEnum.UNDER_REVIEW
-        this._updatedAt = new Date()
-
-        if (reason) {
-            this._metadata.reviewReason = reason
         }
     }
 
@@ -590,11 +524,6 @@ export class Comment {
     /**
      * Analisa o conteúdo do comentário
      */
-    private analyzeContent(): void {
-        this.analyzeSentiment()
-        this.categorizeContent()
-        this.checkForModerationFlags()
-    }
 
     /**
      * Analisa o sentimento do comentário
@@ -662,34 +591,6 @@ export class Comment {
             this._sentiment = CommentSentimentEnum.NEGATIVE
         } else {
             this._sentiment = CommentSentimentEnum.NEUTRAL
-        }
-    }
-
-    /**
-     * Categoriza o conteúdo do comentário
-     */
-    private categorizeContent(): void {
-        const content = this._content.toLowerCase()
-
-        // Verificar categorias específicas
-        if (this.containsSpam(content)) {
-            this._category = CommentCategoryEnum.SPAM
-        } else if (this.containsHarassment(content)) {
-            this._category = CommentCategoryEnum.HARASSMENT
-        } else if (this.containsHateSpeech(content)) {
-            this._category = CommentCategoryEnum.HATE_SPEECH
-        } else if (this.containsAdvertising(content)) {
-            this._category = CommentCategoryEnum.ADVERTISING
-        } else if (this.containsQuestion(content)) {
-            this._category = CommentCategoryEnum.QUESTION
-        } else if (this.containsSupport(content)) {
-            this._category = CommentCategoryEnum.SUPPORTIVE
-        } else if (this.containsConstructive(content)) {
-            this._category = CommentCategoryEnum.CONSTRUCTIVE
-        } else if (this.containsHumor(content)) {
-            this._category = CommentCategoryEnum.FUNNY
-        } else {
-            this._category = CommentCategoryEnum.NEUTRAL
         }
     }
 
@@ -1007,8 +908,8 @@ export class Comment {
             throw new Error("Moment ID is required")
         }
 
-        if (!this._authorId) {
-            throw new Error("Author ID is required")
+        if (!this._userId) {
+            throw new Error("User ID is required")
         }
 
         if (!this._content || this._content.trim().length === 0) {
@@ -1031,12 +932,10 @@ export class Comment {
         return {
             id: this._id,
             momentId: this._momentId,
-            authorId: this._authorId,
+            userId: this._userId,
             parentCommentId: this._parentCommentId,
             content: this._content,
-            status: this._status,
             visibility: this._visibility,
-            category: this._category,
             sentiment: this._sentiment,
             likesCount: this._likesCount,
             repliesCount: this._repliesCount,
@@ -1068,12 +967,10 @@ export class Comment {
             {
                 id: entity.id,
                 momentId: entity.momentId,
-                authorId: entity.authorId,
+                userId: entity.userId,
                 parentCommentId: entity.parentCommentId,
                 content: entity.content,
-                status: entity.status,
                 visibility: entity.visibility,
-                category: entity.category,
                 sentiment: entity.sentiment,
                 likesCount: entity.likesCount,
                 repliesCount: entity.repliesCount,

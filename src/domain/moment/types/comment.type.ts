@@ -16,8 +16,6 @@ export enum CommentStatusEnum {
 export enum CommentVisibilityEnum {
     PUBLIC = "public",
     FOLLOWERS_ONLY = "followers_only",
-    PRIVATE = "private",
-    HIDDEN = "hidden",
 }
 
 export enum CommentCategoryEnum {
@@ -99,12 +97,10 @@ export enum CommentSentimentEnum {
 export interface CommentEntity {
     id: string
     momentId: string
-    authorId: string
+    userId: string
     parentCommentId?: string
     content: string
-    status: CommentStatusEnum
     visibility: CommentVisibilityEnum
-    category: CommentCategoryEnum
     sentiment: CommentSentimentEnum
 
     // Métricas
@@ -135,12 +131,10 @@ export interface CommentEntity {
 export interface CommentProps {
     id?: string
     momentId: string
-    authorId: string
+    userId: string
     parentCommentId?: string
     content: string
-    status?: CommentStatusEnum
     visibility?: CommentVisibilityEnum
-    category?: CommentCategoryEnum
     sentiment?: CommentSentimentEnum
 
     // Métricas
@@ -215,7 +209,7 @@ export interface CommentAnalytics {
 
 export interface CommentFilters {
     momentId?: string
-    authorId?: string
+    userId?: string
     parentCommentId?: string
     status?: CommentStatusEnum[]
     visibility?: CommentVisibilityEnum[]
@@ -262,7 +256,7 @@ export interface CommentPaginationOptions {
 
 export interface CommentSearchOptions {
     query: string
-    fields?: ("content" | "authorId" | "mentions" | "hashtags")[]
+    fields?: ("content" | "userId" | "mentions" | "hashtags")[]
     limit?: number
     offset?: number
     filters?: CommentFilters
@@ -287,7 +281,7 @@ export interface CommentListResponse {
 
 export interface CommentCreateRequest {
     momentId: string
-    authorId: string
+    userId: string
     parentCommentId?: string
     content: string
     visibility?: CommentVisibilityEnum

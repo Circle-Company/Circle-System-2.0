@@ -57,13 +57,19 @@ export class BlockUserUseCase {
             }
 
             // Se estava seguindo, parar de seguir automaticamente
-            const isFollowing = await this.userRepository.isFollowing(
-                request.userId,
-                request.targetUserId,
-            )
-            if (isFollowing) {
-                await this.userRepository.unfollowUser(request.userId, request.targetUserId)
-            }
+
+            const [ isFollowing , isFollowedBy] = await Promise.all([
+                this.userRepository.isFollowing(
+                    request.userId,
+                    request.targetUserId,
+                ),
+                this.userRepository.isFollowing(
+                    request.targetUserId,
+                    request.userId,
+                )
+            ])
+            if (isFollowing) await this.userRepository.unfollowUser(request.userId, request.targetUserId)
+            if (isFollowedBy) await this.userRepository.unfollowUser(request.targetUserId, request.userId)
 
             return {
                 success: true,

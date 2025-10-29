@@ -22,6 +22,8 @@ export class MomentRepositoryImpl implements IMomentRepository {
         try {
             // Criar momento principal
             const momentData = moment.toEntity()
+            console.log(`[MomentRepository] 💾 Criando moment ${momentData.id} no banco...`)
+            
             await this.database.getConnection().models.Moment.create(
                 {
                     id: momentData.id,
@@ -268,9 +270,11 @@ export class MomentRepositoryImpl implements IMomentRepository {
             }
 
             await transaction.commit()
+            console.log(`[MomentRepository] ✅ Moment ${momentData.id} criado com sucesso!`)
             return moment
         } catch (error) {
             await transaction.rollback()
+            console.error(`[MomentRepository] ❌ Erro ao criar moment:`, error)
             throw error
         }
     }
