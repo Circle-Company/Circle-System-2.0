@@ -16,8 +16,6 @@ export enum CommentStatusEnum {
 export enum CommentVisibilityEnum {
     PUBLIC = "public",
     FOLLOWERS_ONLY = "followers_only",
-    PRIVATE = "private",
-    HIDDEN = "hidden",
 }
 
 export enum CommentCategoryEnum {
@@ -102,9 +100,7 @@ export interface CommentEntity {
     userId: string
     parentCommentId?: string
     content: string
-    status: CommentStatusEnum
     visibility: CommentVisibilityEnum
-    category: CommentCategoryEnum
     sentiment: CommentSentimentEnum
 
     // Métricas
@@ -138,9 +134,7 @@ export interface CommentProps {
     userId: string
     parentCommentId?: string
     content: string
-    status?: CommentStatusEnum
     visibility?: CommentVisibilityEnum
-    category?: CommentCategoryEnum
     sentiment?: CommentSentimentEnum
 
     // Métricas

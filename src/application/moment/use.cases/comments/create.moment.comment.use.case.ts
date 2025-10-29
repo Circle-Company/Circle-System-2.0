@@ -32,7 +32,7 @@ export class CommentMomentUseCase {
                     success: false,
                     error: "User not found",
                 }
-            }
+            } 
 
             // Verificar se o usuário pode comentar
             if (!user.canInteractWithMoments()) {
@@ -84,8 +84,10 @@ export class CommentMomentUseCase {
                 momentId: request.momentId,
                 userId: request.userId,
                 content: request.content,
-                parentCommentId: request.parentCommentId,
+                parentCommentId: request.parentCommentId || null,
             })
+
+            console.log("comment", comment)
 
             // Salvar o comentário
             const savedComment = await this.commentRepository.create(comment)

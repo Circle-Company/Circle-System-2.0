@@ -44,55 +44,10 @@ export default {
                 onDelete: "CASCADE",
             },
 
-            // Status e Visibilidade
-            status: {
-                type: Sequelize.ENUM(
-                    "active",
-                    "hidden",
-                    "deleted",
-                    "flagged",
-                    "under_review",
-                    "approved",
-                    "rejected",
-                ),
-                allowNull: false,
-                defaultValue: "active",
-            },
             visibility: {
-                type: Sequelize.ENUM("public", "followers_only", "private", "hidden"),
+                type: Sequelize.ENUM("public", "followers_only"),
                 allowNull: false,
                 defaultValue: "public",
-            },
-            category: {
-                type: Sequelize.ENUM(
-                    // Categorias positivas
-                    "positive",
-                    "supportive",
-                    "constructive",
-                    "informative",
-                    "funny",
-                    "creative",
-                    // Categorias neutras
-                    "neutral",
-                    "question",
-                    "clarification",
-                    "off_topic",
-                    // Categorias negativas
-                    "negative",
-                    "spam",
-                    "harassment",
-                    "hate_speech",
-                    "inappropriate",
-                    "misleading",
-                    "trolling",
-                    "advertising",
-                    // Categorias técnicas
-                    "technical_issue",
-                    "feature_request",
-                    "bug_report",
-                ),
-                allowNull: false,
-                defaultValue: "neutral",
             },
 
             // Sentiment
@@ -225,12 +180,6 @@ export default {
         })
 
         // Índices adicionais para novos campos
-        await queryInterface.addIndex("moment_comments", ["status"], {
-            name: "moment_comments_status",
-        })
-        await queryInterface.addIndex("moment_comments", ["category"], {
-            name: "moment_comments_category",
-        })
         await queryInterface.addIndex("moment_comments", ["visibility"], {
             name: "moment_comments_visibility",
         })
