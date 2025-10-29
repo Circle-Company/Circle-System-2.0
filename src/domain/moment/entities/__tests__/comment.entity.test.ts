@@ -40,7 +40,7 @@ describe("Comment Entity", () => {
     beforeEach(() => {
         comment = Comment.create({
             momentId: "moment_123",
-            authorId: "user_123",
+            userId: "user_123",
             content: "Este é um comentário de teste",
         })
     })
@@ -49,7 +49,7 @@ describe("Comment Entity", () => {
         it("deve criar um comentário com propriedades básicas", () => {
             expect(comment.id).toBeDefined()
             expect(comment.momentId).toBe("moment_123")
-            expect(comment.authorId).toBe("user_123")
+            expect(comment.userId).toBe("user_123")
             expect(comment.content).toBe("Este é um comentário de teste")
             expect(comment.status).toBe(CommentStatusEnum.ACTIVE)
             expect(comment.visibility).toBe(CommentVisibilityEnum.PUBLIC)
@@ -155,7 +155,7 @@ describe("Comment Entity", () => {
             it("deve negar visualização de comentário deletado para usuários não autorizados", () => {
                 comment = Comment.create({
                     momentId: "moment_123",
-                    authorId: "user_123",
+                    userId: "user_123",
                     content: "Comentário deletado",
                     status: CommentStatusEnum.DELETED,
                 })
@@ -173,7 +173,7 @@ describe("Comment Entity", () => {
             it("deve permitir visualização de comentário deletado para o autor", () => {
                 comment = Comment.create({
                     momentId: "moment_123",
-                    authorId: "user_123",
+                    userId: "user_123",
                     content: "Comentário deletado",
                     status: CommentStatusEnum.DELETED,
                 })
@@ -203,7 +203,7 @@ describe("Comment Entity", () => {
             it("deve negar edição de comentário deletado", () => {
                 comment = Comment.create({
                     momentId: "moment_123",
-                    authorId: "user_123",
+                    userId: "user_123",
                     content: "Comentário deletado",
                     status: CommentStatusEnum.DELETED,
                 })
@@ -233,7 +233,7 @@ describe("Comment Entity", () => {
         it("deve detectar sentimento positivo", () => {
             const positiveComment = Comment.create({
                 momentId: "moment_123",
-                authorId: "user_123",
+                userId: "user_123",
                 content: "Muito obrigado! Excelente trabalho!",
             })
 
@@ -243,7 +243,7 @@ describe("Comment Entity", () => {
         it("deve detectar sentimento negativo", () => {
             const negativeComment = Comment.create({
                 momentId: "moment_123",
-                authorId: "user_123",
+                userId: "user_123",
                 content: "Isso é horrível e péssimo!",
             })
 
@@ -253,7 +253,7 @@ describe("Comment Entity", () => {
         it("deve categorizar como spam", () => {
             const spamComment = Comment.create({
                 momentId: "moment_123",
-                authorId: "user_123",
+                userId: "user_123",
                 content: "Compre agora! Promoção imperdível! https://loja.com",
             })
 
@@ -263,7 +263,7 @@ describe("Comment Entity", () => {
         it("deve categorizar como pergunta", () => {
             const questionComment = Comment.create({
                 momentId: "moment_123",
-                authorId: "user_123",
+                userId: "user_123",
                 content: "Como você fez isso?",
             })
 
@@ -273,7 +273,7 @@ describe("Comment Entity", () => {
         it("deve detectar menções e hashtags", () => {
             const commentWithMentions = Comment.create({
                 momentId: "moment_123",
-                authorId: "user_123",
+                userId: "user_123",
                 content: "Oi @usuario123, isso é #incrível!",
             })
 
@@ -396,7 +396,7 @@ describe("Comment Entity", () => {
             expect(() => {
                 Comment.create({
                     momentId: "moment_123",
-                    authorId: "user_123",
+                    userId: "user_123",
                     content: "Comentário válido",
                 })
             }).not.toThrow()
@@ -406,7 +406,7 @@ describe("Comment Entity", () => {
             expect(() => {
                 Comment.create({
                     momentId: "",
-                    authorId: "user_123",
+                    userId: "user_123",
                     content: "Comentário válido",
                 })
             }).toThrow("Moment ID is required")
@@ -416,17 +416,17 @@ describe("Comment Entity", () => {
             expect(() => {
                 Comment.create({
                     momentId: "moment_123",
-                    authorId: "",
+                    userId: "",
                     content: "Comentário válido",
                 })
-            }).toThrow("Author ID is required")
+            }).toThrow("User ID is required")
         })
 
         it("deve falhar com conteúdo ausente", () => {
             expect(() => {
                 Comment.create({
                     momentId: "moment_123",
-                    authorId: "user_123",
+                    userId: "user_123",
                     content: "",
                 })
             }).toThrow("Comment content is required")
@@ -437,7 +437,7 @@ describe("Comment Entity", () => {
             expect(() => {
                 Comment.create({
                     momentId: "moment_123",
-                    authorId: "user_123",
+                    userId: "user_123",
                     content: longContent,
                 })
             }).toThrow("Comment too long (maximum 500 characters)")
@@ -449,7 +449,7 @@ describe("Comment Entity", () => {
             const entity = comment.toEntity()
             expect(entity.id).toBe(comment.id)
             expect(entity.momentId).toBe(comment.momentId)
-            expect(entity.authorId).toBe(comment.authorId)
+            expect(entity.userId).toBe(comment.userId)
             expect(entity.content).toBe(comment.content)
         })
 
@@ -458,7 +458,7 @@ describe("Comment Entity", () => {
             const newComment = Comment.fromEntity(entity)
             expect(newComment.id).toBe(entity.id)
             expect(newComment.momentId).toBe(entity.momentId)
-            expect(newComment.authorId).toBe(entity.authorId)
+            expect(newComment.userId).toBe(entity.userId)
             expect(newComment.content).toBe(entity.content)
         })
     })
