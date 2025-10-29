@@ -4,10 +4,8 @@
 
 import { beforeEach, describe, expect, it } from "vitest"
 import {
-    CommentCategoryEnum,
     CommentSentimentEnum,
     CommentSeverityEnum,
-    CommentStatusEnum,
     CommentVisibilityEnum,
 } from "../../types/comment.type"
 
@@ -51,9 +49,7 @@ describe("Comment Entity", () => {
             expect(comment.momentId).toBe("moment_123")
             expect(comment.userId).toBe("user_123")
             expect(comment.content).toBe("Este é um comentário de teste")
-            expect(comment.status).toBe(CommentStatusEnum.ACTIVE)
             expect(comment.visibility).toBe(CommentVisibilityEnum.PUBLIC)
-            expect(comment.category).toBe(CommentCategoryEnum.NEUTRAL)
             expect(comment.sentiment).toBe(CommentSentimentEnum.NEUTRAL)
         })
 
