@@ -2,30 +2,7 @@ import { DataTypes, Model, Sequelize } from "sequelize"
 
 import { generateId } from "@/shared"
 
-type CommentStatus = "active" | "hidden" | "deleted" | "flagged" | "under_review" | "approved" | "rejected"
-type CommentVisibility = "public" | "followers_only" | "private" | "hidden"
-type CommentCategory =
-    | "positive"
-    | "supportive"
-    | "constructive"
-    | "informative"
-    | "funny"
-    | "creative"
-    | "neutral"
-    | "question"
-    | "clarification"
-    | "off_topic"
-    | "negative"
-    | "spam"
-    | "harassment"
-    | "hate_speech"
-    | "inappropriate"
-    | "misleading"
-    | "trolling"
-    | "advertising"
-    | "technical_issue"
-    | "feature_request"
-    | "bug_report"
+type CommentVisibility = "public" | "followers_only"
 type CommentSeverity = "low" | "medium" | "high" | "critical"
 type CommentSentiment = "positive" | "negative" | "neutral"
 
@@ -36,10 +13,8 @@ interface MomentCommentAttributes {
     content: string
     parentId: bigint | null
     
-    // Status e visibilidade
-    status: CommentStatus
+    // Visibilidade
     visibility: CommentVisibility
-    category: CommentCategory
     
     // Sentiment (mantido para compatibilidade)
     sentiment: CommentSentiment
@@ -85,12 +60,10 @@ export default class MomentComment
     declare momentId: bigint
     declare userId: bigint
     declare content: string
-    declare parentId: bigint | null
+    declare     parentId: bigint | null
     
-    // Status e visibilidade
-    declare status: CommentStatus
+    // Visibilidade
     declare visibility: CommentVisibility
-    declare category: CommentCategory
     
     // Sentiment
     declare sentiment: CommentSentiment
@@ -132,9 +105,7 @@ export default class MomentComment
             userId: String(this.userId),
             parentCommentId: this.parentId ? String(this.parentId) : undefined,
             content: this.content,
-            status: this.status,
             visibility: this.visibility,
-            category: this.category,
             sentiment: this.sentiment,
             likesCount: this.likesCount,
             repliesCount: this.repliesCount,
@@ -196,54 +167,14 @@ export default class MomentComment
                     },
                 },
                 
-                // Status e visibilidade
-                status: {
-                    type: DataTypes.ENUM(
-                        "active",
-                        "hidden",
-                        "deleted",
-                        "flagged",
-                        "under_review",
-                        "approved",
-                        "rejected",
-                    ),
-                    allowNull: false,
-                    defaultValue: "active",
-                },
+                // Visibilidade
                 visibility: {
-                    type: DataTypes.ENUM("public", "followers_only", "private", "hidden"),
+                    type: DataTypes.ENUM("public", "followers_only"),
                     allowNull: false,
                     defaultValue: "public",
                 },
-                category: {
-                    type: DataTypes.ENUM(
-                        "positive",
-                        "supportive",
-                        "constructive",
-                        "informative",
-                        "funny",
-                        "creative",
-                        "neutral",
-                        "question",
-                        "clarification",
-                        "off_topic",
-                        "negative",
-                        "spam",
-                        "harassment",
-                        "hate_speech",
-                        "inappropriate",
-                        "misleading",
-                        "trolling",
-                        "advertising",
-                        "technical_issue",
-                        "feature_request",
-                        "bug_report",
-                    ),
-                    allowNull: false,
-                    defaultValue: "neutral",
-                },
                 
-                // Sentiment (mantido para compatibilidade)
+                // Sentiment
                 sentiment: {
                     type: DataTypes.ENUM("positive", "negative", "neutral"),
                     allowNull: false,
@@ -387,12 +318,6 @@ export default class MomentComment
                     },
                     {
                         fields: ["moderation_status"],
-                    },
-                    {
-                        fields: ["status"],
-                    },
-                    {
-                        fields: ["category"],
                     },
                     {
                         fields: ["visibility"],

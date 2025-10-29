@@ -1,10 +1,9 @@
 /**
- * Entidade Comment - Comentários de momentos
- * Implementa sistema completo de permissões, categorização e moderação
+ * Comment Entity - Moment comments
+ * Implements a complete system for permissions, categorization and moderation
  */
 
 import {
-    CommentCategoryEnum,
     CommentEntity,
     CommentModerationConfig,
     CommentModerationFlag,
@@ -12,8 +11,7 @@ import {
     CommentProps,
     CommentSentimentEnum,
     CommentSeverityEnum,
-    CommentStatusEnum,
-    CommentVisibilityEnum,
+    CommentVisibilityEnum
 } from "../types/comment.type"
 
 import { User } from "@/domain/user/entities/user.entity"
