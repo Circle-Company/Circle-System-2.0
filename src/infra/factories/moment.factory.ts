@@ -9,7 +9,7 @@ import {
     DeleteMomentCommentUseCase,
     DeleteMomentUseCase,
     GetAccountMomentsUseCase,
-    GetCommentedMomentsUseCase,
+
     GetLikedMomentsUseCase,
     GetMomentCommentsUseCase,
     GetMomentMetricsUseCase,
@@ -25,6 +25,15 @@ import { DatabaseAdapter, DatabaseAdapterFactory } from "@/infra/database/adapte
 
 import { MomentMetricsService } from "@/application/moment/services/moment.metrics.service"
 import { MomentService } from "@/application/moment/services/moment.service"
+import { ContentBlocker } from "@/core/content.moderation/content/blocker"
+import { ContentDetector } from "@/core/content.moderation/content/detector"
+import { ModerationEngineFactory } from "@/core/content.moderation/factory"
+import { ModerationEngine } from "@/core/content.moderation/moderation"
+import type {
+    ContentStorage,
+    ModerationEngineConfig,
+    ModerationRepository
+} from "@/core/content.moderation/types"
 import { StorageAdapterFactory } from "@/core/content.processor/storage.adapter"
 import { MomentMapper } from "@/domain/moment/moment.mapper"
 import { ICommentRepository } from "@/domain/moment/repositories/comment.repository"
@@ -106,11 +115,47 @@ export class MomentFactory {
     }
 
     /**
+     * Cria um ModerationEngine para moderação de comentários
+     */
+    static createModerationEngine(): ModerationEngine {
+        // Criar mocks simples para as dependências não utilizadas em moderação de comentários
+        const mockModerationRepository: ModerationRepository = {
+            save: async (moderation) => moderation,
+            findById: async () => null,
+            findByContentId: async () => null,
+            update: async (id, updates) => ({ ...updates, id } as any),
+            delete: async () => {},
+        }
+
+        const mockContentStorage: ContentStorage = {
+            store: async () => "",
+            retrieve: async () => null,
+            delete: async () => {},
+        }
+
+        const config: ModerationEngineConfig = ModerationEngineFactory.createDefaultConfig()
+
+        // Criar ContentDetector e ContentBlocker
+        const contentDetector = new ContentDetector(config)
+        const contentBlocker = new ContentBlocker(mockModerationRepository, config)
+
+        // Criar ModerationEngine diretamente (sem httpAdapter que não é usado em moderação de comentários)
+        return new ModerationEngine(
+            contentDetector,
+            contentBlocker,
+            mockModerationRepository,
+            mockContentStorage,
+            config,
+        )
+    }
+
+    /**
      * Cria todos os use cases de Moment
      */
     static createMomentUseCases(database: DatabaseAdapter) {
         const momentRepository = this.createMomentRepository(database)
         const userRepository = this.createUserRepository(database)
+        const moderationEngine = this.createModerationEngine()
         const commentRepository = this.createCommentRepository(database)
         const momentService = this.createMomentService(database)
         const momentMetricsService = this.createMomentMetricsService(database)
@@ -118,7 +163,7 @@ export class MomentFactory {
         return {
             // CRUD Operations
             createMoment: new CreateMomentUseCase(momentService, userRepository),
-            getMoment: new GetMomentUseCase(userRepository, momentRepository, momentService),
+            getMoment: new GetMomentUseCase(userRepository, momentRepository),
             deleteMoment: new DeleteMomentUseCase(momentRepository, momentService),
 
             // User Actions
@@ -140,16 +185,13 @@ export class MomentFactory {
 
             // Comments
             commentMoment: new CommentMomentUseCase(
+                moderationEngine,
                 commentRepository,
                 momentRepository,
                 userRepository,
-            ),
-            getMomentComments: new GetMomentCommentsUseCase(commentRepository),
+            ),  
+            getMomentComments: new GetMomentCommentsUseCase(commentRepository, userRepository),
             deleteMomentComment: new DeleteMomentCommentUseCase(commentRepository, userRepository),
-            getCommentedMoments: new GetCommentedMomentsUseCase(
-                commentRepository,
-                momentRepository,
-            ),
 
             // Reports
             reportMoment: new ReportMomentUseCase(momentRepository, momentService),
@@ -232,7 +274,6 @@ export class MomentFactory {
             useCases.commentMoment,
             useCases.getMomentComments,
             useCases.deleteMomentComment,
-            useCases.getCommentedMoments,
         )
     }
 

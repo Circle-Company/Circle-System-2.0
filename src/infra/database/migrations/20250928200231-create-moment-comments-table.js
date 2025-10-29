@@ -33,7 +33,11 @@ export default {
                 type: Sequelize.TEXT,
                 allowNull: false,
             },
-            parent_id: {
+            rich_content: {
+                type: Sequelize.TEXT,
+                allowNull: true,
+            },
+            reply_id: {
                 type: Sequelize.BIGINT,
                 allowNull: true,
                 references: {
@@ -119,16 +123,6 @@ export default {
             },
 
             // Metadados
-            mentions: {
-                type: Sequelize.ARRAY(Sequelize.STRING),
-                allowNull: false,
-                defaultValue: [],
-            },
-            hashtags: {
-                type: Sequelize.ARRAY(Sequelize.STRING),
-                allowNull: false,
-                defaultValue: [],
-            },
             metadata: {
                 type: Sequelize.JSONB,
                 allowNull: false,
@@ -166,11 +160,11 @@ export default {
         await queryInterface.addIndex("moment_comments", ["user_id"], {
             name: "moment_comments_user_id",
         })
-        await queryInterface.addIndex("moment_comments", ["parent_id"], {
-            name: "moment_comments_parent_id",
+        await queryInterface.addIndex("moment_comments", ["reply_id"], {
+            name: "moment_comments_reply_id",
         })
-        await queryInterface.addIndex("moment_comments", ["parent_id", "deleted"], {
-            name: "moment_comments_parent_deleted",
+        await queryInterface.addIndex("moment_comments", ["reply_id", "deleted"], {
+            name: "moment_comments_reply_deleted",
         })
         await queryInterface.addIndex("moment_comments", ["created_at"], {
             name: "moment_comments_created_at",
@@ -193,15 +187,6 @@ export default {
             name: "moment_comments_likes_count",
         })
 
-        // Índices GIN para arrays
-        await queryInterface.addIndex("moment_comments", ["mentions"], {
-            name: "moment_comments_mentions",
-            using: "GIN",
-        })
-        await queryInterface.addIndex("moment_comments", ["hashtags"], {
-            name: "moment_comments_hashtags",
-            using: "GIN",
-        })
     },
 
     async down(queryInterface, Sequelize) {

@@ -42,7 +42,6 @@ class MomentCommentRouteHandlers {
             }
 
             const momentId = request.params?.momentId
-            const userId = request.user.id
             const body = request.body || {}
 
             if (!momentId) {
@@ -59,7 +58,7 @@ class MomentCommentRouteHandlers {
                 })
             }
 
-            const result = await this.commentController.createComment(momentId, userId, body)
+            const result = await this.commentController.createComment(momentId, request.user, body)
 
             response.status(201).send({
                 success: true,
@@ -95,7 +94,7 @@ class MomentCommentRouteHandlers {
             const sortBy = (queryParams.sortBy as string) || "createdAt"
             const sortOrder = (queryParams.sortOrder as string) || "desc"
 
-            const result = await this.commentController.getMomentComments(momentId, request.user?.id || "", {
+            const result = await this.commentController.getMomentComments(momentId, request.user, {
                 page,
                 limit,
                 includeReplies,
@@ -127,7 +126,6 @@ class MomentCommentRouteHandlers {
 
             const momentId = request.params?.momentId
             const commentId = request.params?.commentId
-            const userId = request.user.id
 
             if (!momentId || !commentId) {
                 return response.status(400).send({
@@ -136,7 +134,7 @@ class MomentCommentRouteHandlers {
                 })
             }
 
-            await this.commentController.deleteComment(momentId, commentId, userId)
+            await this.commentController.deleteComment(momentId, commentId, request.user)
 
             response.status(200).send({
                 success: true,
