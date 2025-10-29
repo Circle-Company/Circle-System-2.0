@@ -42,7 +42,7 @@ class MomentCommentRouteHandlers {
             }
 
             const momentId = request.params?.momentId
-            const authorId = request.user.id
+            const userId = request.user.id
             const body = request.body || {}
 
             if (!momentId) {
@@ -59,7 +59,7 @@ class MomentCommentRouteHandlers {
                 })
             }
 
-            const result = await this.commentController.createComment(momentId, authorId, body)
+            const result = await this.commentController.createComment(momentId, userId, body)
 
             response.status(201).send({
                 success: true,

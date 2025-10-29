@@ -24,7 +24,7 @@ export class CommentRepositoryImpl implements ICommentRepository {
                 {
                     id: commentData.id,
                     momentId: commentData.momentId,
-                    authorId: commentData.authorId,
+                    userId: commentData.userId,
                     parentCommentId: commentData.parentCommentId,
                     content: commentData.content,
                     status: commentData.status,
@@ -52,7 +52,7 @@ export class CommentRepositoryImpl implements ICommentRepository {
             )
 
             await transaction.commit()
-            return comment
+            return createdComment.toEntity()
         } catch (error) {
             await transaction.rollback()
             throw error
@@ -116,9 +116,9 @@ export class CommentRepositoryImpl implements ICommentRepository {
         return comments.map((comment: any) => this.mapToDomainEntity(comment))
     }
 
-    async findByAuthorId(authorId: string, limit = 20, offset = 0): Promise<Comment[]> {
+    async findByUserId(userId: string, limit = 20, offset = 0): Promise<Comment[]> {
         const comments = await this.database.getConnection().models.MomentComment.findAll({
-            where: { authorId },
+            where: { userId },
             limit,
             offset,
             order: [["createdAt", "DESC"]],
@@ -329,9 +329,9 @@ export class CommentRepositoryImpl implements ICommentRepository {
         })
     }
 
-    async countByAuthorId(authorId: string): Promise<number> {
+    async countByUserId(userId: string): Promise<number> {
         return this.database.getConnection().models.MomentComment.count({
-            where: { authorId },
+            where: { userId },
         })
     }
 
@@ -378,8 +378,8 @@ export class CommentRepositoryImpl implements ICommentRepository {
         return count > 0
     }
 
-    async existsByAuthorId(authorId: string): Promise<boolean> {
-        const count = await this.countByAuthorId(authorId)
+    async existsByUserId(userId: string): Promise<boolean> {
+        const count = await this.countByUserId(userId)
         return count > 0
     }
 
@@ -406,7 +406,7 @@ export class CommentRepositoryImpl implements ICommentRepository {
     async deleteMany(ids: string[]): Promise<void> {
         await this.database
             .getConnection()
-            .models.Comment.destroy({ where: { id: { [Op.in]: ids } } })
+            .models.MomentComment.destroy({ where: { id: { [Op.in]: ids } } })
     }
 
     // ===== OPERAÇÕES DE PAGINAÇÃO =====
@@ -432,8 +432,8 @@ export class CommentRepositoryImpl implements ICommentRepository {
                 where.momentId = filters.momentId
             }
 
-            if (filters.authorId) {
-                where.authorId = filters.authorId
+            if (filters.userId) {
+                where.userId = filters.userId
             }
 
             if (filters.status) {
@@ -560,37 +560,37 @@ export class CommentRepositoryImpl implements ICommentRepository {
     async incrementLikes(commentId: string): Promise<void> {
         await this.database
             .getConnection()
-            .models.Comment.increment({ likesCount: 1 }, { where: { id: commentId } })
+            .models.MomentComment.increment({ likesCount: 1 }, { where: { id: commentId } })
     }
 
     async decrementLikes(commentId: string): Promise<void> {
         await this.database
             .getConnection()
-            .models.Comment.increment({ likesCount: -1 }, { where: { id: commentId } })
+            .models.MomentComment.increment({ likesCount: -1 }, { where: { id: commentId } })
     }
 
     async decrementReplies(commentId: string): Promise<void> {
         await this.database
             .getConnection()
-            .models.Comment.increment({ repliesCount: -1 }, { where: { id: commentId } })
+            .models.MomentComment.increment({ repliesCount: -1 }, { where: { id: commentId } })
     }
 
     async incrementReplies(commentId: string): Promise<void> {
         await this.database
             .getConnection()
-            .models.Comment.increment({ repliesCount: 1 }, { where: { id: commentId } })
+            .models.MomentComment.increment({ repliesCount: 1 }, { where: { id: commentId } })
     }
 
     async incrementReports(commentId: string): Promise<void> {
         await this.database
             .getConnection()
-            .models.Comment.increment({ reportsCount: 1 }, { where: { id: commentId } })
+            .models.MomentComment.increment({ reportsCount: 1 }, { where: { id: commentId } })
     }
 
     async incrementViews(commentId: string): Promise<void> {
         await this.database
             .getConnection()
-            .models.Comment.increment({ viewsCount: 1 }, { where: { id: commentId } })
+            .models.MomentComment.increment({ viewsCount: 1 }, { where: { id: commentId } })
     }
 
     // ===== OPERAÇÕES DE BUSCA AVANÇADA =====
@@ -612,9 +612,9 @@ export class CommentRepositoryImpl implements ICommentRepository {
                 })
             }
 
-            if (searchFields.includes("authorId")) {
+            if (searchFields.includes("userId")) {
                 orConditions.push({
-                    authorId: {
+                    userId: {
                         [Op.iLike]: `%${options.query}%`,
                     },
                 })
@@ -645,8 +645,8 @@ export class CommentRepositoryImpl implements ICommentRepository {
                 where.momentId = options.filters.momentId
             }
 
-            if (options.filters.authorId) {
-                where.authorId = options.filters.authorId
+            if (options.filters.userId) {
+                where.userId = options.filters.userId
             }
 
             if (options.filters.status) {
@@ -707,7 +707,7 @@ export class CommentRepositoryImpl implements ICommentRepository {
 
         if (filters) {
             if (filters.momentId) where.momentId = filters.momentId
-            if (filters.authorId) where.authorId = filters.authorId
+            if (filters.userId) where.userId = filters.userId
             if (filters.status) {
                 if (Array.isArray(filters.status)) {
                     where.status = { [Op.in]: filters.status }
@@ -779,8 +779,7 @@ export class CommentRepositoryImpl implements ICommentRepository {
         // Top comentadores
         const commentersMap: Record<string, number> = {}
         comments.forEach((comment: any) => {
-            const authorId = comment.authorId
-            commentersMap[authorId] = (commentersMap[authorId] || 0) + 1
+            commentersMap[comment.userId] = (commentersMap[comment.userId] || 0) + 1
         })
         const topCommenters = Object.entries(commentersMap)
             .sort((a, b) => b[1] - a[1])
@@ -837,7 +836,7 @@ export class CommentRepositoryImpl implements ICommentRepository {
         pendingModeration: number
         averageLikes: number
         averageReplies: number
-        topCommenters: Array<{ authorId: string; count: number }>
+        topCommenters: Array<{ userId: string; count: number }>
     }> {
         const [
             totalComments,
@@ -885,12 +884,12 @@ export class CommentRepositoryImpl implements ICommentRepository {
             }),
             this.database
                 .getConnection()
-                .models.Comment.findAll({
+                .models.MomentComment.findAll({
                     attributes: [
-                        "authorId",
+                        "userId",
                         [this.database.getConnection().fn("COUNT", this.database.getConnection().col("id")), "count"],
                     ],
-                    group: ["authorId"],
+                    group: ["userId"],
                     order: [[this.database.getConnection().fn("COUNT", this.database.getConnection().col("id")), "DESC"]],
                     limit: 10,
                     raw: true,
@@ -910,7 +909,7 @@ export class CommentRepositoryImpl implements ICommentRepository {
             averageLikes: Number(averageLikes),
             averageReplies: Number(averageReplies),
             topCommenters: (topCommentersData as any[]).map((item) => ({
-                authorId: item.authorId,
+                userId: item.userId,
                 count: Number(item.count),
             })),
         }
@@ -922,7 +921,7 @@ export class CommentRepositoryImpl implements ICommentRepository {
         const commentEntity = {
             id: commentData.id,
             momentId: commentData.momentId,
-            authorId: commentData.authorId,
+            userId: commentData.userId,
             parentCommentId: commentData.parentCommentId,
             content: commentData.content,
             status: commentData.status,

@@ -82,7 +82,7 @@ export class CommentMomentUseCase {
             // Criar o comentário
             const comment = Comment.create({
                 momentId: request.momentId,
-                authorId: request.userId,
+                userId: request.userId,
                 content: request.content,
                 parentCommentId: request.parentCommentId,
             })
