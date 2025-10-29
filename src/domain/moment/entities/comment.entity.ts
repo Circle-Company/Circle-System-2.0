@@ -23,7 +23,7 @@ import { Moment } from "./moment.entity"
 export class Comment {
     private readonly _id: string
     private readonly _momentId: string
-    private readonly _authorId: string
+    private readonly _userId: string
     private readonly _parentCommentId?: string
     private _content: string
     private _status: CommentStatusEnum
@@ -61,7 +61,7 @@ export class Comment {
     constructor(props: CommentProps, moderationConfig?: CommentModerationConfig) {
         this._id = props.id || generateId()
         this._momentId = props.momentId
-        this._authorId = props.authorId
+        this._userId = props.userId
         this._parentCommentId = props.parentCommentId
         this._content = props.content
         this._status = props.status || CommentStatusEnum.ACTIVE
@@ -111,8 +111,8 @@ export class Comment {
         return this._momentId
     }
 
-    get authorId(): string {
-        return this._authorId
+    get userId(): string {
+        return this._userId
     }
 
     get parentCommentId(): string | undefined {
@@ -254,7 +254,7 @@ export class Comment {
      * Verifica se um usuário é o dono do comentário
      */
     public isOwner(userId: string): boolean {
-        return this._authorId === userId
+        return this._userId === userId
     }
 
     /**
@@ -1007,8 +1007,8 @@ export class Comment {
             throw new Error("Moment ID is required")
         }
 
-        if (!this._authorId) {
-            throw new Error("Author ID is required")
+        if (!this._userId) {
+            throw new Error("User ID is required")
         }
 
         if (!this._content || this._content.trim().length === 0) {
@@ -1031,7 +1031,7 @@ export class Comment {
         return {
             id: this._id,
             momentId: this._momentId,
-            authorId: this._authorId,
+            userId: this._userId,
             parentCommentId: this._parentCommentId,
             content: this._content,
             status: this._status,
@@ -1068,7 +1068,7 @@ export class Comment {
             {
                 id: entity.id,
                 momentId: entity.momentId,
-                authorId: entity.authorId,
+                userId: entity.userId,
                 parentCommentId: entity.parentCommentId,
                 content: entity.content,
                 status: entity.status,
