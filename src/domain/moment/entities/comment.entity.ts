@@ -15,6 +15,8 @@ import {
 } from "../types/comment.type"
 
 import { User } from "@/domain/user/entities/user.entity"
+import { IUserRepository } from "@/domain/user/repositories/user.repository"
+import { textLib } from "@/shared"
 import { generateId } from "@/shared/id"
 import { Moment } from "./moment.entity"
 
@@ -22,18 +24,20 @@ export class Comment {
     private readonly _id: string
     private readonly _momentId: string
     private readonly _userId: string
-    private readonly _parentCommentId?: string
+    private readonly _replyId?: string
     private _content: string
+    private _richContent: string
     private _visibility: CommentVisibilityEnum
     private _sentiment: CommentSentimentEnum
+    private _sentimentIntensity: number
 
-    // Métricas
+    // Metrics
     private _likesCount: number
     private _repliesCount: number
     private _reportsCount: number
     private _viewsCount: number
 
-    // Moderação
+    // Moderation
     private _moderationFlags: CommentModerationFlag[]
     private _severity: CommentSeverityEnum
     private _moderationScore: number
@@ -41,7 +45,7 @@ export class Comment {
     private _moderatedAt: Date | null
     private _moderatedBy: string | null
 
-    // Metadados
+    // Metadata
     private _mentions: string[]
     private _hashtags: string[]
     private _metadata: Record<string, any>
@@ -51,17 +55,19 @@ export class Comment {
     private _updatedAt: Date
     private _deletedAt: Date | null
 
-    // Configuração de moderação
+    // Moderation configuration
     private readonly _moderationConfig: CommentModerationConfig
 
     constructor(props: CommentProps, moderationConfig?: CommentModerationConfig) {
         this._id = props.id || generateId()
         this._momentId = props.momentId
         this._userId = props.userId
-        this._parentCommentId = props.parentCommentId
+        this._replyId = props.replyId
         this._content = props.content
+        this._richContent = props.richContent
         this._visibility = props.visibility || CommentVisibilityEnum.PUBLIC
         this._sentiment = props.sentiment || CommentSentimentEnum.NEUTRAL
+        this._sentimentIntensity = props.sentimentIntensity || 0
 
         // Metrics
         this._likesCount = props.likesCount || 0
@@ -109,12 +115,16 @@ export class Comment {
         return this._userId
     }
 
-    get parentCommentId(): string | undefined {
-        return this._parentCommentId
+    get replyId(): string | undefined {
+        return this._replyId ?? undefined
     }
 
     get content(): string {
         return this._content
+    }
+
+    get richContent(): string {
+        return this._richContent
     }
 
     get visibility(): CommentVisibilityEnum {
@@ -123,6 +133,10 @@ export class Comment {
 
     get sentiment(): CommentSentimentEnum {
         return this._sentiment
+    }
+
+    get sentimentIntensity(): number {
+        return this._sentimentIntensity
     }
 
     get likesCount(): number {
@@ -189,55 +203,55 @@ export class Comment {
         return this._deletedAt
     }
 
-    // ===== MÉTODOS DE PERMISSÃO =====
+    // ===== PERMISSION METHODS =====
 
     /**
-     * Verifica se um usuário pode comentar neste momento
+     * Checks if a user can comment on this moment
      */
     public canCommentOnMoment(
         user: User,
         moment: Moment,
         momentOwner?: User,
     ): { allowed: boolean; reason?: string } {
-        // Verificar se o usuário está ativo
+        // Check if user is active
         if (!user.isActive()) {
-            return { allowed: false, reason: "Usuário não está ativo" }
+            return { allowed: false, reason: "User is not active" }
         }
 
-        // Verificar se o usuário está bloqueado
+        // Check if user is blocked
         if (user.isBlocked()) {
-            return { allowed: false, reason: "Usuário está bloqueado" }
+            return { allowed: false, reason: "User is blocked" }
         }
 
-        // Verificar se o usuário pode interagir com momentos
+        // Check if user can interact with moments
         if (!user.canInteractWithMoments()) {
-            return { allowed: false, reason: "Usuário não pode interagir com momentos" }
+            return { allowed: false, reason: "User cannot interact with moments" }
         }
 
-        // Verificar se o momento está ativo e visível
+        // Check if moment is active and visible
         if (moment.status.current !== "published") {
-            return { allowed: false, reason: "Moment não está publicado" }
+            return { allowed: false, reason: "Moment is not published" }
         }
 
-        // Verificar se o usuário pode visualizar o momento
+        // Check if user can viewsee the moment
         if (moment.visibility.level === "private" && user.id !== moment.ownerId) {
-            return { allowed: false, reason: "Moment é privado" }
+            return { allowed: false, reason: "Moment is private" }
         }
 
-        // Verificar se o usuário está bloqueado pelo owner do momento
+        // Check if user is blocked by the moment owner
         if (momentOwner && momentOwner.id !== user.id) {
-            // Aqui você pode implementar lógica para verificar se o usuário está bloqueado
-            // por enquanto, assumimos que não há bloqueios
+            // You can implement logic here to check if the user is blocked
+            // For now, we assumeין there are no blocks
         }
 
-        // Verificar limites de comentários por usuário
-        // Esta lógica pode ser implementada com base em métricas do usuário
+        // Check comment limits per user
+        // This logic can be implemented based on user metrics
 
         return { allowed: true }
     }
 
     /**
-     * Verifica se um usuário é o dono do comentário
+     * Checks if a user is the owner of the comment
      */
     public isOwner(userId: string): boolean {
         return this._userId === userId
@@ -272,38 +286,41 @@ export class Comment {
     /**
      * Checks if a user can view the comment
      */
-    public canViewComment(
+    public async canViewComment(        
         userId: string,
         user: User,
-        momentOwner?: User,
-        moment?: Moment,
-    ): { allowed: boolean; reason?: string } {
-        // If the comment was deleted, only the author and admins can see it
+        userRepository: IUserRepository,
+    ): Promise<{ allowed: boolean; reason?: string }> {
+        // If the comment was deleted, only the author and admins ca
+        // n see it
+        if(this.isOwner(userId) || user.canAccessAdminFeatures()) {
+            return { allowed: true }
+        }
+
         if (this._deletedAt !== null) {
-            if (this.isOwner(userId) || user.canAccessAdminFeatures()) {
-                return { allowed: true }
-            }
             return { allowed: false, reason: "Comment was deleted" }
         }
 
-        // Check comment visibility
-        switch (this._visibility) {
-            case CommentVisibilityEnum.PUBLIC:
-                return { allowed: true }
-
-            case CommentVisibilityEnum.FOLLOWERS_ONLY:
-                // Implement logic to check if user follows the author
-                // For now, we assume it's allowed
-                return { allowed: true }
-
-            default:
-                return { allowed: false, reason: "Comment visibility not recognized" }
+        // If the comment is public, anyone can see it
+        if(this._visibility === CommentVisibilityEnum.PUBLIC) {
+            return { allowed: true }
         }
+
+        if(this._visibility === CommentVisibilityEnum.FOLLOWERS_ONLY) {
+            const isFollowing = await userRepository.isFollowing(userId, this._userId)
+            if (isFollowing || this.isOwner(userId)) {
+                return { allowed: true }
+            }
+            return { allowed: false, reason: "User is not following the author" }
+        }
+
+        return { allowed: false, reason: "Comment visibility not recognized" }
     }
 
     /**
      * Checks if a user can edit the comment
-    了他的 public canEditComment(userId: string, user: User): { allowed: boolean; reason?: string } {
+     */
+    public canEditComment(userId: string, user: User): { allowed: boolean; reason?: string } {
         // Only the author can edit their comment
         if (!this.isOwner(userId)) {
             return { allowed: false, reason: "Only the author can edit the comment" }
@@ -379,15 +396,15 @@ export class Comment {
     }
 
     /**
-     * Deleta o comentário
+     * Deletes the comment
      */
     public delete(userId: string): { success: boolean; error?: string } {
         if (!this.isOwner(userId)) {
-            return { success: false, error: "Apenas o autor pode deletar o comentário" }
+            return { success: false, error: "Only the author can delete the comment" }
         }
 
         if (this._deletedAt !== null) {
-            return { success: false, error: "Comentário já foi deletado" }
+            return { success: false, error: "Comment has already been deleted" }
         }
 
         this._deletedAt = new Date()
@@ -405,7 +422,7 @@ export class Comment {
     }
 
     /**
-     * Remove uma curtida do comentário
+     * Removes a like from the comment
      */
     public removeLike(): void {
         if (this._likesCount > 0) {
@@ -415,7 +432,7 @@ export class Comment {
     }
 
     /**
-     * Adiciona uma resposta ao comentário
+     * Adds a reply to the comment
      */
     public addReply(): void {
         this._repliesCount++
@@ -423,7 +440,7 @@ export class Comment {
     }
 
     /**
-     * Remove uma resposta do comentário
+     * Removes a reply from the comment
      */
     public removeReply(): void {
         if (this._repliesCount > 0) {
@@ -433,35 +450,35 @@ export class Comment {
     }
 
     /**
-     * Adiciona um report ao comentário
+     * Adds a report to the comment
      */
     public addReport(): void {
         this._reportsCount++
         this._updatedAt = new Date()
 
-        // Se muitos reports, pode ser flagado automaticamente
+        // If many reports, it can be automatically flagged
         if (this._reportsCount >= 5) {
             this.addModerationFlag(
                 CommentModerationFlagEnum.SPAM_CONTENT,
                 CommentSeverityEnum.MEDIUM,
                 80,
-                "Múltiplos reports recebidos",
+                "Multiple reports received",
             )
         }
     }
 
     /**
-     * Incrementa visualizações
+     * Increments views
      */
     public incrementViews(): void {
         this._viewsCount++
         this._updatedAt = new Date()
     }
 
-    // ===== MÉTODOS DE MODERAÇÃO =====
+    // ===== MODERATION METHODS =====
 
     /**
-     * Adiciona uma flag de moderação
+     * Adds a moderation flag
      */
     public addModerationFlag(
         type: CommentModerationFlagEnum,
@@ -519,286 +536,39 @@ export class Comment {
         }
     }
 
-    // ===== MÉTODOS DE ANÁLISE =====
-
     /**
-     * Analisa o conteúdo do comentário
+     * Applies moderation results to the comment
      */
+    public applyModerationResult(moderationFields: {
+        moderationFlags: CommentModerationFlag[]
+        moderationScore: number
+        severity: CommentSeverityEnum
+        isModerated: boolean
+        moderatedAt: Date | null
+        moderatedBy: string | null
+    }): void {
+        // Clear existing flags and add new ones
+        this._moderationFlags = [...moderationFields.moderationFlags]
+        this._moderationScore = moderationFields.moderationScore
+        this._severity = moderationFields.severity
+        this._isModerated = moderationFields.isModerated
+        this._moderatedAt = moderationFields.moderatedAt
+        this._moderatedBy = moderationFields.moderatedBy
+        this._updatedAt = new Date()
+    }
 
     /**
-     * Analisa o sentimento do comentário
+     * Analyzes the comment sentiment
      */
     private analyzeSentiment(): void {
         const content = this._content.toLowerCase()
-
-        // Palavras positivas
-        const positiveWords = [
-            "obrigado",
-            "obrigada",
-            "legal",
-            "bacana",
-            "incrível",
-            "fantástico",
-            "excelente",
-            "maravilhoso",
-            "perfeito",
-            "ótimo",
-            "bom",
-            "bom trabalho",
-            "parabéns",
-            "amei",
-            "adoro",
-            "love",
-            "like",
-            "good",
-            "great",
-            "awesome",
-        ]
-
-        // Palavras negativas
-        const negativeWords = [
-            "odioso",
-            "horrível",
-            "péssimo",
-            "ruim",
-            "merda",
-            "lixo",
-            "porcaria",
-            "hate",
-            "bad",
-            "terrible",
-            "awful",
-            "disgusting",
-            "stupid",
-            "idiot",
-        ]
-
-        let positiveCount = 0
-        let negativeCount = 0
-
-        positiveWords.forEach((word) => {
-            if (content.includes(word)) positiveCount++
-        })
-
-        negativeWords.forEach((word) => {
-            if (content.includes(word)) negativeCount++
-        })
-
-        // Determinar sentimento baseado na contagem
-        if (positiveCount > negativeCount && positiveCount > 0) {
-            this._sentiment = CommentSentimentEnum.POSITIVE
-        } else if (negativeCount > positiveCount && negativeCount > 0) {
-            this._sentiment = CommentSentimentEnum.NEGATIVE
-        } else {
-            this._sentiment = CommentSentimentEnum.NEUTRAL
-        }
+        const analysis  = textLib.sentiment.analyze(content)
+        this._sentiment = analysis.sentiment as CommentSentimentEnum
+        this._sentimentIntensity = analysis.intensity as number
     }
 
     /**
-     * Verifica se o conteúdo contém spam
-     */
-    private containsSpam(content: string): boolean {
-        const spamPatterns = [
-            /(https?:\/\/[^\s]+)/gi, // URLs
-            /(www\.[^\s]+)/gi, // www links
-            /(compre|venda|promoção|oferta|desconto)/gi, // Palavras comerciais
-            /(call|whatsapp|telegram|contato)/gi, // Contatos
-            /(follow|seguir|instagram|youtube)/gi, // Redes sociais
-        ]
-
-        return spamPatterns.some((pattern) => pattern.test(content))
-    }
-
-    /**
-     * Verifica se o conteúdo contém assédio
-     */
-    private containsHarassment(content: string): boolean {
-        const harassmentWords = [
-            "idiota",
-            "burro",
-            "estúpido",
-            "imbecil",
-            "retardado",
-            "vai se foder",
-            "filho da puta",
-            "fdp",
-            "merda",
-        ]
-
-        return harassmentWords.some((word) => content.includes(word))
-    }
-
-    /**
-     * Verifica se o conteúdo contém discurso de ódio
-     */
-    private containsHateSpeech(content: string): boolean {
-        const hateWords = [
-            "preto",
-            "negra",
-            "mulata",
-            "japa",
-            "chinês",
-            "viado",
-            "bicha",
-            "traveco",
-            "mulher",
-            "gay",
-            "lésbica",
-        ]
-
-        return hateWords.some((word) => content.includes(word))
-    }
-
-    /**
-     * Verifica se o conteúdo contém publicidade
-     */
-    private containsAdvertising(content: string): boolean {
-        const adWords = [
-            "promoção",
-            "oferta",
-            "desconto",
-            "compre",
-            "venda",
-            "loja",
-            "produto",
-            "serviço",
-            "empresa",
-        ]
-
-        return adWords.some((word) => content.includes(word))
-    }
-
-    /**
-     * Verifica se o conteúdo contém pergunta
-     */
-    private containsQuestion(content: string): boolean {
-        return (
-            content.includes("?") ||
-            content.startsWith("como") ||
-            content.startsWith("onde") ||
-            content.startsWith("quando") ||
-            content.startsWith("por que") ||
-            content.startsWith("porque")
-        )
-    }
-
-    /**
-     * Verifica se o conteúdo é de apoio
-     */
-    private containsSupport(content: string): boolean {
-        const supportWords = [
-            "força",
-            "apoio",
-            "estamos juntos",
-            "juntos",
-            "unidos",
-            "pode contar",
-            "conte comigo",
-            "estou aqui",
-        ]
-
-        return supportWords.some((word) => content.includes(word))
-    }
-
-    /**
-     * Verifica se o conteúdo é construtivo
-     */
-    private containsConstructive(content: string): boolean {
-        const constructiveWords = [
-            "sugestão",
-            "dica",
-            "dica",
-            "recomendo",
-            "sugiro",
-            "talvez",
-            "acho que",
-            "na minha opinião",
-        ]
-
-        return constructiveWords.some((word) => content.includes(word))
-    }
-
-    /**
-     * Verifica se o conteúdo contém humor
-     */
-    private containsHumor(content: string): boolean {
-        const humorIndicators = [
-            "kkk",
-            "haha",
-            "hehe",
-            "rsrs",
-            "lol",
-            "😂",
-            "😄",
-            "😆",
-            "😅",
-            "🤣",
-            "risos",
-            "engraçado",
-            "hilário",
-        ]
-
-        return humorIndicators.some((indicator) => content.includes(indicator))
-    }
-
-    /**
-     * Verifica se o comentário precisa de moderação
-     */
-    private checkForModerationFlags(): void {
-        const content = this._content.toLowerCase()
-
-        // Verificar spam
-        if (this.containsSpam(content)) {
-            this.addModerationFlag(
-                CommentModerationFlagEnum.SPAM_CONTENT,
-                CommentSeverityEnum.MEDIUM,
-                85,
-                "Possível conteúdo spam detectado",
-            )
-        }
-
-        // Verificar assédio
-        if (this.containsHarassment(content)) {
-            this.addModerationFlag(
-                CommentModerationFlagEnum.HARASSMENT,
-                CommentSeverityEnum.HIGH,
-                90,
-                "Possível assédio detectado",
-            )
-        }
-
-        // Verificar discurso de ódio
-        if (this.containsHateSpeech(content)) {
-            this.addModerationFlag(
-                CommentModerationFlagEnum.HATE_SPEECH,
-                CommentSeverityEnum.CRITICAL,
-                95,
-                "Possível discurso de ódio detectado",
-            )
-        }
-
-        // Verificar qualidade baixa
-        if (this._content.length < 3) {
-            this.addModerationFlag(
-                CommentModerationFlagEnum.TOO_SHORT,
-                CommentSeverityEnum.LOW,
-                70,
-                "Comentário muito curto",
-            )
-        }
-
-        if (this._content.length > 500) {
-            this.addModerationFlag(
-                CommentModerationFlagEnum.TOO_LONG,
-                CommentSeverityEnum.LOW,
-                60,
-                "Comentário muito longo",
-            )
-        }
-    }
-
-    /**
-     * Recalcula o score de moderação
+     * Recalculates the moderation score
      */
     private recalculateModerationScore(): void {
         if (this._moderationFlags.length === 0) {
@@ -823,7 +593,7 @@ export class Comment {
     }
 
     /**
-     * Obtém o peso da severidade
+     * Gets the severity weight
      */
     private getSeverityWeight(severity: CommentSeverityEnum): number {
         switch (severity) {
@@ -841,7 +611,7 @@ export class Comment {
     }
 
     /**
-     * Obtém o nível numérico da severidade
+     * Gets the numeric level of severity
      */
     private getSeverityLevel(severity: CommentSeverityEnum): number {
         switch (severity) {
@@ -859,22 +629,22 @@ export class Comment {
     }
 
     /**
-     * Extrai menções e hashtags do conteúdo
+     * Extracts mentions and hashtags from content
      */
     private extractMentionsAndHashtags(): void {
         const content = this._content
 
-        // Extrair menções (@usuario) - suporta caracteres acentuados
+        // Extract mentions (@user) - supports accented characters
         const mentionMatches = content.match(/@([a-zA-Z0-9\u00C0-\u017F_]+)/g)
         this._mentions = mentionMatches ? mentionMatches.map((m) => m.substring(1)) : []
 
-        // Extrair hashtags (#hashtag) - suporta caracteres acentuados
+        // Extract hashtags (#hashtag) - supports accented characters
         const hashtagMatches = content.match(/#([a-zA-Z0-9\u00C0-\u017F_]+)/g)
         this._hashtags = hashtagMatches ? hashtagMatches.map((h) => h.substring(1)) : []
     }
 
     /**
-     * Obtém configuração padrão de moderação
+     * Gets default moderation configuration
      */
     private getDefaultModerationConfig(): CommentModerationConfig {
         return {
@@ -901,7 +671,7 @@ export class Comment {
     }
 
     /**
-     * Valida o comentário
+     * Validates the comment
      */
     private validate(): void {
         if (!this._momentId) {
@@ -926,17 +696,19 @@ export class Comment {
     }
 
     /**
-     * Converte para entidade
+     * Converts to entity
      */
-    public toEntity(): CommentEntity {
+    public toEntity(): CommentEntity & { sentimentIntensity: number } {
         return {
             id: this._id,
             momentId: this._momentId,
             userId: this._userId,
-            parentCommentId: this._parentCommentId,
+            replyId: this._replyId ?? undefined,
+            richContent: this._richContent,
             content: this._content,
             visibility: this._visibility,
             sentiment: this._sentiment,
+            sentimentIntensity: this._sentimentIntensity,
             likesCount: this._likesCount,
             repliesCount: this._repliesCount,
             reportsCount: this._reportsCount,
@@ -957,10 +729,10 @@ export class Comment {
     }
 
     /**
-     * Cria uma instância a partir de uma entidade
+     * Creates an instance from an entity
      */
     public static fromEntity(
-        entity: CommentEntity,
+        entity: CommentEntity & { sentimentIntensity?: number },
         moderationConfig?: CommentModerationConfig,
     ): Comment {
         return new Comment(
@@ -968,10 +740,12 @@ export class Comment {
                 id: entity.id,
                 momentId: entity.momentId,
                 userId: entity.userId,
-                parentCommentId: entity.parentCommentId,
+                replyId: entity.replyId,
+                richContent: entity.richContent,
                 content: entity.content,
                 visibility: entity.visibility,
                 sentiment: entity.sentiment,
+                sentimentIntensity: entity.sentimentIntensity || 0,
                 likesCount: entity.likesCount,
                 repliesCount: entity.repliesCount,
                 reportsCount: entity.reportsCount,
@@ -994,7 +768,7 @@ export class Comment {
     }
 
     /**
-     * Cria uma nova instância de comentário
+     * Creates a new comment instance
      */
     public static create(
         props: Omit<CommentProps, "id" | "createdAt" | "updatedAt">,

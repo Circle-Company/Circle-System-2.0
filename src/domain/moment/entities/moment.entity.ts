@@ -688,6 +688,31 @@ export class Moment {
         }
     }
 
+    public async canComment(
+        commentingUser: User,
+        userRepository: IUserRepository,
+    ): Promise<{ allowed: boolean; reason?: string }> {
+
+        const [userIsBlockedByOwner, ownerIsBlockedByUser] = await Promise.all([
+            userRepository.isBlocked(this._ownerId, commentingUser.id),
+            userRepository.isBlocked(commentingUser.id, this._ownerId),
+        ])
+
+        if (userIsBlockedByOwner) return { allowed: false, reason: "User is blocked by the moment owner" }
+        if (ownerIsBlockedByUser) return { allowed: false, reason: "User is blocked by the moment owner" }
+
+        if (!commentingUser.canInteractWithMoments()) return { allowed: false, reason: "User cannot interact with moments" }
+
+        // Check if moment is active and visible
+        if (this._status.current !== MomentStatusEnum.PUBLISHED) return { allowed: false, reason: "Moment is not published" }
+
+        // Check if user can viewsee the moment
+        if (this._visibility.level === MomentVisibilityEnum.PRIVATE && commentingUser.id !== this._ownerId) return { allowed: false, reason: "Moment is private" }
+
+
+        return { allowed: true }
+    }
+
     /**
      * Verifica restrições de conteúdo (idade, warnings, etc.)
      */
