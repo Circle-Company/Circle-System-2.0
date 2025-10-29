@@ -68,11 +68,43 @@ vi.mock("circle-text-library", () => ({
         getCurrentTimezoneCode() {
             return "BRT"
         }
+        getCodeFromOffset(offset: number) {
+            if (offset === 0) return "UTC"
+            if (offset === -3) return "BRT"
+            return "UTC"
+        }
+        setLocalTimezone(code: string) {
+            // Mock implementation
+        }
         UTCToLocal(date: Date) {
             return date
         }
         localToUTC(date: Date) {
             return date
+        }
+    },
+    DateFormatter: class MockDateFormatter {
+        constructor() {}
+        setStyle(style: string) {}
+        setLocale(locale: string) {}
+        setUsePrefix(usePrefix: boolean) {}
+        setUseSuffix(useSuffix: boolean) {}
+        setCapitalize(capitalize: boolean) {}
+        setUseApproximateTime(useApproximateTime: boolean) {}
+        setRecentTimeThreshold(threshold: number) {}
+        setRecentTimeLabel(label: string) {}
+        toRelativeTime(date: Date) {
+            const now = new Date()
+            const diffMs = now.getTime() - date.getTime()
+            const diffMins = Math.floor(diffMs / 60000)
+            const diffHours = Math.floor(diffMs / 3600000)
+            const diffDays = Math.floor(diffMs / 86400000)
+            
+            if (diffMins < 1) return "agora"
+            if (diffMins < 60) return `${diffMins}min`
+            if (diffHours < 24) return `${diffHours}h`
+            if (diffDays < 7) return `${diffDays}d`
+            return `${Math.floor(diffDays / 7)}sem`
         }
     },
     TimezoneCodes: {
@@ -90,6 +122,86 @@ vi.mock("circle-text-library", () => ({
         AKST: "AKST",
         AKDT: "AKDT",
         HST: "HST",
+    },
+}))
+
+// Mock do textLib da aplicação
+vi.mock("@/shared/circle.text.library", () => ({
+    textLib: {
+        validator: {
+            validate: (text: string) => ({
+                isValid: text.length > 0 && text.length <= 500,
+                errors: [],
+            }),
+        },
+        hashtag: {
+            validate: (hashtag: string) => ({
+                isValid: hashtag.startsWith("#") && hashtag.length >= 2,
+                errors: [],
+            }),
+        },
+        extractor: {
+            _text: "",
+            setText(text: string) {
+                this._text = text
+            },
+            entities(options?: { mentions?: boolean }) {
+                const mentions: string[] = []
+                if (options?.mentions) {
+                    const mentionRegex = /@(\w+)/g
+                    let match
+                    while ((match = mentionRegex.exec(this._text)) !== null) {
+                        mentions.push(match[1])
+                    }
+                }
+                return { mentions }
+            },
+        },
+        rich: {
+            formatToEnriched(content: string, entities?: Record<string, string>) {
+                return content
+            },
+        },
+        sentiment: {
+            analyze(text: string) {
+                return {
+                    sentiment: "neutral",
+                    intensity: 0,
+                    confidence: 0.5,
+                }
+            },
+        },
+    },
+    Timezone: class MockTimezone {
+        constructor(timezoneCode?: any) {}
+        static getTimezoneFromOffset(offset: number) {
+            if (offset === 0) return "UTC"
+            if (offset === -3) return "BRT"
+            return "UTC"
+        }
+        static getCurrentTimezone() {
+            return "BRT"
+        }
+        getTimezoneOffset() {
+            return -3
+        }
+        getCurrentTimezoneCode() {
+            return "BRT"
+        }
+        getCodeFromOffset(offset: number) {
+            if (offset === 0) return "UTC"
+            if (offset === -3) return "BRT"
+            return "UTC"
+        }
+        setLocalTimezone(code: string) {
+            // Mock implementation
+        }
+        UTCToLocal(date: Date) {
+            return date
+        }
+        localToUTC(date: Date) {
+            return date
+        }
     },
 }))
 
