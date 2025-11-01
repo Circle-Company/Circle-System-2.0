@@ -12,7 +12,6 @@
  * @version 1.0.0
  */
 
-import { createAuthMiddleware, requirePermission } from "@/infra/middlewares"
 import { ErrorCode, SystemError } from "@/shared/errors"
 import { HttpAdapter, HttpRequest, HttpResponse } from "../../http/http.type"
 import {
@@ -21,19 +20,35 @@ import {
     MomentRequestSchemas,
     MomentResponseSchemas,
 } from "./moment.router.schemas"
+import { createAuthMiddleware, requirePermission } from "@/infra/middlewares"
 
-import { Permission } from "@/domain/authorization"
-import { MomentController } from "@/infra/controllers"
-import { DatabaseAdapter } from "@/infra/database/adapter"
-import { MomentFactory } from "@/infra/factories/moment.factory"
 import { AuthMiddleware } from "@/infra/middlewares"
+import { DatabaseAdapter } from "@/infra/database/adapter"
+import { MomentController } from "@/infra/controllers"
+import { MomentFactory } from "@/infra/factories/moment.factory"
+import { Permission } from "@/domain/authorization"
+import { SwipeEngine } from "@/core/swipe.engine"
 
 /**
  * Handler functions para encapsular lógica de rotas
  */
 class MomentRouteHandlers {
-    constructor(private momentController: MomentController) {}
+    constructor(private momentController: MomentController, private swipeEngine: SwipeEngine) {}
 
+    async  getRecommendations(request: HttpRequest, response: HttpResponse): Promise<void> {
+        try {
+            const result = await this.swipeEngine.getRecommendations(request.user?.id || "")
+            response.status(200).send({
+                success: true,
+                recommendations: result,
+            })
+        } catch (error: any) {
+            response.status(500).send({
+                success: false,
+                error: error.message || "Erro ao obter recomendações",
+            })
+        }
+    }
     /**
      * Wrapper para criação de momento
      */
@@ -435,9 +450,13 @@ export class MomentRouter {
     private handlers: MomentRouteHandlers
     private authMiddleware: AuthMiddleware
 
-    constructor(private api: HttpAdapter, private databaseAdapter: DatabaseAdapter) {
+    constructor(
+        private api: HttpAdapter,
+        private swipeEngine: SwipeEngine,
+        private databaseAdapter: DatabaseAdapter,
+    ) {
         const controller = MomentFactory.getMomentController()
-        this.handlers = new MomentRouteHandlers(controller)
+        this.handlers = new MomentRouteHandlers(controller, swipeEngine)
         this.authMiddleware = createAuthMiddleware(databaseAdapter)
     }
 
@@ -575,10 +594,11 @@ export class MomentRouter {
  */
 export async function Router(
     httpAdapter: HttpAdapter,
+    swipeEngine: SwipeEngine,
     databaseAdapter: DatabaseAdapter,
 ): Promise<void> {
     try {
-        new MomentRouter(httpAdapter, databaseAdapter).register()
+        new MomentRouter(httpAdapter, swipeEngine, databaseAdapter).register()
     } catch (error) {
         throw new SystemError({
             message: "Failed to initialize MomentRouter",
