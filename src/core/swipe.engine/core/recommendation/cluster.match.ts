@@ -5,9 +5,8 @@ import {
     UserEmbedding,
     UserProfile,
 } from "../../types"
+import { LogLevel, Logger } from "@/shared/logger"
 import { cosineSimilarity, normalizeVector } from "../../utils/vector.operations"
-
-import { getLogger } from "../utils/logger"
 
 /**
  * ClusterMatcher é responsável por encontrar clusters relevantes para um usuário
@@ -20,14 +19,8 @@ export class ClusterMatcher {
     private _interestWeight: number
     private _embeddingWeight: number
     private _maxClusters: number
-    private readonly logger = getLogger("ClusterMatcher")
+    private readonly logger: Logger
 
-    /**
-     * Constrói uma nova instância de ClusterMatcher
-     *
-     * @param clusters Informações sobre os clusters disponíveis
-     * @param options Opções de configuração para o matcher
-     */
     constructor(
         clusters: ClusterInfo[],
         options: {
@@ -38,6 +31,13 @@ export class ClusterMatcher {
             maxClusters?: number
         } = {},
     ) {
+        this.logger = new Logger("ClusterMatcher", {
+            minLevel: LogLevel.INFO,
+            showTimestamp: true,
+            showComponent: true,
+            enabled: true,
+        })
+
         this._clusters = clusters
         this._minMatchThreshold = options.minMatchThreshold ?? 0.2
         this._contextWeight = options.contextWeight ?? 0.2
@@ -84,11 +84,11 @@ export class ClusterMatcher {
             return this.getDefaultClusters()
         }
 
-        const normalizedUserEmbedding = normalizeVector(userEmbedding.vector.values)
+        const normalizedUserEmbedding = normalizeVector(userEmbedding.vector)
 
         // Calcular similaridade com cada cluster
         const matches = this._clusters.map((cluster) => {
-            const normalizedClusterVector = normalizeVector(cluster.centroid.values)
+            const normalizedClusterVector = normalizeVector(cluster.centroid)
 
             // Similaridade de cosseno entre o usuário e o centroide do cluster
             let similarity = cosineSimilarity(normalizedUserEmbedding, normalizedClusterVector)
@@ -321,8 +321,8 @@ export class ClusterMatcher {
         let boost = 0
 
         // Boost baseado na hora do dia
-        if (context.timeOfDay && cluster.activeTimeOfDay) {
-            const timeMatch = this.isTimeInRange(context.timeOfDay, cluster.activeTimeOfDay)
+        if (context.timeOfDay && (cluster as any).activeTimeOfDay) {
+            const timeMatch = this.isTimeInRange(context.timeOfDay, (cluster as any).activeTimeOfDay)
             boost += timeMatch ? 0.2 : 0
         }
 
@@ -471,7 +471,7 @@ export class ClusterMatcher {
         const withLanguages = this._clusters.filter(
             (c) => this.getClusterLanguages(c) !== undefined,
         ).length
-        const withActiveTime = this._clusters.filter((c) => c.activeTimeOfDay !== undefined).length
+        const withActiveTime = this._clusters.filter((c) => (c as any).activeTimeOfDay !== undefined).length
 
         return {
             count: this._clusters.length,
