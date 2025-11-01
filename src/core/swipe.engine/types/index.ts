@@ -55,18 +55,13 @@ export type EntityType = "user" | "post" | "comment"
  * Tipos de interação suportados pelo sistema
  */
 export type InteractionType =
-    | "short_view"
-    | "long_view"
-    | "like"
-    | "like_comment"
-    | "share"
-    | "comment"
-    | "dislike"
-    | "show_less_often"
-    | "report"
-    | "completeView"
-    | "likeComment"
     | "view"
+    | "like"
+    | "comment"
+    | "report"
+    | "share"
+    | "completion"
+    | "unlike"
 
 /**
  * Interface para referência a uma entidade
@@ -114,6 +109,7 @@ export interface MatchResult {
     clusterId: string
     clusterName: string
     similarity: number
+    score: number
     cluster: ClusterInfo
 }
 
@@ -166,6 +162,62 @@ export interface RecommendationContext {
     device?: string
     sessionId?: string
     requestType?: string
+}
+
+export interface Recommendation {
+    entityId: string | bigint
+    entityType: "post" | "user" | "comment"
+    score: number
+    timestamp: Date
+    source: string
+}
+
+export interface RecommendationOptions {
+    limit?: number
+    context?: RecommendationContext
+    excludeIds?: string[]
+    diversity?: number
+    novelty?: number
+}
+
+export interface CandidateSelectorOptions {
+    userId: string
+    limit?: number
+    excludeIds?: Set<string>
+    timeWindow?: number
+}
+
+export interface Candidate {
+    id: string
+    created_at: Date
+    statistics: {
+        likes: number
+        comments: number
+        shares: number
+        views?: number
+    }
+    clusterScore: number
+    embedding?: number[]
+    tags?: string[]
+    location?: string
+}
+
+export interface RankedCandidate extends Candidate {
+    finalScore: number
+    relevanceScore?: number
+    engagementScore?: number
+    noveltyScore?: number
+    diversityScore?: number
+    contextScore?: number
+}
+
+export interface RankingOptions {
+    userEmbedding?: UserEmbedding | null
+    userProfile?: UserProfile | null
+    limit: number
+    diversityLevel?: number
+    noveltyLevel?: number
+    context?: RecommendationContext
 }
 
 export interface ClusteringOptions {
@@ -265,4 +317,12 @@ export interface ContentEngagement {
     shares: number
     saves: number
     avgWatchTime?: number
+}
+
+export interface PostEmbeddingProps {
+    textContent: string
+    tags: string[]
+    engagementMetrics: ContentEngagement
+    authorId: bigint
+    createdAt: Date
 }
