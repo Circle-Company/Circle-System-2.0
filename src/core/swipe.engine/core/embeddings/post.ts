@@ -2,13 +2,13 @@
  * Serviço de embedding para posts/conteúdos
  */
 
-import { LogLevel, Logger } from "@/shared/logger"
 import { ContentEngagement, EmbeddingVector, PostEmbedding as PostEmbeddingType } from "../../types"
+import { LogLevel, Logger } from "@/shared/logger"
 import { combineVectors, resizeVector } from "../../utils/vector.operations"
 
-import PostEmbedding from "@/infra/models/moment/moment.embedding.model"
 import { Op } from "sequelize"
 import { EmbeddingParams as Params } from "../../params"
+import PostEmbedding from "@/infra/models/moment/moment.embedding.model"
 import { normalizeL2 } from "../../utils/normalization"
 
 // Definir interface local para PostEmbeddingProps
@@ -33,7 +33,7 @@ export class PostEmbeddingService {
     private readonly WEIGHT_TAGS = Params.weights.content.tags
     private readonly WEIGHT_ENGAGEMENT = Params.weights.content.engagement
 
-    constructor(dimension: number = Params.dimensions.embedding) {
+    constructor(dimension: number = Params.dimensions.embedding, ) {
         this.dimension = dimension
         this.logger = new Logger("PostEmbeddingService", {
             minLevel: LogLevel.INFO,
@@ -136,7 +136,7 @@ export class PostEmbeddingService {
         try {
             // Buscar embedding existente
             const storedEmbedding = await PostEmbedding.findOne({
-                where: { postId: String(postId) },
+                where: { momentId: String(postId) },
             })
 
             // Se existir e for recente, retornar
@@ -153,7 +153,7 @@ export class PostEmbeddingService {
 
             // Criar ou atualizar o embedding no banco
             const [embedding] = await PostEmbedding.upsert({
-                postId: String(postId),
+                momentId: String(postId),
                 vector: JSON.stringify(newEmbedding),
                 dimension: this.dimension,
                 metadata: {
@@ -369,7 +369,7 @@ export class PostEmbeddingService {
             // Buscar embeddings recentes
             const recentEmbeddings = await PostEmbedding.findAll({
                 where: {
-                    postId: {
+                    momentId: {
                         [Op.ne]: String(postId),
                     },
                     updatedAt: {
@@ -390,7 +390,7 @@ export class PostEmbeddingService {
 
                 if (similarity >= minSimilarity) {
                     similarities.push({
-                        id: BigInt(candidateEmbedding.postId),
+                        id: BigInt(candidateEmbedding.momentId),
                         similarity,
                     })
                 }

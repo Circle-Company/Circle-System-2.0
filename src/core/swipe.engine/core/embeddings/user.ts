@@ -4,9 +4,9 @@ import { EmbeddingVector, UserEmbedding as UserEmbeddingType, UserInteraction } 
 import { FeatureExtractionPipeline, pipeline } from "@xenova/transformers"
 import { LogLevel, Logger } from "@/shared/logger"
 
-import InteractionEvent from "../../models/InteractionEvent"
+import InteractionEvent from "@/infra/models/swipe.engine/interaction.event.model"
 import { EmbeddingParams as Params } from "../../params"
-import UserEmbedding from "../../models/UserEmbedding"
+import UserEmbedding from "@/infra/models/user/user.embedding.model"
 import { normalizeL2 } from "../../utils/normalization"
 import { resizeVector } from "../../utils/vector.operations"
 
@@ -182,7 +182,7 @@ export class UserEmbeddingService {
 
             // Buscar o embedding salvo
             const savedEmbedding = await UserEmbedding.findOne({
-                where: { userId: userId.toString() },
+                where: { userId: userId },
             })
 
             if (!savedEmbedding) {
@@ -272,7 +272,7 @@ export class UserEmbeddingService {
     async getUserEmbedding(userId: bigint): Promise<UserEmbeddingType | null> {
         try {
             const embedding = await UserEmbedding.findOne({
-                where: { userId: userId.toString() },
+                where: { userId: userId },
             })
 
             if (!embedding) return null
@@ -301,7 +301,7 @@ export class UserEmbeddingService {
         // Coleta todos os dados necessários para gerar um embedding
 
         const interactions = await InteractionEvent.findAll({
-            where: { userId: userId.toString() },
+            where: { userId: userId },
             limit: 500,
             order: [["timestamp", "DESC"]],
         })
@@ -392,7 +392,7 @@ export class UserEmbeddingService {
     private async saveUserEmbedding(userId: bigint, vector: number[]): Promise<void> {
         try {
             const existingEmbedding = await UserEmbedding.findOne({
-                where: { userId: userId.toString() },
+                where: { userId: userId },
             })
 
             // Certifique-se de que o vetor é serializado corretamente
@@ -421,7 +421,7 @@ export class UserEmbeddingService {
                 this.logger.info(`Embedding atualizado para usuário ${userId}`)
             } else {
                 await UserEmbedding.create({
-                    userId: userId.toString(),
+                    userId: userId,
                     vector: vectorData,
                     dimension: this.dimension,
                     metadata: metadata,
@@ -655,7 +655,7 @@ export class UserEmbeddingService {
 
             // Buscar embedding atual
             const currentEmbedding = await UserEmbedding.findOne({
-                where: { userId: userId.toString() },
+                where: { userId: userId },
             })
 
             if (!currentEmbedding) {
@@ -733,7 +733,7 @@ export class UserEmbeddingService {
 
             // Verificar se já existe um embedding para este usuário
             const existingEmbedding = await UserEmbedding.findOne({
-                where: { userId: userId.toString() },
+                where: { userId: userId },
             })
 
             // Serializar o vetor
@@ -755,7 +755,7 @@ export class UserEmbeddingService {
                 this.logger.info(`Embedding inicial atualizado para usuário ${userId}`)
             } else {
                 await UserEmbedding.create({
-                    userId: userId.toString(),
+                    userId: userId,
                     vector: vectorData,
                     dimension: this.dimension,
                     metadata: metadata,
@@ -765,7 +765,7 @@ export class UserEmbeddingService {
 
             // Retornar o embedding
             const savedEmbedding = await UserEmbedding.findOne({
-                where: { userId: userId.toString() },
+                where: { userId: userId },
             })
 
             if (!savedEmbedding) {
