@@ -1,16 +1,22 @@
 import { Candidate, CandidateSelectorOptions, ClusterInfo, MatchResult } from "../../types"
+import { LogLevel, Logger } from "@/shared/logger"
 
 import { EmbeddingParams } from "../../params"
-import Moment from "../../../models/moments/moment-model"
-import { getLogger } from "../../../logger"
+import Moment from "@/infra/models/moment/moment.model"
 
 export class CandidateSelector {
-    private readonly logger = getLogger("CandidateSelector")
+    private readonly logger: Logger
     private readonly weights = EmbeddingParams.candidateSelector.weights
     private readonly thresholds = EmbeddingParams.candidateSelector.thresholds
     private readonly PostModel = Moment
 
     constructor(weights?: Partial<typeof EmbeddingParams.candidateSelector.weights>) {
+        this.logger = new Logger("CandidateSelector", {
+            minLevel: LogLevel.INFO,
+            showTimestamp: true,
+            showComponent: true,
+            enabled: true,
+        })
         // Permite customização dos pesos no construtor
         if (weights) {
             this.weights = { ...this.weights, ...weights }
@@ -76,33 +82,35 @@ export class CandidateSelector {
 
             // TODO: Implementar query real ao banco de dados
             // Placeholder para demonstração
-            const candidates = cluster.memberIds || []
+            const candidates = cluster.contentIds || []
             if (!candidates.length) {
                 this.logger.error(`Nenhum candidato encontrado para o cluster: ${cluster.id}`)
                 return []
             }
 
             // Mapear IDs para objetos candidatos
+            interface CandidateWithUser {
+                id: string
+                user_id: string
+                created_at: Date
+                statistics: {
+                    likes: number
+                    comments: number
+                    shares: number
+                }
+            }
+
             const hidratedCandidates = await Promise.all(
-                candidates.map(async (candidateId) => {
+                candidates.map(async (candidateId): Promise<CandidateWithUser | null> => {
                     try {
                         // Busca no banco de dados
-                        const momentData = await this.PostModel.findOne({
-                            where: {
-                                id: candidateId,
-                            },
-                            attributes: ["id", "user_id", "created_at"],
-                        })
+                        const momentData = await this.PostModel.findByPk(candidateId)
                         if (!momentData) return null
 
-                        // Adapta os dados do modelo para o formato candidato
-                        const created = momentData.get("created_at")
-                        const createdDate = created instanceof Date ? created : new Date()
-
                         return {
-                            id: candidateId,
-                            user_id: momentData.get("user_id")?.toString() || "1",
-                            created_at: createdDate,
+                            id: momentData.id.toString(),
+                            user_id: momentData.ownerId?.toString() || "1",
+                            created_at: momentData.createdAt,
                             statistics: {
                                 likes: 0,
                                 comments: 0,
