@@ -11,8 +11,8 @@
  * @version 1.0.0
  */
 
-import { UserMetrics } from "@/domain/user/entities/user.metrics.entity"
 import { IUserMetricsRepository } from "@/domain/user/repositories/user.metrics.repository"
+import { UserMetrics } from "@/domain/user/entities/user.metrics.entity"
 
 // ===== INTERFACES DE EVENTOS =====
 export interface UserMetricsEvent {
@@ -24,15 +24,11 @@ export interface UserMetricsEvent {
         | "moment_create"
         | "moment_like"
         | "moment_comment"
-        | "moment_share"
-        | "search"
         | "follow"
         | "unfollow"
         | "block"
         | "unblock"
         | "report"
-        | "premium_upgrade"
-        | "premium_downgrade"
     userId: string
     data: any
     timestamp: Date
@@ -179,7 +175,7 @@ export class UserMetricsService {
      */
     async recordMomentActivity(
         userId: string,
-        activityType: "moment_create" | "moment_like" | "moment_comment" | "moment_share",
+        activityType: "moment_create" | "moment_like" | "moment_comment",
         data: {
             momentId?: string
             targetUserId?: string
@@ -188,32 +184,6 @@ export class UserMetricsService {
     ): Promise<void> {
         const event: UserMetricsEvent = {
             type: activityType,
-            userId,
-            data,
-            timestamp: data.timestamp || new Date(),
-        }
-
-        if (this.config.enableRealTimeUpdates) {
-            this.eventQueue.push(event)
-        } else {
-            await this.processEvent(event)
-        }
-    }
-
-    /**
-     * Registra busca realizada
-     */
-    async recordSearch(
-        userId: string,
-        data: {
-            query: string
-            resultsCount: number
-            filters?: any
-            timestamp?: Date
-        },
-    ): Promise<void> {
-        const event: UserMetricsEvent = {
-            type: "search",
             userId,
             data,
             timestamp: data.timestamp || new Date(),
@@ -264,33 +234,6 @@ export class UserMetricsService {
     ): Promise<void> {
         const event: UserMetricsEvent = {
             type: "report",
-            userId,
-            data,
-            timestamp: data.timestamp || new Date(),
-        }
-
-        if (this.config.enableRealTimeUpdates) {
-            this.eventQueue.push(event)
-        } else {
-            await this.processEvent(event)
-        }
-    }
-
-    /**
-     * Registra mudança de status premium
-     */
-    async recordPremiumChange(
-        userId: string,
-        changeType: "premium_upgrade" | "premium_downgrade",
-        data: {
-            previousPlan?: string
-            newPlan: string
-            amount?: number
-            timestamp?: Date
-        },
-    ): Promise<void> {
-        const event: UserMetricsEvent = {
-            type: changeType,
             userId,
             data,
             timestamp: data.timestamp || new Date(),
@@ -500,12 +443,6 @@ export class UserMetricsService {
                 case "moment_comment":
                     await this.processMomentCommentEvent(metrics, event.data)
                     break
-                case "moment_share":
-                    await this.processMomentShareEvent(metrics, event.data)
-                    break
-                case "search":
-                    await this.processSearchEvent(metrics, event.data)
-                    break
                 case "follow":
                     await this.processFollowEvent(metrics, event.data)
                     break
@@ -520,12 +457,6 @@ export class UserMetricsService {
                     break
                 case "report":
                     await this.processReportEvent(metrics, event.data)
-                    break
-                case "premium_upgrade":
-                    await this.processPremiumUpgradeEvent(metrics, event.data)
-                    break
-                case "premium_downgrade":
-                    await this.processPremiumDowngradeEvent(metrics, event.data)
                     break
             }
 
