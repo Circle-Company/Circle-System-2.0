@@ -96,4 +96,16 @@ export default class MomentEmbedding
             })
         }
     }
+
+    /**
+     * Converte para PostEmbeddingType do Swipe Engine
+     */
+    toPostEmbeddingType(): any {
+        return {
+            postId: this.momentId,
+            vector: JSON.parse(this.vector),
+            timestamp: this.updatedAt,
+            version: "1.0",
+        }
+    }
 }
