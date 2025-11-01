@@ -127,13 +127,18 @@ export class RankingService {
      */
     private calculateEmbeddingSimilarity(
         userEmbedding: UserEmbedding,
-        candidateEmbedding: UserEmbedding,
+        candidateEmbedding: number[],
     ): number {
         try {
-            const userVector = userEmbedding.vector.values
-            const candidateVector = candidateEmbedding.vector.values
+            const userVector = userEmbedding.vector
+            const candidateVector = candidateEmbedding
 
             // Verificar se os vetores têm o mesmo tamanho
+            if (!Array.isArray(userVector) || !Array.isArray(candidateVector)) {
+                this.logger.warn("Embeddings inválidos")
+                return 0.5
+            }
+
             if (userVector.length !== candidateVector.length) {
                 this.logger.warn("Embeddings com dimensões diferentes")
                 return 0.5

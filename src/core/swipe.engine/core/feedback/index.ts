@@ -5,15 +5,15 @@
  * atualizando os embeddings de usuários e posts com base no comportamento real.
  */
 
-import { LogLevel, Logger } from "@/shared/logger"
 import { InteractionType, UserInteraction } from "../../types"
+import { LogLevel, Logger } from "@/shared/logger"
 
-import UserInteractionSummary from "@/infra/models/swipe.engine/user.interaction.summary.model"
-import UserInteractionHistory from "@/infra/models/user/user.interaction.history.model"
 import { EmbeddingParams as Params } from "../../params"
-import { normalizeVector } from "../../utils/vector.operations"
 import { PostEmbeddingService } from "../embeddings/post"
 import { UserEmbeddingService } from "../embeddings/user"
+import UserInteractionHistory from "@/infra/models/user/user.interaction.history.model"
+import UserInteractionSummary from "@/infra/models/swipe.engine/user.interaction.summary.model"
+import { normalizeVector } from "../../utils/vector.operations"
 
 export class FeedbackProcessor {
     private readonly userEmbeddingService: UserEmbeddingService
@@ -53,6 +53,29 @@ export class FeedbackProcessor {
     }
 
     /**
+     * Mapeia InteractionType do Swipe Engine para o tipo do modelo
+     */
+    private mapInteractionType(type: InteractionType): "view" | "like" | "comment" | "report" | "completion" | "share" | "save" | "skip" {
+        const typeMap: Record<string, "view" | "like" | "comment" | "report" | "completion" | "share" | "save" | "skip"> = {
+            short_view: "view",
+            long_view: "view",
+            view: "view",
+            completeView: "completion",
+            like: "like",
+            likeComment: "like",
+            like_comment: "like",
+            comment: "comment",
+            share: "share",
+            save: "save",
+            report: "report",
+            dislike: "skip",
+            show_less_often: "skip",
+            skip: "skip",
+        }
+        return typeMap[type] || "view"
+    }
+
+    /**
      * Processa uma única interação do usuário
      * @param interaction A interação a ser processada
      * @returns Verdadeiro se o processamento foi bem-sucedido
@@ -62,9 +85,9 @@ export class FeedbackProcessor {
             // Registrar a interação no histórico
             await UserInteractionHistory.create({
                 userId: BigInt(interaction.userId),
-                entityId: BigInt(interaction.entityId),
-                interactionType: interaction.type,
-                interactionDate: interaction.timestamp,
+                momentId: BigInt(interaction.entityId),
+                type: this.mapInteractionType(interaction.type),
+                timestamp: interaction.timestamp,
                 metadata: interaction.metadata || {},
             })
 
@@ -80,7 +103,6 @@ export class FeedbackProcessor {
             if (
                 interaction.type === "like" ||
                 interaction.type === "share" ||
-                interaction.type === "likeComment" ||
                 interaction.type === "report"
             ) {
                 await this.updateEmbeddings(interaction)
@@ -595,8 +617,8 @@ export class FeedbackProcessor {
 
         const interaction = await UserInteractionHistory.findOne({
             where: {
-                userId: userIdStr,
-                entityId: entityIdStr,
+                userId: BigInt(userIdStr),
+                momentId: BigInt(entityIdStr),
             },
         })
 
@@ -628,9 +650,9 @@ export class FeedbackProcessor {
     ): Promise<UserInteractionHistory[]> {
         return await UserInteractionHistory.findAll({
             where: {
-                userId: userId.toString(),
+                userId: BigInt(userId.toString()),
             },
-            order: [["interactionDate", "DESC"]],
+            order: [["timestamp", "DESC"]],
             limit,
             offset,
         })
@@ -644,17 +666,17 @@ export class FeedbackProcessor {
      */
     public async getInteractedEntities(
         userId: string | bigint,
-        types: InteractionType[] = ["like", "completeView", "share"],
+        types: InteractionType[] = ["like", "completion", "share"],
     ): Promise<string[]> {
         const interactions = await UserInteractionHistory.findAll({
             where: {
-                userId: userId.toString(),
-                interactionType: types,
+                userId: BigInt(userId.toString()),
+                type: types,
             },
-            attributes: ["entityId"],
-            group: ["entityId"],
+            attributes: ["momentId"],
+            group: ["momentId"],
         })
 
-        return interactions.map((i) => i.entityId.toString())
+        return interactions.map((i) => i.momentId.toString())
     }
 }

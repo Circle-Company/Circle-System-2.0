@@ -122,6 +122,20 @@ class UserEmbedding
             })
         }
     }
+
+    /**
+     * Converte para UserEmbeddingType do Swipe Engine
+     */
+    toUserEmbeddingType(): any {
+        const vectorData = typeof this.vector === "string" ? JSON.parse(this.vector) : this.vector
+        return {
+            id: this.id.toString(),
+            userId: this.userId.toString(),
+            vector: vectorData.values || vectorData,
+            updatedAt: this.updatedAt,
+            interests: this.metadata?.interests,
+        }
+    }
 }
 
 export default UserEmbedding

@@ -4,21 +4,21 @@ import {
     Recommendation,
     RecommendationOptions,
 } from "../../types"
+import { LogLevel, Logger } from "@/shared/logger"
 import { interactionBoosts, interactionScore } from "../../params"
 
-import InteractionEvent from "../../models/InteractionEvent"
-import Moment from "../../../models/moments/moment-model"
+import InteractionEvent from "@/infra/models/swipe.engine/interaction.event.model"
+import Moment from "@/infra/models/moment/moment.model"
 import { Op } from "sequelize"
-import PostCluster from "../../models/PostCluster"
-import PostEmbedding from "../../models/PostEmbedding"
+import PostCluster from "@/infra/models/swipe.engine/post.cluster.model"
+import PostEmbedding from "@/infra/models/moment/moment.embedding.model"
 import { PostEmbeddingService } from "../embeddings/post"
 import { RankingService } from "./candidate.rank"
 import { RecommendationEngine } from "./rec.engine"
-import UserClusterRank from "../../models/UserClusterRank"
-import UserEmbedding from "../../models/UserEmbedding"
+import UserClusterRank from "@/infra/models/swipe.engine/user.cluster.rank.model"
+import UserEmbedding from "@/infra/models/user/user.embedding.model"
 import { UserEmbeddingService } from "../embeddings/user"
-import { connection } from "../../../database"
-import { getLogger } from "../utils/logger"
+import { connection } from "@/infra/database"
 
 /**.
  * Coordenador principal que gerencia o fluxo completo de recomendação
@@ -29,10 +29,16 @@ export class RecommendationCoordinator {
     private readonly userEmbeddingService: UserEmbeddingService
     private readonly postEmbeddingService: PostEmbeddingService
     private readonly rankingService: RankingService
-    private readonly logger = getLogger("RecommendationCoordinator")
+    private readonly logger: Logger
 
     constructor() {
         // Inicializa os componentes necessários
+        this.logger = new Logger("RecommendationCoordinator", {
+            minLevel: LogLevel.INFO,
+            showTimestamp: true,
+            showComponent: true,
+            enabled: true,
+        })
         this.userEmbeddingService = new UserEmbeddingService()
         this.postEmbeddingService = new PostEmbeddingService()
         this.rankingService = new RankingService()
@@ -96,8 +102,8 @@ export class RecommendationCoordinator {
 
             // Registrar a interação para feedback e análise
             await InteractionEvent.create({
-                userId: userIdBigInt.toString(),
-                entityId: entityIdBigInt.toString(),
+                userId: userIdBigInt,
+                entityId: entityIdBigInt,
                 entityType: "post", // Por enquanto, apenas posts são suportados
                 type,
                 timestamp: new Date(),
@@ -105,7 +111,7 @@ export class RecommendationCoordinator {
             })
 
             // Se for uma interação significativa, atualiza o embedding do usuário
-            if (type === "like" || type === "likeComment") {
+            if (type === "like" || type === "share" || type === "comment") {
                 this.logger.debug(`Agendando atualização de embedding para usuário ${userId}`)
                 // Em produção, isso seria colocado em uma fila para processamento assíncrono
                 // Exemplo: this.updateQueue.add({ userId, priority: type === 'like' ? 'high' : 'normal' })
@@ -162,18 +168,19 @@ export class RecommendationCoordinator {
             // 2. Para cada cluster, atualizar o ranking do usuário
             for (const cluster of postClusters) {
                 // Verificar se já existe um ranking para este usuário e cluster
+                const userIdBigInt = typeof userId === "string" ? BigInt(userId) : userId
                 let userClusterRank = await UserClusterRank.findOne({
                     where: {
-                        userId: userId.toString(),
-                        clusterId: cluster.id.toString(),
+                        userId: userIdBigInt,
+                        clusterId: cluster.id,
                     },
                 })
 
                 // Calcular score de interação baseado no tipo
                 let interactionBoost = 0
                 switch (interactionType) {
-                    case "click":
-                        interactionBoost = interactionBoosts.clickBoost
+                    case "view":
+                        interactionBoost = interactionBoosts.partialViewBoost
                         break
                     case "like":
                         interactionBoost = interactionBoosts.likeBoost
@@ -181,22 +188,16 @@ export class RecommendationCoordinator {
                     case "share":
                         interactionBoost = interactionBoosts.shareBoost
                         break
-                    case "completeView":
+                    case "completion":
                         interactionBoost = interactionBoosts.completeViewBoost
-                        break
-                    case "partialView":
-                        interactionBoost = interactionBoosts.partialViewBoost
                         break
                     case "comment":
                         interactionBoost = interactionBoosts.commentBoost
                         break
-                    case "likeComment":
-                        interactionBoost = interactionBoosts.likeCommentBoost
-                        break
                     case "report":
                         interactionBoost = interactionBoosts.reportBoost
                         break
-                    case "showLessOften":
+                    case "unlike":
                         interactionBoost = interactionBoosts.showLessOftenBoost
                         break
                     default:
@@ -218,8 +219,8 @@ export class RecommendationCoordinator {
                 } else {
                     // Criar novo ranking
                     await UserClusterRank.create({
-                        userId: userId.toString(),
-                        clusterId: cluster.id.toString(),
+                        userId: userIdBigInt,
+                        clusterId: cluster.id,
                         score:
                             interactionBoost > 0
                                 ? interactionScore.default
@@ -273,10 +274,14 @@ export class RecommendationCoordinator {
             }
 
             // 2. Preparar dados do post para o embedding
-            const description = post.getDataValue("description") as string | null
-            const userId = post.getDataValue("user_id") as bigint
+            const description = post.description
+            const userId = post.ownerId
             const createdAt = post.createdAt
             const tagTitles = (post as any).tags?.map((tag: any) => tag.getDataValue("title")) || []
+
+            if (!userId) {
+                throw new Error(`Post ${postId} não possui ownerId`)
+            }
 
             const postData: PostEmbeddingProps = {
                 textContent: description || "",
@@ -287,7 +292,6 @@ export class RecommendationCoordinator {
                     comments: 0,
                     shares: 0,
                     saves: 0,
-                    engagementRate: 0,
                 },
                 authorId: userId,
                 createdAt: createdAt,
@@ -298,10 +302,10 @@ export class RecommendationCoordinator {
 
             // 4. Salvar o embedding
             await PostEmbedding.upsert({
-                postId: postId.toString(),
+                momentId: postId.toString(),
                 vector: JSON.stringify(embedding.values),
                 dimension: embedding.dimension,
-                metadata: embedding.metadata ?? {},
+                metadata: {},
             })
 
             // 5. Associar a clusters
@@ -323,7 +327,7 @@ export class RecommendationCoordinator {
     ): Promise<void> {
         try {
             const currentEmbedding = await PostEmbedding.findOne({
-                where: { postId: postId.toString() },
+                where: { momentId: postId.toString() },
             })
 
             if (!currentEmbedding) {
@@ -358,7 +362,7 @@ export class RecommendationCoordinator {
         try {
             // 1. Obter embedding do post
             const postEmbeddingRecord = await PostEmbedding.findOne({
-                where: { postId: postId.toString() },
+                where: { momentId: postId.toString() },
             })
 
             if (!postEmbeddingRecord) {
@@ -371,17 +375,16 @@ export class RecommendationCoordinator {
 
             // 3. Calcular similaridade com cada cluster e atribuir aos mais relevantes
             const postEmbedding = postEmbeddingRecord.toPostEmbeddingType()
-            const vectorValues = Array.isArray(postEmbedding.vector.values)
-                ? postEmbedding.vector.values
-                : Array.isArray(postEmbedding.vector)
-                ? postEmbedding.vector
-                : []
+            let vectorValues: number[] = []
+            if (Array.isArray(postEmbedding.vector?.values)) {
+                vectorValues = postEmbedding.vector.values
+            } else if (Array.isArray(postEmbedding.vector)) {
+                vectorValues = postEmbedding.vector
+            }
 
             for (const cluster of clusters) {
                 const clusterInfo = cluster.toClusterInfo()
-                const centroidValues = Array.isArray(clusterInfo.centroid.values)
-                    ? clusterInfo.centroid.values
-                    : []
+                const centroidValues = Array.isArray(clusterInfo.centroid) ? clusterInfo.centroid : []
 
                 // Calcular similaridade usando similaridade de cosseno
                 const similarity = this.calculateCosineSimilarity(vectorValues, centroidValues)
