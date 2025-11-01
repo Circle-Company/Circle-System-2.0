@@ -1,15 +1,16 @@
 import {
     CommentMomentUseCase,
     DeleteMomentCommentUseCase,
-    GetCommentedMomentsUseCase,
-    GetMomentCommentsUseCase,
+    GetMomentCommentsUseCase
 } from "@/application/moment/use.cases"
 
 import { Comment } from "@/domain/moment/entities/comment.entity"
+import { AuthenticatedUser } from "@/infra/middlewares/types"
 
 export interface CreateCommentRequest {
     content: string
-    parentCommentId?: string
+    mentions?: string[]
+    replyId?: string
 }
 
 export interface EditCommentRequest {
@@ -18,25 +19,15 @@ export interface EditCommentRequest {
 
 export interface CommentResponse {
     id: string
-    momentId: string
-    userId: string
-    parentCommentId?: string
+    user: {
+        id: string
+        username: string
+        profilePicture: string
+    },
     content: string
-    status: string
-    visibility: string
-    category: string
-    sentiment: string
+    richContent: string
     likesCount: number
-    repliesCount: number
-    reportsCount: number
-    viewsCount: number
-    isModerated: boolean
-    moderationScore: number
-    severity: string
-    mentions: string[]
-    hashtags: string[]
-    createdAt: Date
-    updatedAt: Date
+    createdAt: string
 }
 
 export interface CommentListResponse {
@@ -62,7 +53,6 @@ export class MomentCommentController {
         private readonly commentMomentUseCase: CommentMomentUseCase,
         private readonly getMomentCommentsUseCase: GetMomentCommentsUseCase,
         private readonly deleteMomentCommentUseCase: DeleteMomentCommentUseCase,
-        private readonly getCommentedMomentsUseCase: GetCommentedMomentsUseCase,
     ) {}
 
     /**
@@ -70,22 +60,30 @@ export class MomentCommentController {
      */
     async createComment(
         momentId: string,
-        userId: string,
+        user: AuthenticatedUser,
         request: CreateCommentRequest,
-    ): Promise<CommentResponse | null> {
+    ): Promise<Omit<CommentResponse, "user"> | null> {
         try {
             const result = await this.commentMomentUseCase.execute({
                 momentId,
-                userId,
+                userId: user.id,
                 content: request.content,
-                parentCommentId: request.parentCommentId,
+                replyId: request.replyId,
             })
 
             if (!result.success || !result.comment) {
                 throw new Error(result.error || "Erro ao criar comentário")
             }
 
-            return this.mapCommentToResponse(result.comment)
+            // O create retorna Comment, mas precisamos buscar o user e montar o response
+            // Por enquanto retorna um formato básico - será necessário buscar o user
+            return {
+                id: result.comment.id,
+                content: result.comment.content,
+                richContent: result.comment.richContent || result.comment.content,
+                likesCount: result.comment.likesCount,
+                createdAt: result.comment.createdAt.toISOString(),
+            }
         } catch (error) {
             throw new Error(
                 `Erro ao criar comentário: ${
@@ -100,13 +98,13 @@ export class MomentCommentController {
      */
     async getMomentComments(
         momentId: string,
-        userId: string,
+        user: any, // AuthenticatedUser
         query: GetCommentsQuery,
     ): Promise<CommentListResponse> {
         try {
             const result = await this.getMomentCommentsUseCase.execute({
                 momentId,
-                userId,
+                user,
                 page: query.page,
                 limit: query.limit,
                 sortBy: query.sortBy,
@@ -119,7 +117,7 @@ export class MomentCommentController {
             }
 
             return {
-                comments: result.comments.map((comment) => this.mapCommentToResponse(comment)),
+                comments: result.comments.map(item => this._mapCommentShortResponse(item)),
                 pagination: result.pagination || {
                     page: 1,
                     limit: 20,
@@ -160,88 +158,25 @@ export class MomentCommentController {
     }
 
     /**
-     * Obter momentos comentados por um usuário
+     * Mapear resposta do use case (CommentResponse do use case) para CommentResponse do controller
      */
-    async getCommentedMoments(
-        userId: string,
-        query: GetCommentsQuery,
-    ): Promise<CommentListResponse> {
-        try {
-            const result = await this.getCommentedMomentsUseCase.execute({
-                userId,
-                page: query.page,
-                limit: query.limit,
-                sortOrder: query.sortOrder,
-            })
+    private _mapCommentShortResponse(useCaseResponse: { comment: Comment; user: any; createdAt: string }): CommentResponse {
+        const { comment, user, createdAt } = useCaseResponse
+        const profilePicture = user?.profilePicture?.fullhdResolution || 
+                              user?.profilePicture?.tinyResolution || 
+                              ""
 
-            if (!result.success || !result.moments) {
-                throw new Error(result.error || "Erro ao buscar momentos comentados")
-            }
-
-            // Converter momentos para formato de resposta (simplificado)
-            return {
-                comments: result.moments.map((moment) => ({
-                    id: moment.id,
-                    momentId: moment.id,
-                    userId: moment.ownerId,
-                    content: `Comment on: ${moment.description}`,
-                    status: moment.status.current,
-                    visibility: moment.visibility.level,
-                    category: "general",
-                    sentiment: "neutral",
-                    likesCount: 0,
-                    repliesCount: 0,
-                    reportsCount: 0,
-                    viewsCount: 0,
-                    isModerated: false,
-                    moderationScore: 0,
-                    severity: "low",
-                    mentions: moment.mentions,
-                    hashtags: moment.hashtags,
-                    createdAt: moment.createdAt,
-                    updatedAt: moment.updatedAt,
-                })),
-                pagination: result.pagination || {
-                    page: 1,
-                    limit: 20,
-                    total: 0,
-                    totalPages: 0,
-                },
-            }
-        } catch (error) {
-            throw new Error(
-                `Erro ao buscar momentos comentados: ${
-                    error instanceof Error ? error.message : "Erro desconhecido"
-                }`,
-            )
-        }
-    }
-
-    /**
-     * Mapear entidade Comment para CommentResponse
-     */
-    private mapCommentToResponse(comment: Comment): CommentResponse {
         return {
             id: comment.id,
-            momentId: comment.momentId,
-            userId: comment.userId,
-            parentCommentId: comment.parentCommentId,
+            user: {
+                id: user?.id || comment.userId,
+                username: user?.username || "unknown",
+                profilePicture,
+            },
             content: comment.content,
-            status: comment.status,
-            visibility: comment.visibility,
-            category: comment.category,
-            sentiment: comment.sentiment,
+            richContent: comment.richContent || comment.content,
             likesCount: comment.likesCount,
-            repliesCount: comment.repliesCount,
-            reportsCount: comment.reportsCount,
-            viewsCount: comment.viewsCount,
-            isModerated: comment.isModerated,
-            moderationScore: comment.moderationScore,
-            severity: comment.severity,
-            mentions: comment.mentions,
-            hashtags: comment.hashtags,
-            createdAt: comment.createdAt,
-            updatedAt: comment.updatedAt,
+            createdAt,
         }
     }
 }

@@ -1,42 +1,42 @@
 // Use Cases
 import {
-    AdminBlockMomentUseCase,
-    AdminChangeMomentStatusUseCase,
-    AdminDeleteMomentUseCase,
-    AdminUnblockMomentUseCase,
     CommentMomentUseCase,
     CreateMomentUseCase,
     DeleteMomentCommentUseCase,
     DeleteMomentUseCase,
     GetAccountMomentsUseCase,
-    GetCommentedMomentsUseCase,
     GetLikedMomentsUseCase,
     GetMomentCommentsUseCase,
-    GetMomentMetricsUseCase,
-    GetMomentReportsUseCase,
     GetMomentUseCase,
-    GetMomentsAnalyticsUseCase,
     GetUserMomentsUseCase,
     LikeMomentUseCase,
     ReportMomentUseCase,
     UnlikeMomentUseCase,
 } from "@/application/moment/use.cases"
+import type {
+    ContentStorage,
+    ModerationEngineConfig,
+    ModerationRepository
+} from "@/core/content.moderation/types"
 import { DatabaseAdapter, DatabaseAdapterFactory } from "@/infra/database/adapter"
 
-import { MomentMetricsService } from "@/application/moment/services/moment.metrics.service"
-import { MomentService } from "@/application/moment/services/moment.service"
-import { StorageAdapterFactory } from "@/core/content.processor/storage.adapter"
-import { MomentMapper } from "@/domain/moment/moment.mapper"
+import { CommentRepositoryImpl } from "@/infra/repository.impl/comment.repository.impl"
+import { ContentBlocker } from "@/core/content.moderation/content/blocker"
+import { ContentDetector } from "@/core/content.moderation/content/detector"
 import { ICommentRepository } from "@/domain/moment/repositories/comment.repository"
 import { IMomentMetricsRepository } from "@/domain/moment/repositories/moment.metrics.repository"
 import { IMomentRepository } from "@/domain/moment/repositories/moment.repository"
 import { IUserRepository } from "@/domain/user/repositories/user.repository"
+import { ModerationEngine } from "@/core/content.moderation/moderation"
+import { ModerationEngineFactory } from "@/core/content.moderation/factory"
 import { MomentCommentController } from "@/infra/controllers/moment/moment.comment.controller"
 import { MomentController } from "@/infra/controllers/moment/moment.controller"
-import { MomentMetricsController } from "@/infra/controllers/moment/moment.metrics.controller"
-import { CommentRepositoryImpl } from "@/infra/repository.impl/comment.repository.impl"
+import { MomentMapper } from "@/domain/moment/moment.mapper"
 import { MomentMetricsRepositoryImpl } from "@/infra/repository.impl/moment.metrics.repository.impl"
+import { MomentMetricsService } from "@/application/moment/services/moment.metrics.service"
 import { MomentRepositoryImpl } from "@/infra/repository.impl/moment.repository.impl"
+import { MomentService } from "@/application/moment/services/moment.service"
+import { StorageAdapterFactory } from "@/core/content.processor/storage.adapter"
 import { UserRepositoryImpl } from "@/infra/repository.impl/user.repository.impl"
 
 /**
@@ -44,7 +44,6 @@ import { UserRepositoryImpl } from "@/infra/repository.impl/user.repository.impl
  */
 export class MomentFactory {
     private static momentController: MomentController | null = null
-    private static momentMetricsController: MomentMetricsController | null = null
     private static momentCommentController: MomentCommentController | null = null
     /**
      * Cria um MomentRepository com DatabaseAdapter
@@ -106,11 +105,47 @@ export class MomentFactory {
     }
 
     /**
+     * Cria um ModerationEngine para moderação de comentários
+     */
+    static createModerationEngine(): ModerationEngine {
+        // Criar mocks simples para as dependências não utilizadas em moderação de comentários
+        const mockModerationRepository: ModerationRepository = {
+            save: async (moderation) => moderation,
+            findById: async () => null,
+            findByContentId: async () => null,
+            update: async (id, updates) => ({ ...updates, id } as any),
+            delete: async () => {},
+        }
+
+        const mockContentStorage: ContentStorage = {
+            store: async () => "",
+            retrieve: async () => null,
+            delete: async () => {},
+        }
+
+        const config: ModerationEngineConfig = ModerationEngineFactory.createDefaultConfig()
+
+        // Criar ContentDetector e ContentBlocker
+        const contentDetector = new ContentDetector(config)
+        const contentBlocker = new ContentBlocker(mockModerationRepository, config)
+
+        // Criar ModerationEngine diretamente (sem httpAdapter que não é usado em moderação de comentários)
+        return new ModerationEngine(
+            contentDetector,
+            contentBlocker,
+            mockModerationRepository,
+            mockContentStorage,
+            config,
+        )
+    }
+
+    /**
      * Cria todos os use cases de Moment
      */
     static createMomentUseCases(database: DatabaseAdapter) {
         const momentRepository = this.createMomentRepository(database)
         const userRepository = this.createUserRepository(database)
+        const moderationEngine = this.createModerationEngine()
         const commentRepository = this.createCommentRepository(database)
         const momentService = this.createMomentService(database)
         const momentMetricsService = this.createMomentMetricsService(database)
@@ -118,7 +153,7 @@ export class MomentFactory {
         return {
             // CRUD Operations
             createMoment: new CreateMomentUseCase(momentService, userRepository),
-            getMoment: new GetMomentUseCase(userRepository, momentRepository, momentService),
+            getMoment: new GetMomentUseCase(userRepository, momentRepository),
             deleteMoment: new DeleteMomentUseCase(momentRepository, momentService),
 
             // User Actions
@@ -140,30 +175,16 @@ export class MomentFactory {
 
             // Comments
             commentMoment: new CommentMomentUseCase(
+                moderationEngine,
                 commentRepository,
                 momentRepository,
                 userRepository,
-            ),
-            getMomentComments: new GetMomentCommentsUseCase(commentRepository),
+            ),  
+            getMomentComments: new GetMomentCommentsUseCase(commentRepository, userRepository),
             deleteMomentComment: new DeleteMomentCommentUseCase(commentRepository, userRepository),
-            getCommentedMoments: new GetCommentedMomentsUseCase(
-                commentRepository,
-                momentRepository,
-            ),
 
             // Reports
             reportMoment: new ReportMomentUseCase(momentRepository, momentService),
-            getMomentReports: new GetMomentReportsUseCase(momentRepository, momentService),
-
-            // Metrics
-            getMomentMetrics: new GetMomentMetricsUseCase(momentRepository, momentService),
-            getMomentsAnalytics: new GetMomentsAnalyticsUseCase(momentRepository, momentService),
-
-            // Admin Operations
-            adminBlockMoment: new AdminBlockMomentUseCase(momentService),
-            adminUnblockMoment: new AdminUnblockMomentUseCase(momentService),
-            adminChangeMomentStatus: new AdminChangeMomentStatusUseCase(momentService),
-            adminDeleteMoment: new AdminDeleteMomentUseCase(momentService),
         }
     }
 
@@ -183,7 +204,6 @@ export class MomentFactory {
             useCases.unlikeMoment,
             useCases.getLikedMoments,
             useCases.reportMoment,
-            useCases.getMomentReports,
         )
     }
 
@@ -200,27 +220,6 @@ export class MomentFactory {
         return this.momentController
     }
 
-    /**
-     * Cria um MomentMetricsController com todas as dependências
-     */
-    static createMomentMetricsController(database: DatabaseAdapter): MomentMetricsController {
-        const useCases = this.createMomentUseCases(database)
-
-        return new MomentMetricsController(useCases.getMomentMetrics, useCases.getMomentsAnalytics)
-    }
-
-    /**
-     * Obtém uma instância singleton do MomentMetricsController
-     */
-    static getMomentMetricsController(): MomentMetricsController {
-        if (!this.momentMetricsController) {
-            const database = DatabaseAdapterFactory.createForEnvironment(
-                process.env.NODE_ENV || "development",
-            )
-            this.momentMetricsController = this.createMomentMetricsController(database)
-        }
-        return this.momentMetricsController
-    }
 
     /**
      * Cria um MomentCommentController com todas as dependências
@@ -232,7 +231,6 @@ export class MomentFactory {
             useCases.commentMoment,
             useCases.getMomentComments,
             useCases.deleteMomentComment,
-            useCases.getCommentedMoments,
         )
     }
 
@@ -259,7 +257,6 @@ export class MomentFactory {
         momentService: MomentService
         momentMetricsService: MomentMetricsService
         momentController: MomentController
-        momentMetricsController: MomentMetricsController
         momentCommentController: MomentCommentController
         useCases: ReturnType<typeof MomentFactory.createMomentUseCases>
     } {
@@ -269,7 +266,6 @@ export class MomentFactory {
         const momentService = this.createMomentService(database)
         const momentMetricsService = this.createMomentMetricsService(database)
         const momentController = this.createMomentController(database)
-        const momentMetricsController = this.createMomentMetricsController(database)
         const momentCommentController = this.createMomentCommentController(database)
         const useCases = this.createMomentUseCases(database)
 
@@ -280,7 +276,6 @@ export class MomentFactory {
             momentService,
             momentMetricsService,
             momentController,
-            momentMetricsController,
             momentCommentController,
             useCases,
         }
@@ -296,7 +291,6 @@ export class MomentFactory {
         momentService: MomentService
         momentMetricsService: MomentMetricsService
         momentController: MomentController
-        momentMetricsController: MomentMetricsController
         momentCommentController: MomentCommentController
         useCases: ReturnType<typeof MomentFactory.createMomentUseCases>
     } {
@@ -317,7 +311,6 @@ export class MomentFactory {
         momentService: MomentService
         momentMetricsService: MomentMetricsService
         momentController: MomentController
-        momentMetricsController: MomentMetricsController
         momentCommentController: MomentCommentController
         useCases: ReturnType<typeof MomentFactory.createMomentUseCases>
     } {
@@ -364,11 +357,6 @@ export const createMoment = {
      */
     controller: (database: DatabaseAdapter) => MomentFactory.createMomentController(database),
 
-    /**
-     * Cria MomentMetricsController para produção
-     */
-    metricsController: (database: DatabaseAdapter) =>
-        MomentFactory.createMomentMetricsController(database),
 
     /**
      * Cria MomentCommentController para produção
@@ -405,23 +393,17 @@ export const MomentFactoryConfig = {
     production: {
         defaultLimit: 20,
         defaultOffset: 0,
-        maxLimit: 100,
-        searchLimit: 50,
-        metricsCacheTime: 300000, // 5 minutos
+        maxLimit: 100
     },
     test: {
         defaultLimit: 10,
         defaultOffset: 0,
-        maxLimit: 50,
-        searchLimit: 25,
-        metricsCacheTime: 60000, // 1 minuto
+        maxLimit: 50
     },
     development: {
         defaultLimit: 15,
         defaultOffset: 0,
-        maxLimit: 75,
-        searchLimit: 30,
-        metricsCacheTime: 180000, // 3 minutos
+        maxLimit: 75
     },
 } as const
 

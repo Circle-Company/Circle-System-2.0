@@ -98,7 +98,8 @@ export interface CommentEntity {
     id: string
     momentId: string
     userId: string
-    parentCommentId?: string
+    replyId?: string
+    richContent: string
     content: string
     visibility: CommentVisibilityEnum
     sentiment: CommentSentimentEnum
@@ -132,10 +133,12 @@ export interface CommentProps {
     id?: string
     momentId: string
     userId: string
-    parentCommentId?: string
+    replyId?: string
+    richContent: string
     content: string
     visibility?: CommentVisibilityEnum
     sentiment?: CommentSentimentEnum
+    sentimentIntensity?: number
 
     // Métricas
     likesCount?: number
@@ -210,7 +213,8 @@ export interface CommentAnalytics {
 export interface CommentFilters {
     momentId?: string
     userId?: string
-    parentCommentId?: string
+    replyId?: string
+    richContent?: string
     status?: CommentStatusEnum[]
     visibility?: CommentVisibilityEnum[]
     category?: CommentCategoryEnum[]
@@ -282,13 +286,15 @@ export interface CommentListResponse {
 export interface CommentCreateRequest {
     momentId: string
     userId: string
-    parentCommentId?: string
+    replyId?: string
+    richContent?: string
     content: string
     visibility?: CommentVisibilityEnum
     metadata?: Record<string, any>
 }
 
 export interface CommentUpdateRequest {
+    richContent?: string
     content?: string
     visibility?: CommentVisibilityEnum
     metadata?: Record<string, any>

@@ -4,6 +4,10 @@ import {
     ModerationFlagEnum,
     ModerationSeverityEnum,
 } from "../../domain/moderation/moderation.type"
+import {
+    CommentModerationFlag,
+    CommentSeverityEnum,
+} from "../../domain/moment/types/comment.type"
 
 // ===== INTERFACES DE DETECÇÃO =====
 export interface ContentDetectionRequest {
@@ -141,4 +145,19 @@ export interface ModerationResult {
     blockingResult?: ContentBlockingResult
     processingTime: number
     errors?: string[]
+}
+
+// ===== RESULTADO DE MODERAÇÃO DE COMENTÁRIOS =====
+export interface CommentModerationResult {
+    success: boolean
+    moderationFields: {
+        moderationFlags: CommentModerationFlag[]
+        moderationScore: number
+        severity: CommentSeverityEnum
+        isModerated: boolean
+        moderatedAt: Date | null
+        moderatedBy: string | null
+    }
+    processingTime: number
+    error?: string
 }

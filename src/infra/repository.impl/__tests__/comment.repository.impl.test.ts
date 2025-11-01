@@ -35,7 +35,7 @@ const mockComment = {
     id: "comment-test-id",
     momentId: "moment-123",
     authorId: "user-123",
-    parentCommentId: null,
+    commentId: null,
     content: "Este é um comentário de teste",
     status: "published",
     visibility: "public",
@@ -61,7 +61,7 @@ const mockComment = {
         id: "comment-test-id",
         momentId: "moment-123",
         authorId: "user-123",
-        parentCommentId: null,
+        commentId: null,
         content: "Este é um comentário de teste",
         status: "published",
         visibility: "public",
@@ -291,7 +291,7 @@ describe("CommentRepositoryImpl", () => {
             expect(mockModels.Comment.findAll).toHaveBeenCalledWith({
                 where: {
                     momentId: "moment-123",
-                    parentCommentId: null,
+                    commentId: null,
                 },
                 limit: 20,
                 offset: 0,
@@ -315,7 +315,7 @@ describe("CommentRepositoryImpl", () => {
 
             // Assert
             expect(mockModels.Comment.findAll).toHaveBeenCalledWith({
-                where: { parentCommentId: "comment-test-id" },
+                where: { commentId: "comment-test-id" },
                 limit: 20,
                 offset: 0,
                 order: [["createdAt", "ASC"]],
@@ -814,7 +814,7 @@ describe("CommentRepositoryImpl", () => {
                 id: "comment-test-id",
                 momentId: "moment-123",
                 authorId: "user-123",
-                parentCommentId: undefined,
+                commentId: undefined,
                 content: "Teste",
                 status: "published",
                 visibility: "public",

@@ -1,17 +1,17 @@
 import {
-    IMomentMetricsRepository,
-    MomentMetricsAnalysisService,
-} from "@/domain/moment/repositories/moment.metrics.repository"
-
-import { normalizeL2 } from "@/core/swipe.engine/utils/normalization"
-import { MomentMetricsEntity } from "@/domain/moment/entities/moment.metrics.entity"
-import {
     CalculateEngagementVectorParams,
     CalculateEngagementVectorResult,
     EngagementFeatures,
     EngagementMetrics,
     MomentEngagementVector,
 } from "@/domain/moment/types/moment.engagement.vector.type"
+import {
+    IMomentMetricsRepository,
+    MomentMetricsAnalysisService,
+} from "@/domain/moment/repositories/moment.metrics.repository"
+
+import { MomentMetricsEntity } from "@/domain/moment/entities/moment.metrics.entity"
+import { normalizeL2 } from "@/core/swipe.engine/utils/normalization"
 
 // ===== EVENTOS DE MÉTRICAS =====
 export interface MetricsEvent {
@@ -20,9 +20,7 @@ export interface MetricsEvent {
         | "like"
         | "comment"
         | "report"
-        | "share"
         | "completion"
-        | "quality_update"
         | "unlike"
     momentId: string
     data: any
@@ -200,32 +198,6 @@ export class MomentMetricsService {
     ): Promise<void> {
         const event: MetricsEvent = {
             type: "completion",
-            momentId,
-            data,
-            timestamp: new Date(),
-        }
-
-        if (this.config.enableRealTimeUpdates) {
-            await this.processEvent(event)
-        } else {
-            this.eventQueue.push(event)
-        }
-    }
-
-    /**
-     * Atualiza qualidade do conteúdo
-     */
-    async updateQuality(
-        momentId: string,
-        data: {
-            contentQuality?: number
-            audioQuality?: number
-            videoQuality?: number
-            faceDetectionRate?: number
-        },
-    ): Promise<void> {
-        const event: MetricsEvent = {
-            type: "quality_update",
             momentId,
             data,
             timestamp: new Date(),
@@ -520,9 +492,6 @@ export class MomentMetricsService {
                 break
             case "completion":
                 await this.processCompletionEvent(metrics, event.data)
-                break
-            case "quality_update":
-                await this.processQualityUpdateEvent(metrics, event.data)
                 break
         }
 

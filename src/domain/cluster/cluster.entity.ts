@@ -11,8 +11,8 @@ import {
     ClusterTypeEnum,
 } from "./cluster.type"
 
-import { generateId } from "@/shared"
 import { ClusterRules } from "./cluster.rules"
+import { generateId } from "@/shared"
 
 /**
  * Entidade de Cluster
@@ -395,7 +395,7 @@ export class Cluster {
         // Score de tamanho (ideal entre optimal min e max)
         const minSizeScore = ClusterRules.QUALITY_CALCULATION.SIZE_SCORE_MIN
         const maxSizeScore = ClusterRules.QUALITY_CALCULATION.SIZE_SCORE_MAX
-        let sizeScore = minSizeScore
+        let sizeScore: number = minSizeScore
         if (
             this._size >= ClusterRules.QUALITY_THRESHOLDS.OPTIMAL_MIN_SIZE &&
             this._size <= ClusterRules.QUALITY_THRESHOLDS.OPTIMAL_MAX_SIZE

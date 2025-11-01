@@ -65,8 +65,8 @@ export class DeleteMomentCommentUseCase {
             }
 
             // Se o comentário tinha um pai, decrementar contador de respostas
-            if (comment.parentCommentId) {
-                await this.commentRepository.decrementReplies(comment.parentCommentId)
+            if (comment.commentId) {
+                await this.commentRepository.decrementReplies(comment.commentId)
             }
 
             return {

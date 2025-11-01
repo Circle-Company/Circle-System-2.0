@@ -255,7 +255,11 @@ export class User {
      * Verifica se o usuário pode interagir com Moments
      */
     public canInteractWithMoments(): boolean {
-        return this.isActive() && !this.isMuted()
+        if (this.canAccessAdminFeatures()) {
+            return true
+        }
+
+        return this.isActive() && !this.isMuted() && !this.isBlocked()
     }
 
     /**

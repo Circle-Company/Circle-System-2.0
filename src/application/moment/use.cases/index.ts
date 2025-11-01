@@ -2,7 +2,6 @@
 
 // User actions
 export { CommentMomentUseCase } from "./comments/create.moment.comment.use.case"
-export { GetCommentedMomentsUseCase } from "./comments/get.commented.moments.use.case"
 export { CreateMomentUseCase } from "./create.moment.use.case"
 export { GetLikedMomentsUseCase } from "./get.liked.moments.use.case"
 export { GetMomentUseCase } from "./get.moment.use.case"

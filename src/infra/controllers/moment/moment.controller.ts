@@ -4,7 +4,6 @@ import {
     DeleteMomentUseCase,
     GetAccountMomentsUseCase,
     GetLikedMomentsUseCase,
-    GetMomentReportsUseCase,
     GetMomentUseCase,
     GetUserMomentsUseCase,
     LikeMomentUseCase,
@@ -12,10 +11,10 @@ import {
     UnlikeMomentUseCase,
 } from "@/application/moment/use.cases"
 
+import { AuthenticatedUser } from "@/infra/middlewares"
 import { GetAccountMomentsResponse } from "@/application/moment/use.cases/get.account.moments.use.case"
 import { GetUserMomentsResponse } from "@/application/moment/use.cases/get.user.moments.use.case"
 import { MomentVisibilityEnum } from "@/domain/moment"
-import { AuthenticatedUser } from "@/infra/middlewares"
 import { z } from "zod"
 
 // Interfaces de Request
@@ -165,7 +164,6 @@ export class MomentController {
         private readonly unlikeMomentUseCase: UnlikeMomentUseCase,
         private readonly getLikedMomentsUseCase: GetLikedMomentsUseCase,
         private readonly reportMomentUseCase: ReportMomentUseCase,
-        private readonly getMomentReportsUseCase: GetMomentReportsUseCase,
     ) {}
 
     // ===== CRUD OPERATIONS =====
@@ -433,51 +431,6 @@ export class MomentController {
             }
             throw new Error(
                 `Error to report moment: ${
-                    error instanceof Error ? error.message : "Unknown error"
-                }`,
-            )
-        }
-    }
-
-    /**
-     * Lista reports de um momento (apenas owner)
-     */
-    async getMomentReports(
-        momentId: string,
-        userId: string,
-        query: ListMomentsQuery,
-    ): Promise<MomentResponse[]> {
-        try {
-            // Validação com Zod
-            const validatedQuery = ListMomentsQuerySchema.parse(query)
-
-            const result = await this.getMomentReportsUseCase.execute({
-                momentId: momentId,
-                userId: userId,
-                limit: validatedQuery.limit,
-                offset: (validatedQuery.page - 1) * validatedQuery.limit,
-            })
-
-            if (!result.success) {
-                throw new Error(result.error || "Error to list reports of moment")
-            }
-
-            // Retornar array vazio por enquanto, pois este use case retorna reports, não momentos
-            return []
-        } catch (error) {
-            if (error instanceof z.ZodError) {
-                throw new Error(
-                    `Validation error: ${error.issues.map((e) => e.message).join(", ")}`,
-                )
-            }
-            if (error instanceof Error && error.message === "Moment not found") {
-                throw new Error("Moment not found")
-            }
-            if (error instanceof Error && error.message === "Unauthorized") {
-                throw new Error("Unauthorized")
-            }
-            throw new Error(
-                `Error to list reports of moment: ${
                     error instanceof Error ? error.message : "Unknown error"
                 }`,
             )

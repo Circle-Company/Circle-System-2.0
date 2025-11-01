@@ -22,8 +22,8 @@ export interface ICommentRepository {
     // Operações de busca
     findByMomentId(momentId: string, limit?: number, offset?: number): Promise<Comment[]>
     findByUserId(userId: string, limit?: number, offset?: number): Promise<Comment[]>
-    findByParentCommentId(
-        parentCommentId: string,
+    findByReplyId(
+        replyId: string,
         limit?: number,
         offset?: number,
     ): Promise<Comment[]>
@@ -115,8 +115,8 @@ export abstract class BaseCommentRepository implements ICommentRepository {
     abstract delete(id: string): Promise<void>
     abstract findByMomentId(momentId: string, limit?: number, offset?: number): Promise<Comment[]>
     abstract findByUserId(userId: string, limit?: number, offset?: number): Promise<Comment[]>
-    abstract findByParentCommentId(
-        parentCommentId: string,
+    abstract findByReplyId(
+        replyId: string,
         limit?: number,
         offset?: number,
     ): Promise<Comment[]>

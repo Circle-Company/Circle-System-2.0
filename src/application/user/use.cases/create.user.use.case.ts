@@ -58,7 +58,7 @@ export class CreateUserUseCase {
 
             // Criar usuário usando o método estático que encripta a senha automaticamente
             const user = await User.create({
-                username: request.username,
+                                    username: request.username,
                 name: request.name,
                 searchMatchTerm: `${request.name} ${request.username}`,
                 password: request.password,
@@ -80,10 +80,9 @@ export class CreateUserUseCase {
                 user: savedUser,
             }
         } catch (error: any) {
-            console.error("Erro ao criar usuário:", error)
             return {
                 success: false,
-                error: error.message || "Erro interno do servidor",
+                error: error.message || "Internal server error",
             }
         }
     }
@@ -95,14 +94,14 @@ export class CreateUserUseCase {
         if (!request.name || request.name.trim().length < 2) {
             return {
                 isValid: false,
-                error: "Nome deve ter pelo menos 2 caracteres",
+                error: "Name must be at least 2 characters",
             }
         }
 
         if (request.name.length > 100) {
             return {
                 isValid: false,
-                error: "Nome deve ter no máximo 100 caracteres",
+                error: "Name must be less than 100 characters",
             }
         }
 
@@ -110,7 +109,7 @@ export class CreateUserUseCase {
         if (!request.username || !this.isValidUsername(request.username)) {
             return {
                 isValid: false,
-                error: "Username inválido",
+                error: "Username is invalid",
             }
         }
 
@@ -119,7 +118,7 @@ export class CreateUserUseCase {
         if (usernameExists) {
             return {
                 isValid: false,
-                error: "Username já está em uso",
+                error: "Username is already in use",
             }
         }
 
@@ -127,14 +126,14 @@ export class CreateUserUseCase {
         if (!request.password || request.password.length < 6) {
             return {
                 isValid: false,
-                error: "Senha deve ter pelo menos 6 caracteres",
+                    error: "Password must be at least 6 characters",
             }
         }
 
         if (request.password.length > 128) {
             return {
                 isValid: false,
-                error: "Senha deve ter no máximo 128 caracteres",
+                error: "Password must be less than 128 characters",
             }
         }
 
@@ -142,7 +141,7 @@ export class CreateUserUseCase {
         if (request.bio && request.bio.length > 500) {
             return {
                 isValid: false,
-                error: "Bio deve ter no máximo 500 caracteres",
+                error: "Bio must be less than 500 characters",
             }
         }
 
@@ -150,7 +149,7 @@ export class CreateUserUseCase {
         if (request.profilePicture && !this.isValidUrl(request.profilePicture)) {
             return {
                 isValid: false,
-                error: "URL da foto de perfil inválida",
+                error: "Profile picture URL is invalid",
             }
         }
 

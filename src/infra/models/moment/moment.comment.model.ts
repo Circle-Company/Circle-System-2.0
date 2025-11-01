@@ -11,7 +11,7 @@ interface MomentCommentAttributes {
     momentId: bigint
     userId: bigint
     content: string
-    parentId: bigint | null
+    replyId: bigint | null
     
     // Visibilidade
     visibility: CommentVisibility
@@ -36,8 +36,7 @@ interface MomentCommentAttributes {
     viewsCount: number
     
     // Metadados
-    mentions: string[]
-    hashtags: string[]
+    richContent: string | null
     metadata: Record<string, any>
     
     // Controle
@@ -60,7 +59,7 @@ export default class MomentComment
     declare momentId: bigint
     declare userId: bigint
     declare content: string
-    declare     parentId: bigint | null
+    declare replyId: bigint | null
     
     // Visibilidade
     declare visibility: CommentVisibility
@@ -85,8 +84,7 @@ export default class MomentComment
     declare viewsCount: number
     
     // Metadados
-    declare mentions: string[]
-    declare hashtags: string[]
+    declare richContent: string | null
     declare metadata: Record<string, any>
     
     // Controle
@@ -103,7 +101,7 @@ export default class MomentComment
             id: String(this.id),
             momentId: String(this.momentId),
             userId: String(this.userId),
-            parentCommentId: this.parentId ? String(this.parentId) : undefined,
+            replyId: this.replyId ? String(this.replyId) : undefined,
             content: this.content,
             visibility: this.visibility,
             sentiment: this.sentiment,
@@ -117,8 +115,7 @@ export default class MomentComment
             isModerated: this.isModerated,
             moderatedAt: this.moderatedAt,
             moderatedBy: this.moderatedBy,
-            mentions: this.mentions,
-            hashtags: this.hashtags,
+            richContent: this.richContent,
             metadata: this.metadata,
             createdAt: this.createdAt,
             updatedAt: this.updatedAt,
@@ -157,10 +154,10 @@ export default class MomentComment
                     type: DataTypes.TEXT,
                     allowNull: false,
                 },
-                parentId: {
+                replyId: {
                     type: DataTypes.BIGINT,
                     allowNull: true,
-                    field: "parent_id",
+                    field: "reply_id",
                     references: {
                         model: "moment_comments",
                         key: "id",
@@ -254,15 +251,10 @@ export default class MomentComment
                 },
                 
                 // Metadados
-                mentions: {
-                    type: DataTypes.ARRAY(DataTypes.STRING),
-                    allowNull: false,
-                    defaultValue: [],
-                },
-                hashtags: {
-                    type: DataTypes.ARRAY(DataTypes.STRING),
-                    allowNull: false,
-                    defaultValue: [],
+                richContent: {
+                    type: DataTypes.TEXT,
+                    allowNull: true,
+                    field: "rich_content",
                 },
                 metadata: {
                     type: DataTypes.JSONB,
@@ -308,10 +300,10 @@ export default class MomentComment
                         fields: ["user_id"],
                     },
                     {
-                        fields: ["parent_id"],
+                        fields: ["reply_id"],
                     },
                     {
-                        fields: ["parent_id", "deleted"],
+                        fields: ["reply_id", "deleted"],
                     },
                     {
                         fields: ["created_at"],
@@ -356,12 +348,12 @@ export default class MomentComment
         // Self-reference para comentários aninhados
         if (models.MomentComment) {
             MomentComment.belongsTo(models.MomentComment, {
-                foreignKey: "parent_id",
+                foreignKey: "reply_id",
                 as: "parent",
             })
 
             MomentComment.hasMany(models.MomentComment, {
-                foreignKey: "parent_id",
+                foreignKey: "reply_id",
                 as: "replies",
             })
         }

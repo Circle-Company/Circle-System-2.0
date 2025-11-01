@@ -14,8 +14,16 @@ import {
     ModerationResult,
 } from "./types"
 
+import { Comment } from "../../domain/moment/entities/comment.entity"
+import {
+    CommentModerationFlag,
+    CommentModerationFlagEnum,
+    CommentSentimentEnum,
+    CommentSeverityEnum,
+} from "../../domain/moment/types/comment.type"
 import { ContentBlocker } from "./content/blocker"
 import { ContentDetector } from "./content/detector"
+import { CommentModerationResult } from "./types"
 
 export class ModerationEngine {
     constructor(
@@ -222,6 +230,364 @@ export class ModerationEngine {
      */
     async getModerationByContentId(contentId: string): Promise<ModerationEntity | null> {
         return this.moderationRepository.findByContentId(contentId)
+    }
+
+    /**
+     * Moderates a moment comment and returns moderation field updates
+     */
+    async moderateComment(comment: Comment): Promise<CommentModerationResult> {
+        const startTime = Date.now()
+        const flags: CommentModerationFlag[] = []
+
+        try {
+            const content = comment.content.toLowerCase()
+            const sentiment = comment.sentiment
+            const commentEntity = comment.toEntity()
+            const sentimentIntensity = (commentEntity as any).sentimentIntensity || 0
+            const hashtags = comment.hashtags
+            const mentions = comment.mentions
+            const reportsCount = comment.reportsCount
+
+            // Analyze content for spam patterns
+            if (this.detectSpam(content, hashtags)) {
+                flags.push({
+                    type: CommentModerationFlagEnum.SPAM_CONTENT,
+                    severity: CommentSeverityEnum.MEDIUM,
+                    confidence: 0.75,
+                    description: "Potential spam content detected",
+                    detectedAt: new Date(),
+                    metadata: {},
+                })
+            }
+
+            // Analyze for inappropriate language
+            if (this.detectInappropriateLanguage(content)) {
+                flags.push({
+                    type: CommentModerationFlagEnum.INAPPROPRIATE_LANGUAGE,
+                    severity: CommentSeverityEnum.HIGH,
+                    confidence: 0.8,
+                    description: "Inappropriate language detected",
+                    detectedAt: new Date(),
+                    metadata: {},
+                })
+            }
+
+            // Analyze for hate speech
+            if (this.detectHateSpeech(content)) {
+                flags.push({
+                    type: CommentModerationFlagEnum.HATE_SPEECH,
+                    severity: CommentSeverityEnum.CRITICAL,
+                    confidence: 0.85,
+                    description: "Hate speech detected",
+                    detectedAt: new Date(),
+                    metadata: {},
+                })
+            }
+
+            // Analyze for harassment
+            if (this.detectHarassment(content, mentions)) {
+                flags.push({
+                    type: CommentModerationFlagEnum.HARASSMENT,
+                    severity: CommentSeverityEnum.HIGH,
+                    confidence: 0.7,
+                    description: "Harassment detected",
+                    detectedAt: new Date(),
+                    metadata: {},
+                })
+            }
+
+            // Analyze content quality
+            if (content.length < 3) {
+                flags.push({
+                    type: CommentModerationFlagEnum.TOO_SHORT,
+                    severity: CommentSeverityEnum.LOW,
+                    confidence: 0.6,
+                    description: "Comment is too short",
+                    detectedAt: new Date(),
+                    metadata: {},
+                })
+            }
+
+            if (content.length > 500) {
+                flags.push({
+                    type: CommentModerationFlagEnum.TOO_LONG,
+                    severity: CommentSeverityEnum.LOW,
+                    confidence: 0.6,
+                    description: "Comment is too long",
+                    detectedAt: new Date(),
+                    metadata: {},
+                })
+            }
+
+            // Check for repetitive content
+            if (this.detectRepetitiveContent(content)) {
+                flags.push({
+                    type: CommentModerationFlagEnum.REPETITIVE,
+                    severity: CommentSeverityEnum.MEDIUM,
+                    confidence: 0.65,
+                    description: "Repetitive content detected",
+                    detectedAt: new Date(),
+                    metadata: {},
+                })
+            }
+
+            // Check reports count
+            if (reportsCount >= 3) {
+                flags.push({
+                    type: CommentModerationFlagEnum.SPAM_CONTENT,
+                    severity: CommentSeverityEnum.MEDIUM,
+                    confidence: 0.7,
+                    description: "Multiple user reports received",
+                    detectedAt: new Date(),
+                    metadata: { reportsCount },
+                })
+            }
+
+            // Analyze sentiment for moderation
+            const sentimentFlags = this.analyzeSentimentForModeration(sentiment, sentimentIntensity)
+            flags.push(...sentimentFlags)
+
+            // Calculate moderation score and severity (including sentiment impact)
+            const { moderationScore, severity } = this.calculateCommentModerationScore(
+                flags,
+                sentimentIntensity,
+            )
+
+            // Determine if content should be auto-approved
+            const isModerated = flags.length > 0 || reportsCount > 0 || sentimentIntensity < -0.5
+
+            return {
+                success: true,
+                moderationFields: {
+                    moderationFlags: flags,
+                    moderationScore,
+                    severity,
+                    isModerated,
+                    moderatedAt: isModerated ? new Date() : null,
+                    moderatedBy: isModerated ? "system" : null,
+                },
+                processingTime: Date.now() - startTime,
+            }
+        } catch (error) {
+            return {
+                success: false,
+                moderationFields: {
+                    moderationFlags: [],
+                    moderationScore: 0,
+                    severity: CommentSeverityEnum.LOW,
+                    isModerated: false,
+                    moderatedAt: null,
+                    moderatedBy: null,
+                },
+                processingTime: Date.now() - startTime,
+                error: error instanceof Error ? error.message : "Unknown error",
+            }
+        }
+    }
+
+    /**
+     * Detects spam patterns in content
+     */
+    private detectSpam(content: string, hashtags: string[]): boolean {
+        const spamPatterns = [
+            /buy now/i,
+            /click here/i,
+            /limited time/i,
+            /act now/i,
+            /\$\$\$/,
+            /!!!{3,}/,
+        ]
+
+        // Too many hashtags
+        if (hashtags.length > 10) {
+            return true
+        }
+
+        // Spam patterns in content
+        return spamPatterns.some((pattern) => pattern.test(content))
+    }
+
+    /**
+     * Detects inappropriate language
+     */
+    private detectInappropriateLanguage(content: string): boolean {
+        const inappropriateWords = [
+            "fuck",
+            "shit",
+            "damn",
+            "bitch",
+            "asshole",
+            // Add more as needed
+        ]
+
+        return inappropriateWords.some((word) => content.includes(word))
+    }
+
+    /**
+     * Detects hate speech
+     */
+    private detectHateSpeech(content: string): boolean {
+        const hateSpeechPatterns = [
+            /kill.*yourself/i,
+            /you.*should.*die/i,
+            /hate.*group/i,
+            // Add more patterns as needed
+        ]
+
+        return hateSpeechPatterns.some((pattern) => pattern.test(content))
+    }
+
+    /**
+     * Detects harassment
+     */
+    private detectHarassment(content: string, mentions: string[]): boolean {
+        const harassmentPatterns = [
+            /stupid/i,
+            /idiot/i,
+            /moron/i,
+            /you.*are.*worthless/i,
+            // Add more patterns as needed
+        ]
+
+        // Multiple mentions with negative language might indicate harassment
+        if (mentions.length > 3 && harassmentPatterns.some((pattern) => pattern.test(content))) {
+            return true
+        }
+
+        return harassmentPatterns.some((pattern) => pattern.test(content))
+    }
+
+    /**
+     * Detects repetitive content
+     */
+    private detectRepetitiveContent(content: string): boolean {
+        // Check for repeated characters (e.g., "aaaaa", "!!!!!!")
+        if (/(.)\1{4,}/.test(content)) {
+            return true
+        }
+
+        // Check for repeated words
+        const words = content.split(/\s+/)
+        const wordCounts: Record<string, number> = {}
+        for (const word of words) {
+            wordCounts[word] = (wordCounts[word] || 0) + 1
+            if (wordCounts[word] > 5) {
+                return true
+            }
+        }
+
+        return false
+    }
+
+    /**
+     * Analyzes sentiment and returns moderation flags if needed
+     */
+    private analyzeSentimentForModeration(
+        sentiment: CommentSentimentEnum,
+        sentimentIntensity: number,
+    ): CommentModerationFlag[] {
+        const flags: CommentModerationFlag[] = []
+
+        // Very negative sentiment with high intensity may indicate toxic content
+        if (
+            sentiment === CommentSentimentEnum.VERY_NEGATIVE &&
+            sentimentIntensity <= -0.7 &&
+            Math.abs(sentimentIntensity) >= 0.7
+        ) {
+            flags.push({
+                type: CommentModerationFlagEnum.TROLLING,
+                severity: CommentSeverityEnum.MEDIUM,
+                confidence: Math.min(Math.abs(sentimentIntensity), 0.8),
+                description: `Very negative sentiment speech detected (intensity: ${sentimentIntensity.toFixed(2)})`,
+                detectedAt: new Date(),
+                metadata: { sentiment, sentimentIntensity },
+            })
+        }
+
+        // Negative sentiment with very high intensity might be harassment
+        if (
+            sentiment === CommentSentimentEnum.NEGATIVE &&
+            sentimentIntensity <= -0.8 &&
+            Math.abs(sentimentIntensity) >= 0.8
+        ) {
+            flags.push({
+                type: CommentModerationFlagEnum.FLAME_BAIT,
+                severity: CommentSeverityEnum.HIGH,
+                confidence: Math.min(Math.abs(sentimentIntensity), 0.75),
+                description: `Highly negative sentiment detected (intensity: ${sentimentIntensity.toFixed(2)})`,
+                detectedAt: new Date(),
+                metadata: { sentiment, sentimentIntensity },
+            })
+        }
+
+        return flags
+    }
+
+    /**
+     * Calculates moderation score and severity for comments
+     */
+    private calculateCommentModerationScore(
+        flags: CommentModerationFlag[],
+        sentimentIntensity: number = 0,
+    ): {
+        moderationScore: number
+        severity: CommentSeverityEnum
+    } {
+        // Base score from flags
+        let totalScore = 0
+        let maxSeverity = CommentSeverityEnum.LOW
+
+        const severityWeights: Record<CommentSeverityEnum, number> = {
+            [CommentSeverityEnum.LOW]: 1,
+            [CommentSeverityEnum.MEDIUM]: 2,
+            [CommentSeverityEnum.HIGH]: 3,
+            [CommentSeverityEnum.CRITICAL]: 4,
+        }
+
+        const severityLevels: Record<CommentSeverityEnum, number> = {
+            [CommentSeverityEnum.LOW]: 1,
+            [CommentSeverityEnum.MEDIUM]: 2,
+            [CommentSeverityEnum.HIGH]: 3,
+            [CommentSeverityEnum.CRITICAL]: 4,
+        }
+
+        flags.forEach((flag) => {
+            const weight = severityWeights[flag.severity]
+            totalScore += flag.confidence * weight
+
+            if (severityLevels[flag.severity] > severityLevels[maxSeverity]) {
+                maxSeverity = flag.severity
+            }
+        })
+
+        // Adjust score based on sentiment intensity
+        // Negative sentiment increases moderation score
+        let sentimentAdjustment = 0
+        if (sentimentIntensity < -0.5) {
+            // Strong negative sentiment adds to moderation score
+            sentimentAdjustment = Math.abs(sentimentIntensity) * 0.3 // Up to 0.3 additional score
+        } else if (sentimentIntensity > 0.7) {
+            // Strong positive sentiment slightly reduces moderation concerns
+            sentimentAdjustment = -sentimentIntensity * 0.1 // Reduce by up to 0.07
+        }
+
+        let moderationScore = 0
+        if (flags.length > 0) {
+            moderationScore = Math.min((totalScore / flags.length) * 100, 100) / 100 // Normalize to 0-1
+        }
+
+        // Apply sentiment adjustment
+        moderationScore = Math.max(0, Math.min(1, moderationScore + sentimentAdjustment))
+
+        // If no flags but strong negative sentiment, set minimum score
+        if (flags.length === 0 && sentimentIntensity < -0.7) {
+            moderationScore = Math.abs(sentimentIntensity) * 0.5 // Between 0.35-0.5
+        }
+
+        return {
+            moderationScore,
+            severity: maxSeverity,
+        }
     }
 
     /**
