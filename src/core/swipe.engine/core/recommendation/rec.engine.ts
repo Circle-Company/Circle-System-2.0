@@ -7,21 +7,24 @@ import {
     UserEmbedding,
     UserProfile,
 } from "../../types"
+import { LogLevel, Logger } from "@/shared/logger"
 
 import { CandidateSelector } from "./candidate.selector"
 import { ClusterMatcher } from "./cluster.match"
-import PostCluster from "../../models/PostCluster"
-import PostClusterRank from "../../models/PostClusterRank"
+import { DBSCANClustering } from "../clustering"
+import { Entity } from "../../types"
+import MomentEmbedding from "@/infra/models/moment/moment.embedding.model"
+import PostCluster from "@/infra/models/swipe.engine/post.cluster.model"
+import PostClusterRank from "@/infra/models/swipe.engine/post.cluster.rank.model"
 import { RankingService } from "./candidate.rank"
 import { UserEmbeddingService } from "../embeddings/user"
-import { defaultCLustersJSON } from "../../data/default-clusters"
-import { logger } from "@/shared/logger"
 
 export class RecommendationEngine {
     private userEmbeddingService: UserEmbeddingService | null = null
     private clusterMatcher: ClusterMatcher
     private candidateSelector: CandidateSelector
     private rankingService: RankingService
+    private logger: Logger
 
     constructor(config?: any) {
         // Inicializar componentes
@@ -38,8 +41,12 @@ export class RecommendationEngine {
         if (config?.userEmbeddingService) {
             this.userEmbeddingService = config.userEmbeddingService
         }
-
-        logger.info("Motor de recomendação inicializado com DBSCAN")
+        this.logger = new Logger("RecommendationEngine", {
+            minLevel: LogLevel.INFO,
+            showTimestamp: true,
+            showComponent: true,
+            enabled: true,
+        })
     }
 
     /**
@@ -125,7 +132,7 @@ export class RecommendationEngine {
      */
     private async getOrCreateClusters(): Promise<ClusterInfo[] | []> {
         try {
-            logger.info("Buscando clusters do banco de dados")
+            this.logger.info("Buscando clusters do banco de dados")
 
             // Buscar todos os clusters ativos no banco de dados
             const dbClusters = await PostCluster.findAll({
@@ -151,86 +158,122 @@ export class RecommendationEngine {
 
             // Converter para o formato ClusterInfo
             const clusters: ClusterInfo[] = dbClusters.map((cluster) => {
-                const clusterInfo = cluster.toClusterInfo()
-
-                // Enriquecer com métricas de PostClusterRank, se disponíveis
-                // Usar acesso seguro com any para evitar erros de tipo
-                const postRanks = (cluster as any).postRanks || []
-
-                if (postRanks.length > 0) {
-                    // Calcular métricas agregadas dos ranks
-                    const avgScore =
-                        postRanks.reduce((sum: number, rank: any) => sum + (rank.score || 0), 0) /
-                        postRanks.length
-                    const avgRelevance =
-                        postRanks.reduce(
-                            (sum: number, rank: any) => sum + (rank.relevanceScore || 0),
-                            0,
-                        ) / postRanks.length
-                    const avgEngagement =
-                        postRanks.reduce(
-                            (sum: number, rank: any) => sum + (rank.engagementScore || 0),
-                            0,
-                        ) / postRanks.length
-
-                    // Adicionar aos metadados
-                    clusterInfo.metadata = {
-                        ...clusterInfo.metadata,
-                        avgScore,
-                        avgRelevance,
-                        avgEngagement,
-                        totalRanks: postRanks.length,
-                    }
-                }
-
-                return clusterInfo
+                return cluster.toClusterInfo()
             })
 
-            logger.info(`Encontrados ${clusters.length} clusters no banco de dados`)
+            this.logger.info(`Encontrados ${clusters.length} clusters no banco de dados`)
 
             // Se não houver clusters no banco de dados, criar alguns padrão
             if (clusters.length === 0) {
-                logger.warn("Nenhum cluster encontrado, criando clusters padrão")
+                this.logger.warn("Nenhum cluster encontrado, criando clusters padrão")
                 return await this.createDefaultClusters()
             }
 
             return clusters
         } catch (error) {
-            logger.error(`Erro ao buscar clusters: ${error}`)
+            this.logger.error(`Erro ao buscar clusters: ${error}`)
             return []
         }
     }
 
     /**
-     * Cria clusters padrão no banco de dados
-     * @returns Lista de clusters padrão
+     * Cria clusters dinamicamente baseado em embeddings de posts existentes
+     * @returns Lista de clusters criados a partir dos embeddings
      */
     private async createDefaultClusters(): Promise<ClusterInfo[] | []> {
         try {
-            const defaultClusters = defaultCLustersJSON
-            const createdClusters: ClusterInfo[] = []
+            this.logger.info("Criando clusters dinamicamente a partir de embeddings")
 
-            for (const cluster of defaultClusters) {
-                const newCluster = await PostCluster.create({
-                    name: cluster.name,
-                    centroid: cluster.centroid,
-                    topics: cluster.topics,
-                    memberIds: [],
-                    category: cluster.category,
-                    tags: cluster.tags,
-                    size: cluster.size,
-                    density: cluster.density,
-                    avgEngagement: cluster.avgEngagement,
-                    metadata: cluster.metadata,
-                })
+            // 1. Buscar todos os embeddings de posts do banco
+            const embeddingsData = await MomentEmbedding.findAll({
+                limit: 1000, // Limitar para não processar muitos de uma vez
+                order: [["createdAt", "DESC"]],
+            })
 
-                createdClusters.push(newCluster.toClusterInfo())
+            if (embeddingsData.length === 0) {
+                this.logger.warn("Nenhum embedding encontrado para criar clusters")
+                return []
             }
 
-            logger.info(`Criados ${createdClusters.length} clusters padrão`)
+            this.logger.info(`Processando ${embeddingsData.length} embeddings para criar clusters`)
+
+            // 2. Preparar dados para clustering
+            const embeddings: number[][] = []
+            const entities: Entity[] = []
+
+            for (const embedData of embeddingsData) {
+                try {
+                    const vector = JSON.parse(embedData.vector) as number[]
+                    if (Array.isArray(vector) && vector.length > 0) {
+                        embeddings.push(vector)
+                        entities.push({
+                            id: embedData.momentId,
+                            type: "post",
+                            metadata: embedData.metadata || {},
+                        })
+                    }
+                } catch (error) {
+                    this.logger.warn(
+                        `Erro ao processar embedding do post ${embedData.momentId}: ${error}`,
+                    )
+                }
+            }
+
+            if (embeddings.length < 3) {
+                this.logger.warn("Muito poucos embeddings válidos para criar clusters")
+                return []
+            }
+
+            // 3. Executar clustering usando DBSCAN
+            const clustering = new DBSCANClustering()
+            const result = await clustering.process(embeddings, entities)
+
+            if (result.clusters.length === 0) {
+                this.logger.warn("Nenhum cluster formado pelo DBSCAN")
+                return []
+            }
+
+            this.logger.info(`DBSCAN formou ${result.clusters.length} clusters`)
+
+            // 4. Criar registros no banco de dados para cada cluster
+            const createdClusters: ClusterInfo[] = []
+
+            for (const cluster of result.clusters) {
+                try {
+                    // Calcular métricas do cluster
+                    const memberIds = cluster.memberIds || cluster.members || []
+
+                    const newCluster = await PostCluster.create({
+                        name: `Cluster ${cluster.id}`,
+                        centroid: JSON.stringify({
+                            dimension: cluster.centroid.length,
+                            values: cluster.centroid,
+                            createdAt: new Date(),
+                            updatedAt: new Date(),
+                        }),
+                        topics: [],
+                        memberIds: memberIds,
+                        category: "auto_generated",
+                        tags: [],
+                        size: cluster.size,
+                        density: cluster.density || 0,
+                        avgEngagement: 0,
+                        metadata: {
+                            algorithm: "dbscan",
+                            createdAt: new Date().toISOString(),
+                        },
+                    })
+
+                    createdClusters.push(newCluster.toClusterInfo())
+                } catch (error) {
+                    this.logger.error(`Erro ao criar cluster ${cluster.id}: ${error}`)
+                }
+            }
+
+            this.logger.info(`Criados ${createdClusters.length} clusters baseados em embeddings`)
             return createdClusters
         } catch (error) {
-            logger.error(`Erro ao criar clusters padrão: ${error}`)
+            this.logger.error(`Erro ao criar clusters dinâmicos: ${error}`)
             return []
         }
     }
